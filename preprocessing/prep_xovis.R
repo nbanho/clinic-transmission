@@ -16,10 +16,11 @@ source("utils/plotting.r")
 max_height_ratio <- 2
 min_height_ratio <- 0.5
 min_standing_height <- 1.4
-same_height_ratio_lower <- 0.95
-same_height_ratio_upper <- 1.05
+same_height_ratio_lower <- 0.9
+same_height_ratio_upper <- 1.1
 max_long_time <- 10 * 60 # maximum time (in sec) to look ahead for possible matches
-max_short_time <- 10 # maximum time (in sec) to look for short matches of people moving
+max_mov_time <- 10 # maximum time (in sec) to look for short matches of people moving
+max_sit_time <- 5 * 60 # maximum time to wait until someone is standing up again
 max_mov_distance <- 3 # maximum distance (in m) to look for someone moving
 max_sisa_distance <- 1 # maximum distance (in m) to look for someone who is sitting down or standing up
 min_duration <- 5 # minimum duration (in min) to stay in the clinic
@@ -99,7 +100,7 @@ masi_descr_byOID <- masi_descr %>%
 
 # distance 
 moving_distance_pl <- masi_descr_byOID %>%
-  filter(n > max_short_time) %>%
+  filter(n > max_mov_time) %>%
   dplyr::select(maxd_moving, maxd_seating) %>%
   gather() %>%
   mutate(key = ifelse(key == "maxd_moving", "Moving area", "Seating area"),
@@ -120,7 +121,7 @@ save_plot(moving_distance_pl, pdf_file = "results/patient-tracking-moving_distan
 # height ratio
 max_hr_pl <- masi_descr_byOID %>%
   filter(is.finite(maxhr),
-         n > max_short_time) %>%
+         n > max_mov_time) %>%
   ggplot(aes(x = maxhr)) +
   geom_histogram() +
   geom_vline(aes(xintercept = max_height_ratio), color = "red") +
@@ -131,7 +132,7 @@ max_hr_pl <- masi_descr_byOID %>%
   theme_bw2()
 min_hr_pl <- masi_descr_byOID %>%
   filter(is.finite(maxhr),
-         n > max_short_time) %>%
+         n > max_mov_time) %>%
   ggplot(aes(x = minhr)) +
   geom_histogram() +
   scale_x_continuous(expand = c(0,0)) +
@@ -145,7 +146,7 @@ ggsave(plot = hr_pl, filename = "results/patient-tracking-min-and-max-height-rat
 
 # height
 min_height_pl <- masi_descr_byOID %>%
-  filter(n > max_short_time) %>%
+  filter(n > max_mov_time) %>%
   ggplot(aes(x = minh)) +
   geom_histogram() +
   scale_x_continuous(expand = c(0,0)) +
@@ -197,7 +198,7 @@ masi_filt <- masi %>%
   filter(maxhr <= max_height_ratio, # 2.
          minhr >= min_height_ratio, # 2.
          minh >= min_standing_height * min_height_ratio, # 3.
-         !(n <= 5 & d < 1)) %>% # 1.)
+         !(n < max_mov_time & d < max_sisa_distance)) %>% # 1.)
   dplyr::select(-maxhr, -minhr, -minh, -d, -n)
 
 message(sprintf("%i of %i (%i percent) rows removed", 
@@ -213,13 +214,14 @@ message(sprintf("%i of %i (%i percent) observation IDs removed; %i remaining",
 # initialize
 times <- unique(masi_filt$time)
 masi_filt$patient_id <- NA
+masi_filt$match_type <- NA
 
 matches_short_moving <- 0
 matches_short_sitting <- 0
 matches_short_standing <- 0
-# matches_long_sitting <- 0
-# matches_long_standing <- 0
+matches_stay_seated <- 0
 matches_long_reappearing <- 0
+matches_in_tbroom <- 0
 
 pot_matches_per_lost <- list()
 lost_per_pot_match <- list()
@@ -260,10 +262,10 @@ for (k in 1:length(times)) {
       colnames(possible_matches) <- paste0("right_", colnames(possible_matches))
       
       # compute features
-      matches <- crossing(lost_patients %>% dplyr::select(patient_id, obs_id, time, x, y, height, is_seating, is_in_room1, is_in_room2),
+      matches <- crossing(lost_patients %>% dplyr::select(patient_id, obs_id, time, x, y, height, is_seating, is_in_room1, is_in_room2, is_tbroom),
                           possible_matches %>% dplyr::select(right_obs_id, right_time, right_x, right_y, right_height, 
                                                              right_is_seating, right_is_entrance, right_is_reception,
-                                                             right_is_in_room1, right_is_in_room2) ) %>%
+                                                             right_is_in_room1, right_is_in_room2, right_is_tbroom) ) %>%
         mutate(distance = convert_dist(euclidean(x, right_x, y, right_y)),
                heightratio = right_height / height,
                type = ifelse(between(heightratio, same_height_ratio_lower, same_height_ratio_upper), "moving",
@@ -274,42 +276,52 @@ for (k in 1:length(times)) {
       # match type 1: moving around with similar height
       matches_1 <- matches %>%
         filter(distance <= max_mov_distance,
-               timediff <= max_short_time,
+               timediff <= max_mov_time,
                type == "moving") %>%
         mutate(match_type = "moving")
       
-      # match type 2: standing up inside seating area
+      # match type 2: standing up from inside seating area
       matches_2 <- matches %>%
         filter(distance <= max_sisa_distance,
-               timediff <= max_mov_distance,
+               timediff <= max_sit_time,
                type == "standing up",
-               (is_seating & right_is_seating)) %>%
+               is_seating,
+               right_height > (min_standing_height * 1e3)) %>%
         mutate(match_type = "sitting down")
       
-      # match type 3: sitting down inside seating area
+      # match type 3: sitting down into seating area
       matches_3 <- matches %>%
         filter(distance <= max_sisa_distance,
-               timediff <= max_mov_distance,
+               timediff <= max_sit_time,
                type == "sitting down",
-               (is_seating & right_is_seating)) %>%
+               right_is_seating,
+               height > (min_standing_height * 1e3)) %>%
         mutate(match_type = "standing up")
       
-      # filter people that may have sat at the same place for a long time unrecognized
-      # matches_long_sitters <- matches %>%
-      #   filter(distance <= max_sisa_distance,
-      #          timediff > max_short_time,
-      #          (is_seating & right_is_seating)) %>%
-      #   mutate(match_type = ifelse(type == "sitting down", "still sitting", "standing up after a long time"))
-      
-      # match type 4: people that re-appearing from a treatment room with the same height after a long time
+      # match type 4: people staying within seating area
       matches_4 <- matches %>%
-        filter(timediff > max_short_time,
+        filter(distance <= max_sisa_distance,
+               timediff <= max_sit_time,
+               (is_seating & right_is_seating),
+               type %in% c("moving", "none")) %>%
+        mutate(match_type = "staying")
+      
+      # match type 5: people that re-appearing from a treatment room with the same height after a long time
+      matches_5 <- matches %>%
+        filter(timediff > max_mov_time,
                (is_in_room1 & right_is_in_room1) | (is_in_room2 & right_is_in_room2),
                type == "moving") %>%
-        mutate(match_type = "re-appearing from treatment room")
+        mutate(match_type = "re-appearing")
+      
+      # match type 6: people inside the tb room
+      matches_6 <- matches %>%
+        filter(timediff > max_mov_time,
+               is_tbroom,
+               right_is_tbroom) %>%
+        mutate(match_type = "in TB room")
       
       # combine potential matches and rank matches by time difference
-      matches <- rbind(matches_1, matches_2, matches_3, matches_4) %>%
+      matches <- rbind(matches_1, matches_2, matches_3, matches_4, matches_5, matches_6) %>%
         arrange(timediff)
       
       # make matches
@@ -335,18 +347,19 @@ for (k in 1:length(times)) {
           masi_filt$patient_id[masi_filt$obs_id==matches$right_obs_id[1]] <- matches$patient_id[1]
           message(sprintf("Linking %s with %s who is %s", matches$patient_id[1], matches$right_obs_id[1], matches$match_type[1]))
           
+          masi_filt$match_type[masi_filt$obs_id==matches$right_obs_id[1]] <- matches$match_type[1]
           if (matches$match_type[1] == "moving") {
             matches_short_moving <- matches_short_moving + 1
           } else if (matches$match_type[1] == "sitting down") {
             matches_short_sitting <- matches_short_sitting + 1
           } else if (matches$match_type[1] == "standing up") {
             matches_short_standing <- matches_short_standing + 1
-          # } else if (matches$match_type[1] == "still sitting") {
-          #   matches_long_sitting <- matches_long_sitting + 1
-          # } else if (matches$match_type[1] == "standing up after a long time") {
-          #   matches_long_standing <- matches_long_standing + 1
-          } else if (matches$match_type[1] == "re-appearing from treatment room") {
+          } else if (matches$match_type[1] == "staying") {
+            matches_stay_seated <- matches_stay_seated + 1
+          } else if (matches$match_type[1] == "re-appearing") {
             matches_long_reappearing <- matches_long_reappearing + 1
+          } else if(matches$match_type[1] == "in TB room") {
+            matches_in_tbroom <- matches_in_tbroom + 1
           }
           
           # remove match from possible ones
@@ -370,8 +383,8 @@ for (k in 1:length(times)) {
 #### Reports ####
 
 # Match counts by type
-match_counts <- c(matches_short_moving, matches_short_sitting, matches_short_standing, matches_long_reappearing)
-match_count_types <- c("Moving", "Sitting down", "Standing up", "Re-appearing")
+match_counts <- c(matches_short_moving, matches_short_sitting, matches_short_standing, matches_stay_seated, matches_long_reappearing, matches_in_tbroom)
+match_count_types <- c("Moving", "Sitting down", "Standing up", "Staying", "Re-appearing", "TB Room")
 tot_matches <- sum(match_counts)
 sum_patient_ids <- length(unique(masi_filt$patient_id))
 sum_obs_ids <- length(unique(masi_filt$obs_id))
@@ -391,22 +404,28 @@ match_type_pl <- tibble(
        subtitle = paste(sum_patient_ids, "patient ids compared to", sum_obs_ids, "observation ids")) +
   theme_bw2() +
   theme(axis.title.x = element_blank(), legend.position = "none")
-save_plot(match_type_pl, pdf_file = "results/patient-tracking-match-type-counts.pdf", w = 16, h = 10)
+save_plot(match_type_pl, pdf_file = "results/patient-tracking-match-type-counts.pdf", w = 20, h = 10)
 
 
 # Potential matches per lost and lost per potential match
 pot_matches_per_lost_pl <- data.frame(x = (unlist(pot_matches_per_lost))) %>%
+  filter(x > 0) %>%
   ggplot(aes(x = x)) +
-  geom_histogram(binwidth = 0.25) +
+  geom_bar(aes(y = (..count..)/sum(..count..))) +
   scale_x_continuous(breaks = scales::pretty_breaks()) +
-  labs(x = "Potential matches per lost patient IDs", y = "Count") +
-  theme_bw2() 
+  scale_y_continuous(labels = scales::percent, limits = c(0,1), breaks = seq(0, 1, .1)) +
+  labs(x = "Potential matches per lost patient IDs") +
+  theme_bw2() +
+  theme(axis.title.y = element_blank())
 lost_per_pot_match_pl <- data.frame(x = (unlist(lost_per_pot_match))) %>%
+  filter(x > 0) %>%
   ggplot(aes(x = x)) +
-  geom_histogram(binwidth = 0.25) +
+  geom_bar(aes(y = (..count..)/sum(..count..))) +
   scale_x_continuous(breaks = scales::pretty_breaks()) +
-  labs(x = "Lost patient IDs per potential match", y = "Count") +
-  theme_bw2()
+  scale_y_continuous(labels = scales::percent, limits = c(0,1), breaks = seq(0, 1, .1)) +
+  labs(x = "Lost patient IDs per potential match") +
+  theme_bw2() +
+  theme(axis.title.y = element_blank())
 per_match_pl <- arrangeGrob(pot_matches_per_lost_pl, lost_per_pot_match_pl, ncol = 2, widths = c(8,8))
 ggsave(plot = per_match_pl, file = "results/patient-tracking-match-per.pdf", w = 16 / cm(1), h = 8 / cm(1))
 
@@ -422,7 +441,7 @@ masi_match_descr <- masi_filt %>%
 
 # Subset of patients staying longer in the clinic and passing by the reception
 masi_sub <- masi_filt %>%
-  left_join(masi_match_descr %>% dplyr::select(patient_id, stayed, received), by = "patient_id") %>%
+  left_join(masi_match_descr %>% dplyr::select(patient_id, stayed, received, height_received), by = "patient_id") %>%
   filter(stayed,
          received,
          height_received >= min_standing_height) 
@@ -460,7 +479,7 @@ venn.diagram(x = list(
 
 duration_sub_pl <- masi_sub %>%
   group_by(patient_id) %>%
-  mutate(duration = as.numeric(last(time) - first(time) )) %>%
+  summarize(duration = as.numeric(difftime(last(time), first(time), units = "min"))) %>%
   ungroup() %>%
   ggplot(aes(x = duration)) +
   geom_histogram() +

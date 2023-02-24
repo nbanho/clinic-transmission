@@ -7,7 +7,7 @@
 #' 
 
 euclidean <- function(x1, x2, y1, y2) {
-  sqrt((x1-x2)^2) + sqrt((y1-y2)^2)
+  sqrt( (x1-x2)^2 + (y1-y2)^2 )
 }
 
 
@@ -90,6 +90,26 @@ find_raster <- function(x, y, cellCoordsXY) {
 #' 
 
 plot_single_track <- function(df) {
+  
+  # Descriptives
+  descr <- df %>%
+    mutate(dt = as.numeric(difftime(lead(time), time, units = "secs"))) %>%
+    summarize(
+      Total = as.numeric(difftime(last(time), first(time), units = "secs")),
+      `Time in waiting room` = sum(dt[is_waitingroom], na.rm = T),
+      `Time in passage` = sum(dt[is_passage], na.rm = T),
+      `Time in TB room` = sum(dt[is_tbroom], na.rm = T),
+      `Time in seating area` = sum(dt[is_seating], na.rm = T),
+      `Time in care room` = sum(dt[is_in_room1 | is_in_room2], na.rm = T),
+      `Time at reception` = sum(dt[is_reception], na.rm = T)
+    ) %>%
+    gather() %>%
+    mutate(value = ifelse(key == "Time at reception", paste0(value, "sec"), paste0(format(round(value / 60, 1), nsmall = 1), "min"))) %>%
+    set_names(c("Variable", "Duration"))
+  
+  tt <- ttheme_default(base_size = 6)
+  
+  # Start and end of patient track
   se <- df %>%
     group_by(patient_id) %>%
     arrange(time) %>%
@@ -97,20 +117,25 @@ plot_single_track <- function(df) {
     mutate(type = c("start", "end")) %>%
     ungroup() 
   
+  # Start and end of each observation
   se_obs <- df %>%
     group_by(patient_id, obs_id) %>%
     arrange(time) %>%
     slice(1, n()) %>%
     ungroup() 
   
+  # Start and end of each observation
   tab <- se_obs %>%
     mutate(height = round(height / 10, digits = 0),
            time = format(time, "%H:%M:%S")) %>%
-    dplyr::select(obs_id, time, x, y, height)
+    dplyr::select(obs_id, time, x, y, height) %>%
+    mutate_all(as.character)
   
+  # Start and end of each observation in plot
   se_obs <- se_obs %>%
     slice(c(-1, -n())) 
   
+  # Plot 
   pl <- ggplot() +
     geom_sf(data = clinic_df, linewidth = 1, fill = NA) +
     geom_path(data = df, mapping = aes(x = x, y = y, color = factor(obs_id), group = factor(patient_id)), alpha = .5) +
@@ -119,14 +144,12 @@ plot_single_track <- function(df) {
     scale_shape_manual(values = c(5, 13)) +
     scale_x_continuous(labels = function(x) x / 1000, breaks = seq(-10000, 20000, 1000)) +
     scale_y_continuous(labels = function(x) x / 1000, breaks = seq(-8000, 6000, 1000)) +
-    theme(legend.position = "right",
+    theme(legend.position = "none",
           axis.title = element_blank(),
           legend.title = element_blank(),
-          text = element_text(size = 8)) +
-    guides(colour = guide_legend(ncol = 1),
-           shape = guide_legend(ncol = 1))
+          text = element_text(size = 8)) 
   
-  # add colours to table
+  # Observations table: add colours to table
   g <- ggplot_build(pl)
   if (nrow(g$data[[4]]) > 0) {
     gcol <- g$data[[4]] %>% 
@@ -137,24 +160,30 @@ plot_single_track <- function(df) {
     tab <- tab %>%
       group_by(obs_id) %>%
       mutate(group = group_indices()) %>%
-      left_join(gcol, by = "group") 
+      left_join(gcol, by = "group") %>%
+      dplyr::select(-group)
   } else {
     tab$colour <- "red"
   }
+  
+  # Show only a subset of tab if there are many links
+  if (nrow(tab) > 20) {
+    tab_top5 <- head(tab, 10)
+    tab_bottom5 <- tail(tab, 10)
+    mid_row <- data.frame(obs_id = "...", time = "...", x = "...", y = "...", height = "...", colour = "black")
+    tab <- rbind(tab_top5, mid_row, tab_bottom5)
+  }
+  
   cols <- matrix(rep(tab$colour, ncol(tab)), ncol = ncol(tab))
-  tt <- ttheme_default(core=list(fg_params = list(col = cols),
+  ttcol <- ttheme_default(core=list(fg_params = list(col = cols),
                                  bg_params = list(col=NA)),
                        rowhead=list(bg_params = list(col=NA)),
                        colhead=list(bg_params = list(col=NA)),
-                       base_size = 8)
+                       base_size = 6)
   
   
-  
-  
-  pl_tab <- grid.arrange(pl, tableGrob(tab, rows = NULL, theme = tt), nrow = 1)
-  
-  pl_tab
-  
+  # combine grobs
+  pl_tab <- grid.arrange(arrangeGrob(tableGrob(descr, rows = NULL, theme = tt), pl, nrow = 2), tableGrob(tab %>% dplyr::select(-colour), rows = NULL, theme = ttcol), ncol = 2)
   return(pl_tab)
 }
 
@@ -182,4 +211,83 @@ plot_track <- function(df, id_col = "obs_id") {
     geom_point(data = df_se, mapping = aes(x = x, y = y, color = id, shape = type), size = 3) +
     scale_shape_manual(values = c(5, 13)) +
     theme(legend.position = "bottom")
+}
+
+
+#' Plot IDs at a certain time
+#' 
+#' @param df data frame with columns patient_id, obs_id, time, x, y, and height
+#' @param t the time point
+#' @param focus_id ID to highlight
+#' @param k seconds to look ahead
+#' @param date date as string
+#' 
+
+plot_ids <- function(df, t, focus_id, k = 300, date = "2021-10-25") {
+  
+  t <- as.POSIXct(paste(date, t))
+  
+  df <- df %>%
+    mutate(height = round(height / 10, 0),
+           patient_id = factor(patient_id),
+           obs_id = factor(obs_id))
+  
+  focus_id_df <- df %>%
+    filter(obs_id == focus_id)
+  
+  focus_id_df_se <- focus_id_df %>%
+    group_by(patient_id) %>%
+    arrange(time) %>%
+    slice(c(1, n())) %>%
+    mutate(type = c("start", "end")) %>%
+    ungroup() 
+  
+  focus_id_lab <- focus_id_df %>%
+    slice(n())
+  
+  possible_matches <- df %>%
+    group_by(patient_id) %>%
+    mutate(ft = first(time)) %>%
+    ungroup() %>%
+    filter(ft > t,
+           between(time, t, t + seconds(k)),
+           obs_id != focus_id,
+           patient_id != focus_id_df$patient_id[1]) 
+  
+  possible_matches_lab <- possible_matches %>%
+    group_by(patient_id) %>%
+    slice(1) 
+  
+  linked_matches <- df %>%
+    group_by(patient_id) %>%
+    mutate(ftp = first(time)) %>%
+    ungroup() %>%
+    group_by(obs_id) %>%
+    mutate(fto = first(time)) %>%
+    ungroup() %>%
+    filter(fto > t & ftp <= t,
+           between(time, t, t + seconds(k)),
+           obs_id != focus_id,
+           patient_id != focus_id_df$patient_id[1]) 
+  
+  pl <- ggplot() +
+    geom_sf(data = clinic_df, linewidth = 1, fill = NA) +
+    geom_point(data = focus_id_df_se, mapping = aes(x = x, y = y, shape = type), color = "black") +
+    geom_path(data = focus_id_df, mapping = aes(x = x, y = y, group = patient_id), color = "black") +
+    geom_text(data = focus_id_lab, mapping = aes(x = x, y = y, label = height), size = 8 / cm(1), vjust = -.5, hjust = -.5) +
+    geom_point(data = possible_matches, mapping = aes(x = x, y = y, color = patient_id)) +
+    geom_path(data = possible_matches, mapping = aes(x = x, y = y, color = patient_id)) +
+    geom_text(data = possible_matches_lab, mapping = aes(x = x, y = y, label = height, color = patient_id), size = 8 / cm(1), vjust = -.5, hjust = -.5) +
+    geom_point(data = linked_matches, mapping = aes(x = x, y = y, group = patient_id), color = "grey", alpha = 0.2) +
+    geom_path(data = linked_matches, mapping = aes(x = x, y = y, group = patient_id), color = "grey", alpha = 0.2) +
+    scale_x_continuous(labels = function(x) x / 1000, breaks = seq(-10000, 20000, 1000)) +
+    scale_y_continuous(labels = function(x) x / 1000, breaks = seq(-8000, 6000, 1000)) +
+    scale_shape_manual(values = c(5, 13)) +
+    theme(legend.position = "bottom",
+          axis.title = element_blank(),
+          legend.title = element_blank(),
+          text = element_text(size = 8),
+          plot.margin = unit(c(5.5,1,5.5,5.5), "cm")) 
+  
+  return(pl)
 }
