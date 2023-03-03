@@ -86,26 +86,33 @@ sa_wr_bottom_left_pt <- line_point(wr[3,], sa_wr_width, rotation, start = F)
 sa_wr <- parallelogram(sa_wr_bottom_left_pt, wr[3,], sa_wr_width, sa_wr_breadth, rotation)
 
 # TB room entrance
-er_tb_width <- 850
-er_tb_breadth <- 1100
-er_tb_bottom_left_pt <- line_point(tb[3, ], er_tb_width, rotation, start = F)
-er_tb <- parallelogram(er_tb_bottom_left_pt, tb[3,], er_tb_width, er_tb_breadth, rotation)
+# er_tb_width <- 850
+# er_tb_breadth <- 1100
+# er_tb_bottom_left_pt <- line_point(tb[3, ], er_tb_width, rotation, start = F)
+# er_tb <- parallelogram(er_tb_bottom_left_pt, tb[3,], er_tb_width, er_tb_breadth, rotation)
 
 # seating area passage left to TB room
-sa_pa_leftTB_width <- tb_width - er_tb_width
-sa_pa_leftTB_breadth <- er_tb_breadth
-sa_pa_leftTB_bottom_right_pt <- line_point(pa[1,], sa_pa_leftTB_width, rotation)
-sa_pa_leftTB <- parallelogram(pa[1, ], er_tb_bottom_left_pt, sa_pa_leftTB_width, sa_pa_leftTB_breadth)
+sa_pa_leftTB_width <- 3250
+sa_pa_leftTB_breadth <- 1200
+sa_pa_leftTB_bottom_left_pt <- line_point(tb[3,], sa_pa_leftTB_width, rotation, start = F)
+sa_pa_leftTB <- parallelogram(sa_pa_leftTB_bottom_left_pt, tb[3, ], sa_pa_leftTB_width, sa_pa_leftTB_breadth)
 
 # seating area passage right to TB room
-sa_pa_rightTB_width <- 2300
-sa_pa_rightTB_breadth <- er_tb_breadth
+sa_pa_rightTB_width <- 2450
+sa_pa_rightTB_breadth <- sa_pa_leftTB_breadth
 sa_pa_rightTB_bottom_right_pt <- line_point(tb[3,], sa_pa_rightTB_width, rotation)
 sa_pa_rightTB <- parallelogram(tb[3,], sa_pa_rightTB_bottom_right_pt, sa_pa_rightTB_width, sa_pa_rightTB_breadth, rotation)
 
+# reception entrance
+er_re_width <- 1500
+er_re_breadth <- 4000
+er_re_top_left_pt <- c(50, -900)
+er_re_top_right_pt <- line_point(er_re_top_left_pt, er_re_width, rotation)
+er_re <- parallelogram(er_re_top_right_pt, er_re_top_left_pt, er_re_width, er_re_breadth, rotation, up = F)
+
 # seating area passage left to reception
 sa_pa_leftRE_width <- sa_pa_rightTB_width
-sa_pa_leftRE_breadth <- er_tb_breadth
+sa_pa_leftRE_breadth <- sa_pa_leftTB_breadth
 sa_pa_leftRE_bottom_left_pt <- line_point(re[4,], sa_pa_leftRE_width, rotation, start = F)
 sa_pa_leftRE <- parallelogram(sa_pa_leftRE_bottom_left_pt, re[4,], sa_pa_leftRE_width, sa_pa_leftRE_breadth, rotation)
 
@@ -145,7 +152,7 @@ clinic <- rbind(cbind(object = 1, part = 1, outline, hole = 0),
                 cbind(object = 5, part = 5, re, hole = 0),
                 cbind(object = 6, part = 6, er, hole = 0),
                 cbind(object = 7, part = 7, sa_wr, hole = 0),
-                cbind(object = 8, part = 8, er_tb, hole = 0),
+                cbind(object = 8, part = 8, er_re, hole = 0),
                 cbind(object = 9, part = 9, sa_pa_leftTB, hole = 0),
                 cbind(object = 10, part = 10, sa_pa_rightTB, hole = 0),
                 cbind(object = 11, part = 11, sa_pa_leftRE, hole = 0),
