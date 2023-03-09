@@ -26,7 +26,7 @@ compute_AER <- function(G, Co, C, n, V) {
   # excess CO2 in ppm
   Ce <- C - Co
   # TODO: is there are more elegant way to ensure that the denominator is not 0?
-  Ce <- ifelse(Ce == 0, 1, Ce) 
+  Ce <- ifelse(Ce < 0, 1, Ce) 
   # excess CO2 in l/m3 (1l/m3 = 1,000ppm)
   Ce <- Ce / 1000
   # ventilation rate (in l/s per person)
@@ -67,3 +67,68 @@ compute_Nt <- function(E, RR, N0, V) {
 compute_P <- function(N, t = 1) {
   1 - exp(-N * t)
 } 
+
+
+#' Relative viral concentration by distance to infector
+#' 
+#' @param distance distance in m
+#' @param mu mean of the exponential decaying distribution
+#' 
+
+dIc <- function(distance, mu) { 
+  1 - pexp(distance, 1 / mu)
+}
+
+#' Mean parameter of exponentially decaying distribution for the relative viral concentration by distance to infector
+#' 
+#' @param n number of samples
+
+rMuIc <- function(n) {
+  rgamma(n, shape = 10, scale = .2)
+}
+
+
+#' Quanta emission rate
+#' 
+#' @param n number of samples
+#' @param x quanta rate
+
+rq <- function(n, disease = "TB") {
+  LaplacesDemon::rtrunc(n, spec = "st", a = 0, b = 200, mu = 2, sigma = 2.5, nu = 1)
+}
+
+dq <- function(x) {
+  LaplacesDemon::dtrunc(x, spec = "st", a = 0, b = 200, mu = 2, sigma = 2.5, nu = 1)
+}
+
+
+#' Average volume of exhaled gas
+#' 
+#' @param n number of samples
+#' 
+
+
+rV <- function(n) {
+  runif(n, 0.1, 0.17)
+}
+
+
+#' CO2 generation rate
+#' 
+#' @param n number of samples
+#' 
+
+rG <- function(n) {
+  runif(n, 0.003, 0.005)
+}
+
+
+#' Unmasked TB Patients
+#' 
+#' @param n number of samples
+#' @param mu expected number of unmasked TB patients
+#' 
+
+rTBunmasked <- function(n, lambda) {
+  rpois(n, lambda)
+}

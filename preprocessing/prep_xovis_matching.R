@@ -51,7 +51,6 @@ match_xovis <- function(date = "2021-10-25",
   n_oid <- length(unique(masi$obs_id))
   
   # remove very short tracks
-  
   masi <- masi %>%
     group_by(obs_id) %>%
     filter(! ( as.numeric(difftime(last(time), first(time), units = "secs")) < 10  &

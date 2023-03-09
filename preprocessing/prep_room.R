@@ -9,7 +9,7 @@ masi <- do.call(rbind, lapply(files, function(x) read.csv(x, header = T) %>% set
 
 pl <- ggplot() + 
   geom_bin2d(data = masi, mapping = aes(x = x, y = y), binwidth = 100) +
-  scale_fill_viridis_c()
+  scale_fill_stepsn(colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")[c(1,3,5,7,9)], breaks = c(1,10,100,1000,10000), limits = c(0,10000)) 
 
 pl
 
@@ -41,31 +41,39 @@ line_point <- function(pt, l, r, start = T) {
 }
 
 # outline
-width <- 24000
-breadth <- 8500
-rotation <- 9.5
-bottom_left_pt <- c(-6700, -9000)
+width <- 22750
+breadth <- 8250
+rotation <- 9
+bottom_left_pt <- c(-6200, -8600)
 bottom_right_pt <- line_point(bottom_left_pt, width, rotation)
 outline <- parallelogram(bottom_left_pt, bottom_right_pt, width, breadth, rotation)
 
 # waiting room
-wr_width <- 10700
+wr_width <- 10000
 wr_breadth <- 5700
 wr_top_right_pt <- outline[3,]
 wr_bottom_right_pt <- line_point(wr_top_right_pt, wr_width, rotation, start = F)
 wr <- parallelogram(wr_bottom_right_pt, wr_top_right_pt, wr_width, -wr_breadth, rotation)
 
+# sputum room
+sp_width <- 5000
+sp_breadth <- 1250
+sp_bottom_left_pt <- outline[1,]
+sp_bottom_right_pt <- line_point(sp_bottom_left_pt, tb_width, rotation)
+sp <- parallelogram(sp_bottom_left_pt, sp_bottom_right_pt, sp_width, sp_breadth, rotation)
+
 # TB room
-tb_width <- 5550
-tb_breadth <- 6500
-tb_bottom_left_pt <- outline[1,]
+tb_width <- sp_width
+tb_breadth <- 5000
+tb_bottom_left_pt <- sp[4,]
 tb_bottom_right_pt <- line_point(tb_bottom_left_pt, tb_width, rotation)
 tb <- parallelogram(tb_bottom_left_pt, tb_bottom_right_pt, tb_width, tb_breadth, rotation)
 
 # passage
 pa_width <- width - wr_width
-pa_bottom_right_pt <- line_point(tb[4,], pa_width, rotation)
-pa <- rbind(tb[4,], pa_bottom_right_pt, wr[1,], outline[4,])
+pa_bottom_left_pt <- tb[4,]
+pa_bottom_right_pt <- line_point(pa_bottom_left_pt, pa_width, rotation)
+pa <- rbind(pa_bottom_left_pt, pa_bottom_right_pt, wr[1,], outline[4,])
 
 # reception
 re_width <- 2000
@@ -92,13 +100,13 @@ sa_wr <- parallelogram(sa_wr_bottom_left_pt, wr[3,], sa_wr_width, sa_wr_breadth,
 # er_tb <- parallelogram(er_tb_bottom_left_pt, tb[3,], er_tb_width, er_tb_breadth, rotation)
 
 # seating area passage left to TB room
-sa_pa_leftTB_width <- 3250
+sa_pa_leftTB_width <- 3000
 sa_pa_leftTB_breadth <- 1200
 sa_pa_leftTB_bottom_left_pt <- line_point(tb[3,], sa_pa_leftTB_width, rotation, start = F)
 sa_pa_leftTB <- parallelogram(sa_pa_leftTB_bottom_left_pt, tb[3, ], sa_pa_leftTB_width, sa_pa_leftTB_breadth)
 
 # seating area passage right to TB room
-sa_pa_rightTB_width <- 2450
+sa_pa_rightTB_width <- 2375
 sa_pa_rightTB_breadth <- sa_pa_leftTB_breadth
 sa_pa_rightTB_bottom_right_pt <- line_point(tb[3,], sa_pa_rightTB_width, rotation)
 sa_pa_rightTB <- parallelogram(tb[3,], sa_pa_rightTB_bottom_right_pt, sa_pa_rightTB_width, sa_pa_rightTB_breadth, rotation)
@@ -159,7 +167,8 @@ clinic <- rbind(cbind(object = 1, part = 1, outline, hole = 0),
                 cbind(object = 12, part = 12, er_cr_oppTBleft, hole = 0),
                 cbind(object = 13, part = 13, er_cr_oppTBright, hole = 0),
                 cbind(object = 14, part = 14, exl, hole = 0),
-                cbind(object = 15, part = 15, exr, hole = 0))
+                cbind(object = 15, part = 15, exr, hole = 0),
+                cbind(object = 16, part = 16, sp, hole = 0))
 clinic <- vect(clinic, "polygons")
 writeVector(clinic, "data-raw/Masi/building/clinic-vector.gpkg", overwrite = T)
 clinic <- sf::st_as_sf(clinic)

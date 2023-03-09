@@ -1,3 +1,7 @@
+require(sf)
+require(terra)
+require(raster)
+
 #' Compute euclidean distance in two dimensions
 #' 
 #' @param x1 x coordinate of first point
@@ -44,7 +48,7 @@ shapeToSpatial <- function(sh, cell_size) {
 #' 
 
 create_coord_df <- function(spat_poly_df) {
-  cellCoords <- data.frame(coordinates(spat_poly_df)) 
+  cellCoords <- data.frame(raster::coordinates(spat_poly_df)) 
   colnames(cellCoords) <- c("x", "y")
   cellCoords$id <- 1:nrow(cellCoords)
   return(cellCoords)
@@ -57,7 +61,7 @@ create_coord_df <- function(spat_poly_df) {
 #' @param H height of the room
 
 compute_volume <- function(spat_poly_df, H = 3) {
-  A <- convert_dist(convert_dist(sum(area(spat_poly_df))))
+  A <- convert_dist(convert_dist(sum(raster::area(spat_poly_df))))
   V <- A * H
   return(V)
 }
