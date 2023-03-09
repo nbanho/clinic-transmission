@@ -1,4 +1,4 @@
-# Libraries
+#### Libraries ####
 
 library(tidyverse)
 options(dplyr.summarise.inform = FALSE)
@@ -7,6 +7,13 @@ library(foreach)
 
 source("utils/trans_risk.R")
 source("utils/spatial.R")
+
+
+#### Settings ####
+args <- commandArgs(trailingOnly = TRUE)
+clinics <- ifelse(args[1]=="Both", c("Masi", "Ocean"), args[1])
+no_sim <- as.numeric(args[2])
+no_cores <- as.numeric(args[3])
 
 
 #' Prepare data for spatiotemporal model
@@ -240,51 +247,56 @@ spatiotemporal_model <- function(time_period, patMov, co2_and_n, room_coords, ce
 
 #### Run simulation ####
 
+av_cores <- parallel::detectCores() - 2
+n.cores <- ifelse(no_cores > av_cores, av_cores, no_cores)
+
 my.cluster <- parallel::makeCluster(
-  parallel::detectCores() - 2, 
+  n.cores, 
   type = "PSOCK"
 )
 doParallel::registerDoParallel(cl = my.cluster)
-foreach::getDoParRegistered()
-foreach::getDoParWorkers()
-
-clinics <- c("Masi")
+registered <- ifelse(foreach::getDoParRegistered(), "Yes", "No")
+message(sprintf("Info: Cluster registration? %s", registered))
+message(sprintf("Info: Cluster using %i cores", foreach::getDoParWorkers()))
 
 for(cl in clinics) {
   
   message(sprintf("Clinic: %s", cl))
   sel_dates <- list.files(paste0("data-clean/", cl, "/patient-tracking-data/"))
+  save_dir <- paste0("simulations/", cl,  "/", sel_dates)
+  for (sd in save_dir) {
+    if (!dir.exists(sd)) {
+      dir.create(sd)
+    }
+  }
   
   for (d in sel_dates) {
     
     message(sprintf("-- Date: %s", as.character(d)))
-    clData <- prep_data(clinic = "Masi", sel_date = "2021-10-25")
+    clData <- prep_data(clinic = "Masi", sel_date = "2021-10-25", nSim = no_sim)
     
-    sim_results <- foreach::foreach(i = 1:nrow(clData$input_parameters), .combine = rbind, .packages = c("tidyverse")) %dopar% {
+    foreach::foreach(i = 1:nrow(clData$input_parameters), .combine = rbind, .packages = c("tidyverse")) %dopar% {
       
       result <- spatiotemporal_model(
-        clData$time_period,
-        clData$patient_movements,
-        clData$co2_and_n,
-        clData$room_coordinates,
-        clData$cell_volume,
-        clData$tb_patient_ids[i],
-        clData$input_parameters$spatial_mu[i],
-        clData$input_parameters$quanta[i],
-        clData$input_parameters$V[i],
-        clData$input_parameters$co2_ex[i],
-        clData$input_parameters$co2_out[i],
-        clData$input_parameters$co2_gen[i]
+        time_period = clData$time_period,
+        patMov = clData$patient_movements,
+        co2_and_n = clData$co2_and_n,
+        room_coords = clData$room_coordinates,
+        cell_volume = clData$cell_volume,
+        tb_ids = clData$tb_patient_ids[[i]],
+        smu = clData$input_parameters$spatial_mu[i],
+        q = clData$input_parameters$quanta[i],
+        V = clData$input_parameters$V[i],
+        Ca = clData$input_parameters$co2_ex[i],
+        Co = clData$input_parameters$co2_out[i],
+        G = clData$input_parameters$co2_gen[i]
       )
       
       result$sim <- i
       
-      return(result)
+      saveRDS(result, paste0("simulations/", cl,  "/", d, "/QCTR-", i, ".rds"))
       
     }
-    
-    saveRDS(sim_results, paste0("simulations/", cl,  "/", d, ".rds"))
-    
   }
 }
 
