@@ -39,7 +39,6 @@ prep_data <- function(
     sel_date,
     seed = 12345,
     nSim = 1000,
-    min_duration = 5,
     cellVolume = 1,
     co2_exhaled = 40000,
     co2_outdoor = 400,
@@ -51,10 +50,7 @@ prep_data <- function(
   set.seed(seed)
   
   # patient movement data
-  patMov <- readRDS(paste("data-clean",clinic,"patient-tracking-data",sel_date,"patient-id-data.rds",sep="/")) %>%
-    group_by(patient_id) %>%
-    filter(as.numeric(difftime(last(time), first(time), units = "mins")) > min_duration) %>%
-    ungroup() %>%
+  patMov <- readRDS(paste("data-clean",clinic,"patient-tracking-data",sel_date,"patient-id-data_matched-filtered.rds",sep="/")) %>%
     mutate(location = ifelse(is_waitingroom|is_passage, "waiting room", ifelse(is_tbroom, "tb room", NA)),
            hhmm = format(time, format = "%H:%M")) %>%
     filter(!is.na(location)) 
@@ -230,7 +226,7 @@ spatiotemporal_model <- function(time_period, patMov, co2_and_n, room_coords, ce
   
   #### Risk of infection ####
   risk_of_infection <- patMov %>%
-    dplyr::select(patient_id, location, id, hhmm) %>%
+    dplyr::select(patient_id, location, id,  hhmm) %>%
     filter(!(patient_id %in% tb_ids)) %>%
     left_join(quantaDF %>% 
                 mutate(hhmm = format(time, format = "%H:%M")) %>%
@@ -238,7 +234,7 @@ spatiotemporal_model <- function(time_period, patMov, co2_and_n, room_coords, ce
               by = c("id", "location", "hhmm")) %>%
     group_by(patient_id) %>%
     mutate(exposure_time = n(),
-           across(c(N, N_ns), ~ 1-exp(-sum(.x, na.rm = T)), .names = "P_{.col}")) %>%
+           across(c(N, N_ns), ~ compute_P(sum(.x, na.rm = T)), .names = "P_{.col}")) %>%
     ungroup()
   
   return(risk_of_infection)
@@ -262,7 +258,7 @@ message(sprintf("Info: Cluster using %i cores", foreach::getDoParWorkers()))
 for(cl in clinics) {
   
   message(sprintf("Clinic: %s", cl))
-  sel_dates <- list.files(paste0("data-clean/", cl, "/patient-tracking-data/"))
+  sel_dates <- list.files(paste0("data-clean/", cl, "/patient-tracking-data/"))[-1]
   save_dir <- paste0("simulations/", cl,  "/", sel_dates)
   for (sd in save_dir) {
     if (!dir.exists(sd)) {
@@ -273,7 +269,7 @@ for(cl in clinics) {
   for (d in sel_dates) {
     
     message(sprintf("-- Date: %s", as.character(d)))
-    clData <- prep_data(clinic = "Masi", sel_date = "2021-10-25", nSim = no_sim)
+    clData <- prep_data(clinic = "Masi", sel_date = d, nSim = no_sim)
     
     foreach::foreach(i = 1:nrow(clData$input_parameters), .combine = rbind, .packages = c("tidyverse")) %dopar% {
       
@@ -291,7 +287,7 @@ for(cl in clinics) {
         Co = clData$input_parameters$co2_out[i],
         G = clData$input_parameters$co2_gen[i]
       )
-      
+      result$date <- d
       result$sim <- i
       
       saveRDS(result, paste0("simulations/", cl,  "/", d, "/QCTR-", i, ".rds"))

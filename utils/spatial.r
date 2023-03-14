@@ -87,3 +87,20 @@ find_raster <- function(x, y, cellCoordsXY) {
   return(closest_id)
 }
 
+
+#' Rotate x and y date by a specific angle
+#' 
+#' @param df data frame with x and y coordinate
+#' @param a angle
+#' 
+
+rotate_xy <- function(df, a) {
+  xy <- df %>%
+    dplyr::select(x, y) %>%
+    adespatial::rotation(a*pi/180) %>%
+    as.data.frame() %>%
+    set_names(c("x", "y")) %>%
+    mutate(x = -x)
+  df <- cbind(df %>% dplyr::select(-x,-y), xy)
+  return(df)
+}

@@ -1,7 +1,11 @@
 require(ggpattern)
 require(gridExtra)
-require(GGally)
+library(GGally)
 library(ggtext)
+library(wesanderson)
+
+# round format
+round_k <- function(x, k = 0) format(round(x, k), nsmall = k)
 
 # ggplot theme for Nature style
 text_size = 8

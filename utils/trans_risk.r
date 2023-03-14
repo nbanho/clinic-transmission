@@ -61,11 +61,12 @@ compute_Nt <- function(E, RR, N0, V) {
 #' 
 #' 
 #' @param N quanta concentration (quanta / m3)
-#' @param t duration of exposure (in minutes)
+#' @param t duration of exposure (in seconds)
+#' @param p is the breathing rate (in L/seconds)
 #' 
 
-compute_P <- function(N, t = 1) {
-  1 - exp(-N * t)
+compute_P <- function(N, t = 1, p = 8.0 / 60) {
+  1 - exp(-N * t * p)
 } 
 
 

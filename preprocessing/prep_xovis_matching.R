@@ -1,6 +1,7 @@
 #### Libraries ####
 
 library(tidyverse)
+options(dplyr.summarise.inform = FALSE)
 library(reshape2)
 library(lubridate)
 library(sf)
@@ -9,12 +10,16 @@ library(raster)
 library(terra)
 library(gridExtra)
 library(VennDiagram)
+library(parallel)
+library(foreach)
 source("utils/spatial.r")
 source("utils/plotting.r")
 
 
 #' Algorith to match observation IDs
 #' 
+#' @param location string
+#' @param rooms fortified dataframe of spatial polygons of the rooms in the building
 #' @param date date %Y-%m-%d
 #' @param max_time maximum time (in seconds) to look ahead for matches
 #' @param min_standing_height minimum standing height
@@ -26,7 +31,9 @@ source("utils/plotting.r")
 #' @param max_heightdiff maximum height difference for a person not changing her posture
 #' @param min_duration minimum time (in minutes) to stay in the clinic to be considered
 
-match_xovis <- function(date = "2021-10-25", 
+match_xovis <- function(location,
+                        rooms,
+                        date, 
                         max_time = 30 * 60, 
                         min_standing_height = 1400, 
                         max_mov_time = c(3, 5, 5, 5, 10, 10, 15, 15, 30, 60), 
@@ -41,8 +48,8 @@ match_xovis <- function(date = "2021-10-25",
   #### Data ####
   
   # xovis
-  file <- paste0("data-raw/Masi/xovis/", date, "-with_roominfo.rds")
-  save_dir <- paste0("data-clean/Masi/patient-tracking-data/", date, "/")
+  file <- paste0("data-raw/", location, "/xovis/", date, ".rds")
+  save_dir <- paste0("data-clean/", location, "/patient-tracking-data/", date, "/")
   if (!dir.exists(save_dir)) {
     dir.create(save_dir)
   }
@@ -61,12 +68,6 @@ match_xovis <- function(date = "2021-10-25",
   
   message(sprintf("%i of %i (%i percent) observation IDs removed; %i remaining", 
                   n_oid-n_oid_filt, n_oid, round(100 - 100 * n_oid_filt / n_oid), n_oid_filt))
-  
-  # roomplan
-  clinic <- vect("data-raw/Masi/building/clinic-vector.gpkg")
-  clinic_sf <- sf::st_as_sf(clinic, crs = NA)
-  st_crs(clinic_sf) <- NA
-  clinic_df <- fortify(clinic_sf)
   
   
   #### Matching ####
@@ -380,7 +381,7 @@ plot_single_track <- function(df) {
   
   # Plot 
   pl <- ggplot() +
-    geom_sf(data = clinic_df, linewidth = 1, fill = NA) +
+    geom_sf(data = rooms, linewidth = 1, fill = NA) +
     geom_path(data = df, mapping = aes(x = x, y = y, color = factor(obs_id), group = factor(patient_id)), alpha = .5) +
     geom_point(data = se, mapping = aes(x = x, y = y, shape = type)) +
     geom_point(data = se_obs, mapping = aes(x = x, y = y, color = factor(obs_id)), size = 0.5) +
@@ -527,7 +528,7 @@ plot_ids <- function(df, focus_id, k = 300, max_distance = 5, date = "2021-10-25
     filter(distance <= max_distance)
   
   pl <- ggplot() +
-    geom_sf(data = clinic_df, linewidth = 1, fill = NA) +
+    geom_sf(data = rooms, linewidth = 1, fill = NA) +
     geom_path(data = focus_id_df, mapping = aes(x = x, y = y, group = patient_id), color = "black") +
     geom_point(data = focus_id_df_se, mapping = aes(x = x, y = y, shape = type), color = "black") +
     geom_text(data = focus_id_lab, mapping = aes(x = x, y = y, label = height), size = 8 / cm(1), vjust = -.5, hjust = -.5) +
@@ -536,8 +537,8 @@ plot_ids <- function(df, focus_id, k = 300, max_distance = 5, date = "2021-10-25
     geom_text(data = possible_matches_lab, mapping = aes(x = x, y = y, label = height, color = patient_id), size = 8 / cm(1), vjust = -.5, hjust = -.5) +
     geom_point(data = linked_matches, mapping = aes(x = x, y = y, group = patient_id), color = "grey", alpha = 0.2) +
     geom_path(data = linked_matches, mapping = aes(x = x, y = y, group = patient_id), color = "grey", alpha = 0.2) +
-    scale_x_continuous(labels = function(x) x / 1000, breaks = seq(-10000, 20000, 1000)) +
-    scale_y_continuous(labels = function(x) x / 1000, breaks = seq(-8000, 6000, 1000)) +
+    scale_x_continuous(breaks = scales::breaks_width(width = 1000)) +
+    scale_y_continuous(breaks = scales::breaks_width(width = 1000)) +
     scale_shape_manual(values = c(5, 13)) +
     theme(legend.position = "bottom",
           axis.title = element_blank(),
@@ -548,11 +549,49 @@ plot_ids <- function(df, focus_id, k = 300, max_distance = 5, date = "2021-10-25
 }
 
 
-#### Command line ####
-
+#### Run matching ####
 args <- commandArgs(trailingOnly = TRUE)
-yr <- args[1]
-mth <- args[2]
-day <- args[3]
+clinics <- ifelse(args[1]=="Both", c("Masi", "Ocean"), args[1])
+no_cores <- as.numeric(args[2])
 
-match_xovis(date = paste(yr, mth, day, sep = "-"))
+av_cores <- parallel::detectCores() - 1
+n.cores <- ifelse(no_cores > av_cores, av_cores, no_cores)
+
+my.cluster <- parallel::makeCluster(
+  n.cores, 
+  type = "PSOCK"
+)
+doParallel::registerDoParallel(cl = my.cluster)
+registered <- ifelse(foreach::getDoParRegistered(), "Yes", "No")
+message(sprintf("Info: Cluster registration? %s", registered))
+message(sprintf("Info: Cluster using %i cores", foreach::getDoParWorkers()))
+
+for(cl in clinics) {
+  
+  message(sprintf("Clinic: %s", cl))
+  
+  # dates
+  files <- list.files(paste0("data-raw/", cl, "/xovis/"))
+  sel_dates <- files[grepl("rds", files)]
+  sel_dates <- gsub(".rds", "", sel_dates, fixed = T)
+  save_dir <- paste("data-clean", cl, "patient-tracking-data", sel_dates, sep = "/")
+  for (sd in save_dir) {
+    if (!dir.exists(sd)) {
+      dir.create(sd)
+    }
+  }
+  
+  # building
+  building <- terra::vect(paste0("data-raw/", cl, "/building/clinic-vector.gpkg"))
+  building_sf <- sf::st_as_sf(building, crs = NA)
+  st_crs(building_sf) <- NA
+  building_df <- fortify(building_sf)
+  
+  foreach::foreach(i = 1:length(sel_dates), .packages = c("tidyverse", "lubridate")) %dopar% {
+    d <- as.character(sel_dates[i])
+    message(sprintf("-- Date: %s", d))
+    match_xovis(location = cl, rooms = building_df, date = d)
+  }
+}
+
+parallel::stopCluster(cl = my.cluster)

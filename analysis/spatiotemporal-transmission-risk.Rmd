@@ -32,18 +32,32 @@ source("../utils/spatial.r")
 source("../utils/plotting.R")
 
 # plot with and height of input and data graphs
-aw <- 12
-ah <- 8
+width_descr <- 10.5 / cm(1)
+height_descr <- 7.5 / cm(1)
+text_descr <- 12
 ```
 
 
 ## Data
 
+```{r}
+selected_dates <- as.Date(list.files("../data-clean/Masi/patient-tracking-data")[-1])
+```
+
 ### Clinical
 
 ```{r}
-clinical_dta <- readRDS("../data-clean/Masi/clinical-data/clinical-data.rds")
-share_tb <- clinical_dta %>%
+clinical_dta <- readRDS("../data-clean/Masi/clinical-data/clinical-data.rds") %>%
+  filter(date %in% selected_dates)
+
+# number of registered patients
+clinical_dta %>%
+  group_by(patient_id) %>%
+  slice(1) %>%
+  nrow()
+
+# share of TB patients
+share_tb <- clinical_dta  %>%
   group_by(date, patient_id) %>%
   summarize(tb = any(tb_suspect == "yes")) %>%
   ungroup() %>%
@@ -58,35 +72,38 @@ share_tb <- clinical_dta %>%
 share_tb_pl <- share_tb %>%
   ggplot(aes(x = date, y = n_tb)) +
   geom_bar(stat = "identity", fill = "grey", color = "black", width = .5) +
-  annotate("text", x = "Nov 09", y = mean(share_tb$n_tb), label = paste0("Mean = ",round(mean(share_tb$n_tb), 1)), color = "darkred", size = 8 / cm(1), vjust = -1) +
+  annotate("text", x = "Nov 10", y = mean(share_tb$n_tb), label = paste0("Mean = ",round(mean(share_tb$n_tb), 1)), color = "darkred", size = 8 / cm(1), vjust = -1) +
   geom_hline(aes(yintercept = mean(share_tb$n_tb)), color = "darkred") +
   scale_y_continuous(expand = expansion(mult = c(0,0.05))) +
-  scale_x_discrete(breaks = c("Oct 11", "Oct 18", "Oct 25", "Nov 02", "Nov 09", "Nov 16")) +
-  labs(y = "No. of TB patients") +
-  theme_bw2() +
+  scale_x_discrete(breaks = format(selected_dates, format = "%b %d")[c(1, 4, 8, 12)]) +
+  labs(y = "No. of masked TB patients") +
+  theme_classic() +
   theme(axis.title.x = element_blank(),
-        plot.margin = margin(5.5, 10, 5.5, 5.5))
-save_plot(share_tb_pl, pdf_file = "../results/data/share-tb-patients.pdf", w = aw, h = ah)
+        plot.margin = margin(5.5, 5.5, 5.5, 5.5),
+        text = element_text(size = text_descr))
+ggsave(plot = share_tb_pl, filename = "../doc/IWHOD/presentation/figures/share-tb-patients.png", w = width_descr, h = height_descr)
 ```
 
 ### CO2
 
 ```{r}
 co2_pl <- readRDS("../data-clean/Masi/environmental-data/co2-temp-humid.rds") %>%
-  filter(location %in% c("waiting room", "tb room")) %>%
+  filter(location %in% c("waiting room", "tb room"),
+         date %in% selected_dates) %>%
   mutate(location = factor(ifelse(location == "tb room", "TB room", "Waiting room"), levels = c("Waiting room", "TB room")),
          time = as.POSIXct(time, format = "%H:%M", tz = "CET")) %>%
   ggplot(aes(x = time, y = co2, color = location, fill = location)) +
-  stat_lineribbon(alpha = .25, size = .5) +
+  stat_lineribbon(alpha = .25, size = .75) +
   scale_x_datetime(expand = c(0,0), date_breaks = "2 hours", date_labels = "%H:%M") +
   scale_y_continuous(expand = c(0,0), breaks = scales::breaks_width(width = 100)) +
-  scale_fill_brewer(palette = "Accent") +
-  scale_color_brewer(palette = "Accent") +
+  scale_fill_manual(values = wes_palette("Moonrise2")) +
+  scale_color_manual(values = wes_palette("Moonrise2")) +
   labs(y = expression("CO"[2]*" (ppm)"), fill = "Quantile", color = "Quantile") +
-  theme_bw2() +
-  theme(legend.position = c(.8,.95), legend.direction = "horizontal", legend.key.width = unit(0.3, "cm"), legend.key.height = unit(0.2, "cm"),
-        plot.margin = margin(5.5, 10, 5.5, 5.5), axis.title.x = element_blank(), legend.title = element_blank()) 
-save_plot(co2_pl, pdf_file = "../results/data/co2-levels.pdf", w = aw, h = ah)
+  theme_classic() +
+  theme(legend.position = c(.65,.95), legend.direction = "horizontal", legend.key.width = unit(0.3, "cm"), legend.key.height = unit(0.2, "cm"),
+        plot.margin = margin(5.5, 5.5, 5.5, 5.5), axis.title.x = element_blank(), legend.title = element_blank(),
+        text = element_text(size = text_descr)) 
+ggsave(plot = co2_pl, filename = "../doc/IWHOD/presentation/figures/co2-levels.png", width = width_descr, height = height_descr)
 ```
 
 ### Building
@@ -94,137 +111,99 @@ save_plot(co2_pl, pdf_file = "../results/data/co2-levels.pdf", w = aw, h = ah)
 ```{r}
 # background image
 clinic_img <- png::readPNG("../data-raw/Masi/building/clinic_clipped.png")
-```
 
+# building
+cellSize <- sqrt(1 * 1e9 / 3e3) 
+building <- terra::vect(paste("../data-raw", "Masi", "building", "clinic-vector.gpkg", sep = "/"))
+building_sf <- sf::st_as_sf(building, crs = NA)
+sf::st_crs(building_sf) <- NA
+waiting_room <- shapeToSpatial(building_sf$geometry[2], cellSize)
+waiting_room_df <- fortify(waiting_room)
+passage <- shapeToSpatial(building_sf$geometry[4], cellSize)
+passage_df <- fortify(passage)
+tb_room <- shapeToSpatial(building_sf$geometry[3], cellSize)
+tb_room_df <- fortify(tb_room)
 
-<!-- ```{r} -->
-<!-- # choose cell size such that the squared cell has 1m3 volume -->
-<!-- cellVolume <- 1 -->
-<!-- cellSize <- sqrt(cellVolume * 1e9 / 3e3)  -->
+# test
+waiting_room_df$value <- rnorm(nrow(waiting_room_df))
+passage_df$value <- rnorm(nrow(passage_df))
+tb_room_df$value <- rnorm(nrow(tb_room_df))
 
-<!-- # waiting room -->
-<!-- sh_wr <- vect("../data-raw/Masi/building/waiting_room.shp") -->
-<!-- sf_wr <- st_as_sf(sh_wr) -->
-<!-- wrRoomSP <- shapeToSpatial(sh_wr, cellSize) -->
-<!-- wrVol <- compute_volume(wrRoomSP) -->
-<!-- wrCellCoords <- create_coord_df(wrRoomSP) -->
-<!-- wrRoomXY <- as.matrix(dplyr::select(wrCellCoords, x, y)) -->
-
-<!-- # tb room -->
-<!-- sh_tb <- vect("../data-raw/Masi/building/tb_room.shp") -->
-<!-- sf_tb <- st_as_sf(sh_tb) -->
-<!-- tbRoomSP <- shapeToSpatial(sh_tb, cellSize) -->
-<!-- tbVol <- compute_volume(tbRoomSP) -->
-<!-- tbCellCoords <- create_coord_df(tbRoomSP) -->
-<!-- tbRoomXY <- as.matrix(dplyr::select(tbCellCoords, x, y)) -->
-
-<!-- # passage -->
-<!-- sh_pa <- vect("../data-raw/Masi/building/passage.shp") -->
-<!-- sf_pa <- st_as_sf(sh_pa) -->
-<!-- paRoomSP <- shapeToSpatial(sh_pa, cellSize) -->
-<!-- paVol <- compute_volume(paRoomSP) -->
-<!-- paCellCoords <- create_coord_df(paRoomSP) -->
-<!-- paRoomXY <- as.matrix(dplyr::select(paCellCoords, x, y)) -->
-
-<!-- # combine -->
-<!-- clinicCellCoords <- rbind( -->
-<!--   mutate(wrCellCoords, location = "waiting room"), -->
-<!--   mutate(tbCellCoords, location = "tb room"), -->
-<!--   mutate(paCellCoords, location = "passage") -->
-<!-- ) %>% mutate(id = 1:nrow(.)) -->
-<!-- clinicCellCoordsXY <- cbind(clinicCellCoords$x, clinicCellCoords$y) -->
-<!-- ``` -->
-
-
-### No. people
-
-```{r}
-files <- list.files("../data-clean/Masi/patient-tracking-data/", full.names = T)
-no_people <- do.call(rbind, lapply(files, function(x) readRDS(paste0(x, "/patient-id-data.rds")))) %>%
-  mutate(date = format(time, format = "%Y-%m-%d"),
-         time = as.POSIXct(time, format = "%H:%M", tz = "CET"),
-         daytime = ifelse(time <= "2021-10-25 12:00:00", "Morning", "Afternoon"),
-         daytime = factor(daytime, levels = c("Morning", "Afternoon"))) 
-
-# over time
-no_people_time_pl <- no_people %>%
-  group_by(date, time) %>%
-  summarize(n = n()) %>%
-  ungroup() %>%
-  ggplot(aes(x = time, y = n)) +
-  geom_line() +
-  #stat_lineribbon(alpha = .25, size = .5) +
-  scale_x_datetime(expand = c(0,0), date_breaks = "2 hours", date_labels = "%H:%M") +
-  scale_y_continuous(expand = c(0,0), limits = c(0, NA), breaks = scales::breaks_width(5)) +
-  scale_fill_brewer(palette = "OrRd") +
-  labs(y = "No. of clinical attendees") +
-  theme_bw2() +
-  theme(axis.title.x = element_blank())
-  #labs(y = "No. of clinical attendees", fill = "Quantile", color = "Quantile") +
-  # theme(legend.position = c(.8,.9), legend.direction = "horizontal", legend.key.width = unit(0.3, "cm"), legend.key.height = unit(0.2, "cm"),
-  #       plot.margin = margin(5.5, 10, 5.5, 5.5)) +
-  # guides(fill = guide_legend(title.position = "top"))
-save_plot(no_people_time_pl, pdf_file = "../results/data/no-people-over-time.pdf", w = aw, h = ah)
-
-# Spatial
-no_people_spatial_pl <- no_people %>%
-  dplyr::select(x, y) %>%
-  adespatial::rotation(angle = -8*pi/180) %>%
-  as.data.frame() %>%
-  set_names(c("x", "y")) %>%
-  mutate(x = -x) %>%
-  ggplot(aes(x = x, y = y)) +
-  geom_bin2d(binwidth = 100) +
+ggplot(mapping = aes(x = long, y = lat, group = group, fill = value)) +
+  geom_polygon(data = waiting_room_df) +
+  geom_polygon(data = passage_df) +
+  geom_polygon(data = tb_room_df) +
   ggpubr::background_image(clinic_img) +
   annotate("text", x = -13200, y = -5300, label = "Entrance", size = 8 / cm(1), fontface = 2, hjust=0,vjust=0) +
   annotate("text", x = -13400, y = -2300, label = "Waiting room", size = 8 / cm(1), fontface = 2, hjust=0,vjust=0) +
   annotate("text", x = -5000, y = -4100, label = "Registration", size = 8 / cm(1), fontface = 2, angle = 90, hjust=0,vjust=0) +
   annotate("text", x = 2600, y = -2700, label = "TB room", size = 8 / cm(1), fontface = 2) +
-  scale_fill_stepsn(colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")[c(1,3,5,7,9)], breaks = c(1,5,10,50,100), limits = c(0,100)) +
-  scale_y_continuous(expand = expansion(mult = c(0,.18))) +
-  scale_x_continuous(expand = expansion(mult = c(0,0.025))) +
+  scale_y_continuous(expand = expansion(add=c(2500, 4000))) +
+  scale_x_continuous(expand = expansion(add=c(400, 500))) +
   labs(fill = "Density") +
   theme(axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(),
         legend.position = c(0.825,0.075), legend.direction = "horizontal", legend.title = element_blank(), #legend.title = element_text(vjust = .75),
         panel.background = element_rect(fill = RColorBrewer::brewer.pal(n = 3, name = "YlOrRd")[1]), panel.grid.major = element_blank(),
         panel.grid.minor = element_blank())
-save_plot(no_people_spatial_pl, pdf_file = "../results/data/no-people-spatial.pdf", w = aw, h = ah)
 ```
 
-<!-- ```{r} -->
-<!-- # number of people in space -->
-<!-- nDF <- tibble() -->
-<!-- for (tp in time_period) { -->
-<!--   n_tp <- clinXov %>% -->
-<!--     filter(between(time, tp, tp + seconds(59))) %>% -->
-<!--     mutate(location = mapply(function(x,y) clinicCellCoords$location[find_raster(x,y,clinicCellCoordsXY)], x, y)) %>% -->
-<!--     group_by(person_id, location) %>% -->
-<!--     slice(1) %>% -->
-<!--     ungroup() %>% -->
-<!--     group_by(location) %>% -->
-<!--     summarize(n = n()) %>% -->
-<!--     ungroup()  -->
-<!--   for (loc in unique(clinicCellCoords$location)) { -->
-<!--     if (!(loc %in% n_tp$location)) { -->
-<!--       n_tp <- rbind(n_tp, data.frame(location = loc, n = 0)) -->
-<!--     }  -->
-<!--   } -->
-<!--   nDF <- rbind(nDF, n_tp %>% mutate(time = tp)) -->
-<!-- } -->
-<!-- nDF <- nDF %>%  -->
-<!--   mutate(time = as.POSIXct(time, origin = as.Date("1970-01-01"))) -->
-<!-- nDF$n[nDF$location=="waiting room"] <- nDF$n[nDF$location=="waiting room"] + nDF$n[nDF$location=="passage"] -->
-<!-- nDF$n[nDF$location=="passage"] <- nDF$n[nDF$location=="waiting room"] + nDF$n[nDF$location=="passage"] -->
-<!-- ggplot(nDF, aes(x = time, y = n, color = location)) + geom_line() -->
-<!-- ``` -->
 
+### No. people
 
-<!-- ### Movement -->
+```{r}
+files <- list.files("../data-clean/Masi/patient-tracking-data/", full.names = T)[-1]
+no_people <- do.call(rbind, lapply(files, function(x) readRDS(paste0(x, "/patient-id-data_matched-filtered.rds")))) %>%
+  mutate(date = as.Date(format(time, format = "%Y-%m-%d")),
+         time_min = as.POSIXct(format(time, format = "%H:%M"), format = "%H:%M"))
 
-<!-- ```{r} -->
-<!-- patMov <- clinXov %>% -->
-<!--   mutate(id = map2_int(x, y, find_raster, cellCoordsXY = clinicCellCoordsXY)) -->
-<!-- ``` -->
+# number of clinical attendees
+no_people %>%
+  group_by(date, patient_id) %>%
+  slice(1) %>%
+  nrow()
+  
+# over time
+no_people_time <- no_people %>%
+  group_by(date, time_min, time) %>%
+  summarize(n = n()) %>%
+  ungroup() %>%
+  group_by(date, time_min) %>%
+  summarize(n = mean(n)) %>%
+  ungroup()
+
+no_people_time_pl <- no_people_time %>%
+  ggplot(aes(x = time_min, y = n)) +
+  stat_lineribbon(alpha = .25, size = .5) +
+  scale_x_datetime(expand = c(0,0), date_breaks = "2 hours", date_labels = "%H:%M") +
+  scale_y_continuous(expand = c(0,0), limits = c(0, NA), breaks = scales::breaks_width(5)) +
+  scale_fill_brewer(palette = "OrRd") +
+  labs(y = "No. of clinical attendees", fill = "Quantile", color = "Quantile") +
+  theme_bw2() +
+  theme(axis.title.x = element_blank(), legend.position = c(.8,.9), legend.direction = "horizontal", legend.key.width = unit(0.3, "cm"), legend.key.height = unit(0.2, "cm"),
+        plot.margin = margin(5.5, 10, 5.5, 5.5)) +
+  guides(fill = guide_legend(title.position = "top"))
+no_people_time_pl
+
+# Spatial
+no_people_spatial_pl <- no_people %>%
+  ggplot(aes(x = x, y = y)) +
+  geom_bin2d(binwidth = 100) +
+  scale_fill_stepsn(colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"), trans = "log", breaks = c(1, 10, 100, 1000, 10000)) +
+    ggpubr::background_image(clinic_img) +
+    annotate("text", x = -13200, y = -5800, label = "Entrance", size = text_descr / cm(1), hjust=0,vjust=0) +
+    annotate("text", x = -14000, y = -2600, label = "Waiting room", size = text_descr / cm(1), hjust=0,vjust=0) +
+    annotate("text", x = -5800, y = -4500, label = "Registration", size = text_descr / cm(1), angle = 90, hjust=0,vjust=0) +
+    annotate("text", x = 3000, y = -2700, label = "TB room", size = text_descr / cm(1)) +
+    scale_y_continuous(expand = expansion(mult=c(0.05, 0.15))) +
+    scale_x_continuous(expand = expansion(mult=c(0.03, 0))) +
+    labs(fill = "Density") +
+    theme(axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(), legend.key.width = unit(0.3, "cm"), legend.key.height = unit(0.3, "cm"),
+          legend.position = c(0.825,0.075), legend.direction = "horizontal",legend.title = element_text(vjust = .75),
+          panel.background = element_rect(fill = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")[1]), panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank()) +
+  guides(fill = guide_legend(title.position = "top", label.position = "bottom"))
+ggsave(plot=no_people_spatial_pl, filename = "../doc/IWHOD/presentation/figures/no-people-spatial.png", width = width_descr, height = height_descr)
+```
 
 
 ## Assumptions
@@ -368,453 +347,144 @@ CO2 generation rate
 * Wang et al. (2021): The larger the size of the particle, the less long it will reside in the air. Environmental factors such as temperature, humidity and ventilation also play an important role.
 
 
-## Simulation
-
-```{r}
-# Settings
-set.seed(12345)
-nSim <- 100
-
-# Input parameters
-inputPar <- data.frame(
-  spatial_mu = rMuIc(nSim),
-  quanta = rq(nSim),
-  V = rV(nSim),
-  co2_ex = co2_exhaled,
-  co2_out = min(co2$co2),
-  co2_gen = rG(nSim),
-  unmasked_TB = rTBunmasked(nSim, nTBmasked)
-)
-
-# Loop
-for (s in 1:nSim) {
-  message(sprintf("Simulation %i of %i", s, nSim))
-  
-  # parameters
-  smu <- inputPar$spatial_mu[s]
-  q <- inputPar$quanta[s]
-  V <- inputPar$V[s]
-  Ca <- inputPar$co2_ex[s]
-  Co <- inputPar$co2_out[s]
-  G <- inputPar$co2_gen[s]
-  unmasked_TB <- inputPar$unmasked_TB[s]
-  
-  # transformed parameters
-  # quanta emission rate per minute
-  ER <- q / 60
-  
-  # TB patients
-  masked_tb <- yesTB$person_id
-  unmasked_tb <- sample(noTB$person_id, size = unmasked_TB)
-  TBpatients <- patMov %>%
-    filter(person_id %in% c(masked_tb, unmasked_tb)) %>%
-    dplyr::select(person_id, observation_id, time, x, y) 
-  TBpatients_full <- TBpatients %>%
-    group_by(person_id) %>%
-    summarize(time = list(seq(min(time), max(time), by = "sec"))) %>%
-    ungroup() %>%
-    unnest(cols = c(time))
-  TBpatients_full <- TBpatients_full %>%
-    left_join(TBpatients, by = c("person_id", "time")) %>%
-    tidyr::fill(observation_id, x, y, .direction = "down")
-  
-  # no TB patients
-  noTBpatients <- patMov %>%
-    filter(!(person_id %in% c(masked_tb, unmasked_tb))) %>%
-    dplyr::select(person_id, time, id) 
-  noTBpatients_full <- noTBpatients %>%
-    group_by(person_id) %>%
-    summarize(time = list(seq(min(time), max(time), by = "sec"))) %>%
-    ungroup() %>%
-    unnest(cols = c(time))
-  noTBpatients_full <- noTBpatients_full %>%
-    left_join(noTBpatients, by = c("person_id", "time")) %>%
-    tidyr::fill(id, .direction = "down") %>%
-    mutate(time = as.POSIXct(format(time, "%Y-%m-%d %H:%M"))) %>%
-    group_by(person_id, id, time) %>%
-    summarize(minutes = n() / 60) %>%
-    ungroup()
-    
-  
-  # df to store quanta concentration by minute
-  quantaDF <- clinicCellCoords %>%
-    mutate(time = time_period[1] - minutes(1),
-           I_SP = 0,
-           I_WM = 0,
-           E_SP = 0,
-           E_WM = 0,
-           N_SP = 0,
-           AER = NA,
-           RR = NA,
-           N_WM = 0,
-           N_SP = 0) 
-  
-  for (t in 1:length(time_period)) {
-    
-    # time point
-    tp <- time_period[t] 
-    quantaDF_new <- clinicCellCoords %>%
-      mutate(time = tp,
-             I_SP = 0,
-             I_WM = 0,
-             E_SP = 0,
-             E_WM = 0,
-             N_SP = 0,
-             N_WM = 0)
-    
-    # spatial spread of infectious individuals and quanta emission
-    TBpatients_tp <- TBpatients_full %>%
-      dplyr::filter(between(time, tp, tp + minutes(1)))
-    if (nrow(TBpatients_tp) > 0) {
-      TBpatients_tp <- TBpatients_tp %>%
-        nest(data = -person_id)
-      # iterate over patients
-      for (p in 1:nrow(TBpatients_tp)) {
-        # duration and location
-        duration <- nrow(TBpatients_tp$data[[p]])
-        xy <- TBpatients_tp$data[[p]] %>% dplyr::select(x, y) %>% slice(1) %>% unlist()
-        # generated quanta by cell
-        locationID <- find_raster(xy[1], xy[2], clinicCellCoordsXY)
-        locationName <- clinicCellCoords$location[locationID]
-        locationCellCoords <- filter(clinicCellCoords, location == locationName)
-        locationShape <- if(locationName == "waiting room") {sf_wr} else if(locationName == "tb room") {sf_tb} else {sf_pa}
-        cellInReach <- numeric(nrow(quantaDF_new))
-        cellDistance <- numeric(nrow(quantaDF_new))
-        isIinCell <- ifelse(quantaDF_new$location==locationName, 1, 0 )
-        for (cell in 1:nrow(quantaDF_new)) {
-          # if cell is in room/location
-          if (quantaDF_new$location[cell] != locationName) {
-            cellInReach[cell] <- 0
-            cellDistance[cell] <- -999
-          } else {
-            # can aerosols travel to this cell?
-            straight_line <- st_linestring(rbind(xy, c(quantaDF_new$x[cell], quantaDF_new$y[cell]))) 
-            intersects <- st_difference(straight_line, locationShape)
-            cellInReach[cell] <- ifelse(length(intersects) == 0, 1, 0)
-            cellDistance[cell] <- convert_dist(st_length(straight_line))
-          }
-        }
-        # proportion of infectious individuals per cell per minute
-        distance_dens <- cellInReach * dIc(cellDistance, smu)
-        quantaDF_new$I_SP <- quantaDF_new$I_SP + distance_dens / sum(distance_dens) * (duration / 60)
-        quantaDF_new$I_WM <- quantaDF_new$I_WM + isIinCell / sum(isIinCell)
-      }
-      # quanta emission
-      quantaDF_new$E_SP <- quantaDF_new$E_SP + ER * quantaDF_new$I_SP
-      quantaDF_new$E_WM <- quantaDF_new$E_WM + ER * quantaDF_new$I_WM
-    } 
-    
-    # compute air exchange rate and quanta removal
-    Ct <- co2 %>%
-      group_by(location) %>%
-      # if CO2 is missing, take the last observed value
-      filter(date_time <= tp) %>%
-      arrange(desc(date_time)) %>%
-      slice(1) %>%
-      mutate(date_time = tp) %>%
-      ungroup() %>%
-      # add number of people
-      left_join(filter(nDF, time == tp), by = c("date_time" = "time", "location")) %>%
-      # add volume
-      mutate(vol = ifelse(location == "tb room", tbVol, wrVol + paVol)) %>%
-      # compute AER and RR per minute
-      mutate(AER = compute_AER(G, Co, co2, n, vol),
-             RR = compute_RR(AER) / 60) 
-    quantaDF_new <- quantaDF_new %>% 
-      left_join(Ct %>% dplyr::select(location, AER, RR), by = "location")
-      
-    # previous quanta concentration
-    N0_SP <- quantaDF %>% 
-      filter(time == tp - minutes(1)) %>%
-      dplyr::select(N_SP) %>% unlist
-    N0_WM <- quantaDF %>% 
-      filter(time == tp - minutes(1)) %>%
-      dplyr::select(N_WM) %>% unlist
-    
-    # compute quanta concentration
-    quantaDF_new$N_SP <- pmap_dbl(list(E = quantaDF_new$E_SP, 
-                                       RR = quantaDF_new$RR, 
-                                       N0 = N0_SP,
-                                       V = cellVolume), compute_Nt)
-    quantaDF_new$N_WM <- pmap_dbl(list(E = quantaDF_new$E_WM, 
-                                       RR = quantaDF_new$RR, 
-                                       N0 = N0_WM,
-                                       V = cellVolume), compute_Nt)
-    
-    # append new data
-    quantaDF <- rbind(quantaDF, quantaDF_new)
-  }
-  
-  # compute (spatio)temporal transmission risk for each individual
-  risk_of_infection <- noTBpatients_full %>%
-    left_join(quantaDF, by = c("id", "time")) %>%
-    group_by(person_id) %>%
-    summarize(exposure_time = sum(minutes),
-              P_SP = 1-exp(-sum(N_SP * minutes)),
-              P_WM = 1-exp(-sum(N_WM * minutes))) %>%
-    ungroup()
-  
-  # compute average transmission risk
-  sum_I <- data.frame(location = c("waiting room", "passage", "tb room"),
-                      I = length(c(masked_tb, unmasked_tb))) 
-  mean_n <- nDF %>% 
-    group_by(location) %>%
-    summarize(n = median(n) + 1) %>%
-    ungroup()
-  mean_f <- co2 %>%
-    group_by(location) %>%
-    summarize(f = (mean(co2) - Co) / Ca) %>%
-    ungroup()
-  risk_of_infection_av <- noTBpatients_full %>%
-    left_join(quantaDF %>% dplyr::select(id, time, location), by = c("id", "time")) %>%
-    group_by(person_id, location) %>%
-    summarize(minutes = sum(minutes)) %>%
-    ungroup() %>%
-    left_join(sum_I, by = "location") %>%
-    left_join(mean_n, by = "location") %>%
-    left_join(mean_f, by = "location") %>%
-    mutate(mu = f * I * ER * minutes / n) %>%
-    group_by(person_id) %>%
-    summarize(P_SS = 1 - exp(-sum(mu))) %>%
-    ungroup()
-  risk_of_infection <- risk_of_infection %>%
-    left_join(risk_of_infection_av, by = "person_id")
-  
-  
-  # save simulation
-  saveRDS(quantaDF, paste0("../simulations/2021-10-25/sim-quanta", s, ".rds"))
-  saveRDS(risk_of_infection, paste0("../simulations/2021-10-25/sim-transRisk", s, ".rds"))
-}
-```
-
-
-
 ## Evaluation
 
-### TB risk
-
 ```{r}
-# files
-transRiskFiles <- list.files("../simulations/2021-10-25", full.names = T)
-transRiskFiles <- transRiskFiles[grepl("transRisk", transRiskFiles)]
-
-# read files
-transRiskDF <- data.frame(file = transRiskFiles) %>%
-  mutate(simulation = stringi::stri_extract(basename(file), regex = "\\d{1,4}"), 
-         data = lapply(file, readRDS)) %>%
-  unnest(cols = c(data))
-
-# QQ Plot
-transRiskDF_Q <- transRiskDF %>%
-  dplyr::select(simulation, P_SP, P_WM) %>%
-  melt("simulation") %>%
-  group_by(simulation, variable) %>%
-  summarize(quantile = seq(0.05, .95, 0.05),
-            value = quantile(value, seq(0.05, 0.95, 0.05))) %>%
-  ungroup()
-
-transRiskDF_Q_av <- transRiskDF_Q %>%
-  group_by(variable, quantile) %>%
-  summarize(value = mean(value)) %>%
-  ungroup()
-
-transRiskDF_Q_av %>%
-  ggplot(aes(x = quantile, y = value, color = variable)) +
-  geom_line()
-
-# average transmission risk across patients
-average_tr <- transRiskDF %>%
-  dplyr::select(simulation, P_SP, P_WM) %>%
-  mutate(P_SP = P_SP * 100,
-         P_WM = P_WM * 100) %>%
-  melt("simulation") %>%
-  group_by(simulation, variable) %>%
-  summarize(`Mean` = mean(value),
-            `Standard deviation` = sd(value),
-            `Median` = median(value),
-            `Tail risk (95%-Quantile)` = quantile(value, .95)) %>%
-  ungroup() 
-
-figA <- average_tr %>%
-  rename(model = variable) %>%
-  mutate(model = ifelse(model == "P_SP", "Spatiotemporal modeling", "Temporal modeling")) %>%
-  melt(c("simulation", "model")) %>%
-  ggplot(aes(x = value, y = model, fill = model, color = model)) +
-  stat_dots(quantiles = 100) +
-  facet_wrap(~ variable, scales = "free_x") +
-  scale_color_manual(values = cbPalette[2:3]) +
-  scale_fill_manual(values = cbPalette[2:3]) +
-  labs(x = "Risk of infection (%)", 
-       title = "Fig. 1a: Risk of infection across patients",
-       subtitle = "Colored dots show individual simulation results.") +
-  theme_bw2() +
-  theme(legend.position = "top", axis.title.y = element_blank(), axis.text.y = element_blank(), legend.title = element_blank(),
-        legend.justification='left', legend.direction='horizontal')
-
-figA
-
-average_tr %>%
-  dplyr::select(-simulation) %>%
-  group_by(variable) %>%
-  median_qi() %>%
-  mutate_if(is.numeric, round, 2)
-
-
-figB <- transRiskDF %>%
-  ggplot(aes(x = P_SP, y = P_WM)) +
-  geom_point(shape = 1) +
-  geom_abline(mapping = aes(intercept = 0, slope = 1), color = "red", linetype = "dashed") +
-  annotate("richtext", x = 0.75, y = 0.82, 
-           label = "<span style = 'background-color:#fff'>Perfect correlation</span>", 
-           size = 8 / cm(1), color = "red", angle = 22, label.color = NA) +
-  geom_smooth(method = "lm") +
-  annotate("richtext", x = 0.85, y = 0.55, 
-           label = "<span style = 'background-color:#fff'>Empirical correlation</span>", 
-           size = 8 / cm(1), color = "blue", angle = 16, label.color = NA) +
-  labs(x = "Risk of infection (%) with spatiotemporal modeling", 
-       y = "Risk of infection (%) with temporal modeling",
-       title = "Fig. 1b: Patient-specific risk of infection",
-       subtitle = "One dot per patient and simulation. Dots off (on) the diagonal imply a (no) differing risk of infection by modeling.") +
-  scale_x_continuous(expand = c(0,0), limits = c(0,1), label = function(x) x * 100) +
-  scale_y_continuous(expand = c(0,0), limits = c(0,1), label = function(x) x * 100) +
-  theme_bw2() +
-  theme(plot.margin = unit(c(5.5, 7.5, 5.5, 5.5), "points"))
-
-figB
-
-ggsave("../results/model-comparison.png", grid.arrange(figA, figB, ncol = 1), width = 16 / cm(1), height = 16 / cm(1))
-
-# visualization of spatial approach
-transRriskSP_pl <- transRiskDF %>%
-  mutate(P_SP = P_SP * 100) %>%
-  ggplot(aes(x = P_SP, y = simulation)) + # , color = ..x..
-  stat_dots(quantiles = 20, color = "black") +
-  #scale_color_viridis() +
-  labs(y = "Simulation", x = "Risk of infection (%)",
-       title = "Figure 1: Risk of infection", subtitle = "Quantile distribution of patient-specific risk of infection (%) for each simulation") +
-  scale_x_sqrt(limits = c(0,NA), expand = c(0,0)) +
-  scale_y_discrete(expand = c(0,0)) +
-  theme_bw2() +
-  theme(legend.position = "none")
-
-transRriskSP_pl
-
-
-# low, medium, high risk
-transRiskDF_cat <- transRiskDF %>%
-  dplyr::select(simulation, P_SP, P_WM) %>%
-  melt("simulation") %>%
-  group_by(simulation, variable) %>%
-  summarize(`Very low` = sum(value <= .01),
-            Low = sum(value > .01 & value <= .05),
-            Medium = sum(value > .05 & value <= .1),
-            High = sum(value > .1 & value <= .5),
-            `Very high` = sum(value > .5)) %>%
-  ungroup()
-
-
-figB <- transRiskDF_cat %>%
-  rename(model = variable) %>%
-  mutate(model = factor(ifelse(model == "P_SP", "Spatiotemporal modeling", "Temporal modeling"),
-                        levels = c("Spatiotemporal modeling", "Temporal modeling"))) %>%
-  melt(c("simulation", "model")) %>%
-  group_by(model, variable) %>%
-  summarize(value = mean(value)) %>%
-  ungroup() %>%
-  ggplot(aes(y = variable, fill = model, x = value)) +
-  geom_bar(stat = "identity", position = position_dodge2()) +
-  scale_x_log10(expand = c(0,0)) + 
-  scale_fill_manual(values = cbPalette[c(2,1)]) +
-  labs(title = "B | Average number of visitors by risk of infection",
-       subtitle = "Number of visitors with very high (>50%), high (10-50%), medium (5-10%), low (1-5%), and very low (<1%) risk of infection.",
-       x = "Number of visitors") +
-  theme_bw2() +
-  theme(legend.position = "top", legend.justification='left', legend.direction='horizontal',
-        legend.title = element_blank(), legend.key.width = unit(2.5, "cm"),
-        axis.title.y = element_blank(),
-        plot.title.position = "plot")
-
-figB
-
-transRiskDF_cat_alt <- transRiskDF %>%
-  dplyr::select(simulation, P_SP, P_WM) %>%
-  melt("simulation") %>%
-  group_by(simulation, variable) %>%
-  summarize(Low = sum(value <= .1),
-            Medium = sum(value > .1 & value <= .5),
-            High = sum(value > .5)) %>%
-  ungroup()
-
-figB_alt <- transRiskDF_cat_alt %>%
-  rename(model = variable) %>%
-  mutate(model = factor(ifelse(model == "P_SP", "Spatiotemporal modeling", "Temporal modeling"),
-                        levels = c("Spatiotemporal modeling", "Temporal modeling"))) %>%
-  melt(c("simulation", "model")) %>%
-  group_by(model, variable) %>%
-  summarize(value = mean(value)) %>%
-  ungroup() %>%
-  ggplot(aes(y = variable, fill = model, x = value)) +
-  geom_bar(stat = "identity", position = position_dodge2()) +
-  scale_x_log10(expand = expansion(mult = c(0,.01))) + 
-  scale_fill_manual(values = cbPalette[c(2,1)], breaks = c("Temporal modeling", "Spatiotemporal modeling")) +
-  labs(title = "B | Estimated number of visitors by risk of infection",
-       subtitle = "Average number of visitors with high (>50%), medium (10-50%), and low (<10%) risk of infection.",
-       x = "Number of visitors") +
-  theme_bw2() +
-  theme(legend.position = c(0.675, 0.825), legend.justification='left', legend.direction='vertical',
-        legend.title = element_blank(), legend.key.width = unit(1.5, "cm"),
-        axis.title.y = element_blank(),
-        plot.title.position = "plot")
-
-figB_alt
+sim_results <- list.files("../simulations/Masi/2021-10-25/", full.names = T)
+sim_results <- do.call(rbind, lapply(sim_results, readRDS))
 ```
 
-
-### Quanta 
+### Transmission risk
 
 ```{r}
-# files
-quantaFiles <- list.files("../simulations/2021-10-25", full.names = T)
-quantaFiles <- quantaFiles[grepl("quanta", quantaFiles)]
-
-# read files
-quantaDF <- data.frame(file = quantaFiles) %>%
-  mutate(simulation = stringi::stri_extract(basename(file), regex = "\\d{1,4}"), 
-         data = lapply(file, readRDS)) %>%
-  unnest(cols = c(data))
-
-# average quanta concentration
-quantaDF_av <- quantaDF %>%
-  filter(location == "waiting room") %>%
-  # mutate(daytime = ifelse(time <= "2021-10-25 11:00:00", "Morning", 
-  #                         ifelse(time <= "2021-10-25 13:00:00", "Noon", "Afternoon"))) %>%
-  mutate(daytime = ifelse(time <= "2021-10-25 12:00:00", "Morning", "Afternoon")) %>%
-  group_by(daytime, id) %>%
-  summarize(N_SP = mean(N_SP)) %>%
+# individual patient transmission risk by simulation
+transRisk <- sim_results %>%
+  group_by(patient_id, sim) %>%
+  slice(1) %>%
   ungroup()
 
-wrRoomSP_df <- fortify(wrRoomSP) %>%
-  left_join(quantaDF_av %>% mutate(id = as.character(id)), by = "id") 
+# Average transmission risk across patients
+transRisk_av <- transRisk %>%
+  group_by(sim) %>%
+  summarize(across(c(P_N, P_N_ns), mean)) %>%
+  ungroup()
 
-figA <- wrRoomSP_df %>%
-  # mutate(daytime = factor(daytime, c("Morning", "Noon", "Afternoon"))) %>%
-  mutate(daytime = factor(daytime, c("Morning", "Afternoon"))) %>%
-  ggplot(aes(x = lat, y = long, group = group, fill = N_SP)) +
-  geom_polygon() +
-  facet_wrap(~ daytime) +
-  scale_fill_gradient(low = "yellow", high = "red", na.value = NA) +
-  labs(title = "A | Estimated spatiotemporal quanta concentration in the clinic by daytime",
-       # subtitle = "Quanta concentration (quanta/m3) in the morning (7:30 to 11am), noon (11am to 1pm), and afternoon (1 to 4pm).") +
-       subtitle = "Average quanta concentration (quanta/m3) in the morning (7:30 to 12am) and afternoon (12am to 4pm).") +
-  geom_path(color = "white", size = 0.2) +
+mean_risk <- round(mean(transRisk_av$P_N * 100), 1)
+q25_risk <- round(quantile(transRisk_av$P_N * 100, .25), 1)
+q75_risk <- round(quantile(transRisk_av$P_N * 100, .75), 1)
+message(sprintf("Spatiotemporal transmission risk across clinical attendee: %s percent (IQR: %s to %s)", mean_risk, q25_risk, q75_risk))
+
+# individual transmission risk across simulations
+transRisk_indv <- transRisk %>%
+  group_by(patient_id) %>%
+  summarize(across(c(P_N, P_N_ns), list(mean = mean, median = median,q25 = function(x) quantile(x, .25), q75 = function(x) quantile(x, .75)))) %>%
+  ungroup()
+
+transRisk_indv_pl <- transRisk_indv %>%
+  mutate(patient_id = factor(patient_id)) %>%
+  ggplot(aes(x = reorder(patient_id, -P_N_mean), y = P_N_mean)) +
+  geom_point(shape = 4, alpha = .5) +
+  geom_hline(aes(yintercept = mean_risk / 100), color = "darkred") +
+  geom_hline(aes(yintercept = q25_risk / 100), color = "darkred", linetype = "dashed") +
+  geom_hline(aes(yintercept = q75_risk / 100), color = "darkred", linetype = "dashed") +
+  annotate("text", x = 375, y = 0.0075, label = paste0("Average across patients = ", mean_risk, "% (IQR:", q25_risk, "-", q75_risk,")"),
+           size = 8 / cm(1), color = "darkred") +
+  scale_y_continuous(labels = function(x) x * 100, expand = expansion(mult = c(0., .05)), breaks = c(seq(0, 0.05, 0.01), 0.004)) +
+  labs(y = "Mean risk of infection (%)", x = "Clinic attendee") +
   theme_bw2() +
-  theme(axis.title = element_blank(), axis.text = element_blank(),
-        legend.position = "top", legend.justification='left', legend.direction='horizontal',
-        legend.title = element_blank(), legend.key.width = unit(2.5, "cm"),
-        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+  theme(axis.text.x = element_blank())
+save_plot(transRisk_indv_pl, pdf_file = "../results/modeling/risk-of-infection.pdf", w = aw, h = ah)
 
-figA
+# high risk of infection plot
+group_labs <- c("Small (1-5%)", "Medium (5-10%)", "High (>10%)")
+transRisk_qq <- transRisk %>%
+  mutate(risk_cat = base::cut(P_N * 100, breaks = c(-Inf, 1, 5, 10, Inf), labels = c("negligible risk", group_labs))) %>%
+  group_by(sim, risk_cat) %>%
+  summarize(n = n()) %>%
+  ungroup()
+transRisk_MinorVsHigh <- transRisk_qq %>%
+  mutate(risk_cat = ifelse(risk_cat == "negligible risk", "low", "high")) %>%
+  group_by(sim, risk_cat) %>%
+  summarize(n = sum(n)) %>%
+  ungroup() %>%
+  group_by(sim) %>%
+  mutate(share_n = n / sum(n) * 100) %>%
+  ungroup() %>%
+  filter(risk_cat == "high")
+strMinorVsHigh <- paste0("Total risk attendees: ", 
+                         round_k(mean(transRisk_MinorVsHigh$n), 0),
+                         " \u00B1 ",
+                         round_k(sd(transRisk_MinorVsHigh$n), 0),
+                         " (",
+                         round_k(mean(transRisk_MinorVsHigh$share_n), 1),
+                         "% \u00B1 ",
+                         round_k(sd(transRisk_MinorVsHigh$share_n), 1),
+                         "%)")
+transRisk_high <- transRisk_qq %>%
+  dplyr::filter(risk_cat %in% group_labs) 
+transRisk_qq_pl <- transRisk_high %>%
+  mutate(risk_cat = factor(risk_cat, group_labs)) %>%
+  ggplot(aes(x = risk_cat, y = n, fill = risk_cat)) +
+  stat_boxplot(geom ='errorbar', width = .2) +
+  geom_boxplot(width = .2, outlier.shape = NA) +
+  annotate("text", x = .5, y = 18.5, label = strMinorVsHigh, size = 8 / cm(1), hjust = 0, vjust = 0) +
+  scale_y_continuous(sec.axis = sec_axis(~ . / nrow(transRisk_indv), labels = scales::percent, name = "Proportion of attendees"),
+                     expand = c(0,0), limits = c(0,20)) +
+  scale_fill_manual(values = wes_palette("Darjeeling2")) +
+  labs(x = "Risk of infection", y = "Number of attendees") +
+  theme_bw2() +
+  theme(legend.position = "none")
+save_plot(transRisk_qq_pl, pdf_file = "../results/modeling/high-risk-of-infection.pdf", w = aw, h = ah)
+```
 
-ggsave("../results/model-comparison.png", grid.arrange(figA, figB_alt, ncol = 1), width = 16 / cm(1), height = 16 / cm(1))
+### Quanta concentration
+
+```{r}
+# average quanta concentration
+quantaDF_av <- sim_results %>%
+  mutate(daytime = ifelse(hhmm <= "12:00", "Morning", "Afternoon"),
+         daytime = factor(daytime, levels = c("Morning", "Afternoon"))) %>%
+  group_by(daytime, id, location) %>%
+  summarize(N = mean(N)) %>%
+  ungroup()
+
+a_ac_grid = -9
+quantaDF_av_wr <- quantaDF_av %>%
+  group_by(daytime) %>%
+  head(nrow(waiting_room_df)) %>%
+  mutate(id = as.character(id)) %>%
+  ungroup() %>%
+  left_join(waiting_room_df, by = c("id")) %>%
+  rename(x = long, y = lat) %>%
+  rotate_xy(a_ac_grid)
+quantaDF_av_pa <- quantaDF_av %>%
+  group_by(daytime) %>%
+  tail(nrow(passage_df)) %>%
+  mutate(id = as.character(1:n())) %>%
+  ungroup() %>%
+  left_join(passage_df, by = c("id")) %>%
+  rename(x = long, y = lat) %>%
+  rotate_xy(a_ac_grid)
+quantaDF_av_tb <- quantaDF_av %>%
+  filter(location == "tb room") %>%
+  group_by(daytime) %>%
+  mutate(id = as.character(1:n())) %>%
+  ungroup() %>%
+  left_join(tb_room_df, by = c("id")) %>%
+  rename(x = long, y = lat) %>%
+  rotate_xy(a_ac_grid)
+
+qc_pl <- ggplot(mapping = aes(x = x, y = y, group = group, fill = N)) +
+  geom_polygon(data = quantaDF_av_wr) +
+  geom_polygon(data = quantaDF_av_pa) +
+  geom_polygon(data = quantaDF_av_tb) +
+  coord_fixed() +
+  #scale_fill_stepsn(colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")[c(1,3,5,7,9)], breaks = seq(1,6,1)*1e-6, limits = c(0,100), na.value = NA) +
+  facet_wrap(~daytime, ncol = 1)
+qc_pl
+qc_pl <- spatial_ggpl(qc_pl)
+
+qc_pl
+save_plot(qc_pl, pdf_file = "../results/modeling/quanta-concentration.pdf", w = aw, h = 2*ah)
 ```
 

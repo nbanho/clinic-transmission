@@ -17,20 +17,17 @@ st_crs(clinic_sf) <- NA
 clinic_df <- fortify(clinic_sf)
 
 # xovis raw data files
-files <- list.files("data-raw/Masi/xovis/Study_Data_Masi_2021/export", full.names = T)
+files <- list.files("data-raw/Masi/xovis/", full.names = T)
+files <- files[grepl("rds", files)]
 
 for (f in files) {
   # file info
   file_name <- basename(f)
-  date <- gsub("_exported_data[[:punct:]]csv", "", file_name)
-  date <- gsub("_", "-", date)
-  file_name <- paste0(date, "-", "with_roominfo")
-  
-  
+  message(sprintf("File: %s", f))
+
   # read data
-  df <- read.csv(f, header = T) %>% 
-    set_names(c("obs_id", "time", "x", "y", "height"))  %>%
-    mutate(time = as.POSIXct(paste(date, time), format = "%Y-%m-%d %H:%M:%S"))
+  df <- readRDS(f) %>% 
+    rotate_xy(a = -9)
   
   # add room info
   df$point <- map2(df$x, df$y, function(xi,yi) sfheaders::sf_point(c(xi,yi)))
@@ -46,7 +43,7 @@ for (f in files) {
   df$is_in_room_right <- map_lgl(df$poly, function(p) ifelse(any(unlist(p) == 13), T, F) ) 
   df$is_exit <- map_lgl(df$poly, function(p) ifelse(any(unlist(p) %in% c(6, 14:15)), T, F)) # entrance and corridors are considered as exits
  
-  saveRDS(df, file = paste0("data-raw/Masi/xovis/", file_name, ".rds")) 
+  saveRDS(df, file = paste0("data-raw/Masi/xovis/", file_name)) 
 }
 
 
