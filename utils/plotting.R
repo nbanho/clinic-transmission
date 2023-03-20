@@ -7,6 +7,12 @@ library(wesanderson)
 # round format
 round_k <- function(x, k = 0) format(round(x, k), nsmall = k)
 
+# add white space
+add_ws <- function(x, n = 2) {
+  ifelse(nchar(x) < n, paste0(" ",x), x)
+}
+
+
 # ggplot theme for Nature style
 text_size = 8
 update_geom_defaults("text", list(size = text_size))

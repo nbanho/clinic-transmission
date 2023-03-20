@@ -15,12 +15,8 @@ library(tidyverse)
 
 match_clinical_tracking <- function(clinic, sel_date, min_time_in_cl = 5 * 60, min_time_at_re = 5, min_duration_after_re = 5 * 60, max_tolerance = 15 * 60) {
   
-  # directory of patient tracking data
-  save_str <- paste0("data-clean/", clinic, "/patient-tracking-data/", sel_date, "/")
-  
   # clinical data
-  clinical <- readRDS(paste0("data-clean/", clinic, "/clinical-data/clinical-data.rds")) %>%
-    filter(date == as.Date(sel_date)) %>%
+  clinical <- readRDS(paste0("data-clean/", clinic, "/combined-data/", sel_date, "/clinical-data.rds")) %>%
     group_by(patient_id) %>%
     slice(1) %>%
     ungroup() %>%
@@ -28,7 +24,7 @@ match_clinical_tracking <- function(clinic, sel_date, min_time_in_cl = 5 * 60, m
            clinical_record_time = date_time)
   
   # tracking data
-  tracking <- readRDS(paste0(save_str, "/patient-id-data.rds")) %>%
+  tracking <- readRDS(paste0("data-clean/", clinic, "/patient-tracking-data/", sel_date, "/", "/patient-id-data.rds")) %>%
     group_by(patient_id) %>%
     filter(as.numeric(difftime(last(time), first(time), units = "secs")) > min_time_in_cl) %>%
     ungroup()
@@ -69,24 +65,27 @@ match_clinical_tracking <- function(clinic, sel_date, min_time_in_cl = 5 * 60, m
     scale_y_continuous(expand = c(0, 0)) +
     theme_bw() +
     theme(text = element_text(size = 8))
-  save_plot(report_pl, pdf_file = paste0(save_str, "clinical-tracking-matching-report.pdf"), w = 16, h = 8)
+  ggsave(plot = report_pl, filename = paste0("data-clean/", clinic, "/patient-tracking-data/", sel_date, "/", "clinical-tracking-matching-report.pdf"), width = 16 / cm(1), height = 8 / cm(1))
   
   # append tracking data
-  tracking <- tracking %>%
+  tracking_linked_clinical <- tracking %>%
     left_join(merged %>% dplyr::select(patient_id, clinical_patient_id, tb_suspect), by = "patient_id") 
-  saveRDS(tracking, paste0(save_str, "/patient-id-data_matched-filtered.rds"))
+  
+  return(tracking_linked_clinical)
   
 }
 
 #### Masi ####
 
 # dates
-clean_dates <- list.files("data-clean/Masi/patient-tracking-data/")[-1]
-
-# matching
-for (d in clean_dates) {
-  message(sprintf("Matching clinical to tracking data for Masi at %s", d))
-  match_clinical_tracking("Masi", d)
+selected_dates <- list.files("data-clean/Masi/patient-tracking-data/")[-1]
+save_dir <- paste0("data-clean/Masi/combined-data/", selected_dates)
+for (i in 1:length(selected_dates)) {
+  if (!dir.exists(save_dir[i])) {
+    dir.create(save_dir[i])
+  }
+  matched_df <- match_clinical_tracking("Masi", selected_dates[i])
+  saveRDS(matched_df, paste0(save_dir[i], "/tracking-linked-clinical-data.rds"))
 }
 
 

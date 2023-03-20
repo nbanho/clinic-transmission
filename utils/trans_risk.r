@@ -26,7 +26,7 @@ compute_AER <- function(G, Co, C, n, V) {
   # excess CO2 in ppm
   Ce <- C - Co
   # TODO: is there are more elegant way to ensure that the denominator is not 0?
-  Ce <- ifelse(Ce < 0, 1, Ce) 
+  Ce <- ifelse(Ce < 1, 1, Ce) 
   # excess CO2 in l/m3 (1l/m3 = 1,000ppm)
   Ce <- Ce / 1000
   # ventilation rate (in l/s per person)

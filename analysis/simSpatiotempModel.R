@@ -3,7 +3,6 @@
 library(tidyverse)
 options(dplyr.summarise.inform = FALSE)
 library(parallel)
-library(foreach)
 
 source("utils/trans_risk.R")
 source("utils/spatial.R")
@@ -13,7 +12,8 @@ source("utils/spatial.R")
 args <- commandArgs(trailingOnly = TRUE)
 clinics <- ifelse(args[1]=="Both", c("Masi", "Ocean"), args[1])
 no_sim <- as.numeric(args[2])
-no_cores <- as.numeric(args[3])
+start_sim <- as.numeric(args[3])
+no_cores <- as.numeric(args[4])
 
 
 #' Prepare data for spatiotemporal model
@@ -50,16 +50,17 @@ prep_data <- function(
   set.seed(seed)
   
   # patient movement data
-  patMov <- readRDS(paste("data-clean",clinic,"patient-tracking-data",sel_date,"patient-id-data_matched-filtered.rds",sep="/")) %>%
+  patMov <- readRDS(paste("data-clean", clinic, "combined-data", sel_date, "tracking-linked-clinical-data.rds", sep = "/")) %>%
     mutate(location = ifelse(is_waitingroom|is_passage, "waiting room", ifelse(is_tbroom, "tb room", NA)),
            hhmm = format(time, format = "%H:%M")) %>%
     filter(!is.na(location)) 
   patIDs <- unique(patMov$patient_id)
   
+  # time period
+  time_period <- seq(lubridate::floor_date(min(patMov$time), unit = "minutes"), lubridate::floor_date(max(patMov$time), unit = "minutes"), by = "1 min")
+  
   # CO2 data
-  co2 <- readRDS(paste("data-clean", clinic, "environmental-data", "co2-temp-humid.rds", sep = "/")) %>%
-    filter(date == sel_date)
-  time_period <- seq(min(co2$date_time), max(co2$date_time), by = "1 min")
+  co2 <- readRDS(paste("data-clean", clinic, "combined-data", sel_date, "environmental-data.rds", sep = "/")) 
   
   # room data
   cellSize <- sqrt(cellVolume * 1e9 / 3e3) 
@@ -106,9 +107,8 @@ prep_data <- function(
   patIDS_TBmasked <- unique(patMOV_TBmasked$patient_id)
   
   # unmasked TB patients 
-  nTBmasked <- readRDS(paste0("data-clean/", clinic, "/clinical-data/clinical-data.rds")) %>%
-    filter(date == as.Date(sel_date),
-           tb_suspect=="yes") %>%
+  nTBmasked <- readRDS(paste("data-clean", clinic, "combined-data", sel_date, "clinical-data.rds", sep = "/")) %>%
+    filter(tb_suspect=="yes") %>%
     group_by(patient_id) %>%
     slice(1) %>%
     ungroup() %>%
@@ -237,28 +237,32 @@ spatiotemporal_model <- function(time_period, patMov, co2_and_n, room_coords, ce
            across(c(N, N_ns), ~ compute_P(sum(.x, na.rm = T)), .names = "P_{.col}")) %>%
     ungroup()
   
-  return(risk_of_infection)
+  return(list(RoI = risk_of_infection, QC = quantaDF))
 }
 
 
 #### Run simulation ####
 
-av_cores <- parallel::detectCores() - 2
-n.cores <- ifelse(no_cores > av_cores, av_cores, no_cores)
-
-my.cluster <- parallel::makeCluster(
-  n.cores, 
-  type = "PSOCK"
-)
-doParallel::registerDoParallel(cl = my.cluster)
-registered <- ifelse(foreach::getDoParRegistered(), "Yes", "No")
-message(sprintf("Info: Cluster registration? %s", registered))
-message(sprintf("Info: Cluster using %i cores", foreach::getDoParWorkers()))
+# av_cores <- parallel::detectCores() - 2
+# n.cores <- ifelse(no_cores > av_cores, av_cores, no_cores)
+# 
+# my.cluster <- parallel::makeCluster(
+#   n.cores, 
+#   type = "PSOCK"
+# )
+# doParallel::registerDoParallel(cl = my.cluster)
+# registered <- ifelse(foreach::getDoParRegistered(), "Yes", "No")
+# message(sprintf("Info: Cluster registration? %s", registered))
+# message(sprintf("Info: Cluster using %i cores", foreach::getDoParWorkers()))
 
 for(cl in clinics) {
   
   message(sprintf("Clinic: %s", cl))
-  sel_dates <- list.files(paste0("data-clean/", cl, "/patient-tracking-data/"))[-1]
+  all_dates <- list.files(paste0("data-clean/", cl, "/combined-data/"), full.names = T)
+  all_dates_nfiles <- sapply(all_dates, function(x) length(list.files(x)))
+  sel_dates <- basename(all_dates)[all_dates_nfiles==3] # only those dates where we have all data files
+  #sel_dates <- sel_dates[7:8]
+  message(sprintf("Number of dates: %i", length(sel_dates)))
   save_dir <- paste0("simulations/", cl,  "/", sel_dates)
   for (sd in save_dir) {
     if (!dir.exists(sd)) {
@@ -269,32 +273,39 @@ for(cl in clinics) {
   for (d in sel_dates) {
     
     message(sprintf("-- Date: %s", as.character(d)))
-    clData <- prep_data(clinic = "Masi", sel_date = d, nSim = no_sim)
+    prep_sim_data <- prep_data(clinic = cl, sel_date = d, nSim = no_sim)
     
-    foreach::foreach(i = 1:nrow(clData$input_parameters), .combine = rbind, .packages = c("tidyverse")) %dopar% {
-      
-      result <- spatiotemporal_model(
-        time_period = clData$time_period,
-        patMov = clData$patient_movements,
-        co2_and_n = clData$co2_and_n,
-        room_coords = clData$room_coordinates,
-        cell_volume = clData$cell_volume,
-        tb_ids = clData$tb_patient_ids[[i]],
-        smu = clData$input_parameters$spatial_mu[i],
-        q = clData$input_parameters$quanta[i],
-        V = clData$input_parameters$V[i],
-        Ca = clData$input_parameters$co2_ex[i],
-        Co = clData$input_parameters$co2_out[i],
-        G = clData$input_parameters$co2_gen[i]
-      )
-      result$date <- d
-      result$sim <- i
-      
-      saveRDS(result, paste0("simulations/", cl,  "/", d, "/QCTR-", i, ".rds"))
-      
-    }
+    null <- parallel::mclapply(
+      X = start_sim:no_sim,
+      FUN = function(i, prep_data, clinic_name, day_date) {
+        result <- spatiotemporal_model(
+          time_period = prep_data$time_period,
+          patMov = prep_data$patient_movements,
+          co2_and_n = prep_data$co2_and_n,
+          room_coords = prep_data$room_coordinates,
+          cell_volume = prep_data$cell_volume,
+          tb_ids = prep_data$tb_patient_ids[[i]],
+          smu = prep_data$input_parameters$spatial_mu[i],
+          q = prep_data$input_parameters$quanta[i],
+          V = prep_data$input_parameters$V[i],
+          Ca = prep_data$input_parameters$co2_ex[i],
+          Co = prep_data$input_parameters$co2_out[i],
+          G = prep_data$input_parameters$co2_gen[i]
+        )
+        quantaConc <- result$QC
+        transRisk <- result$RoI
+        quantaConc$date <- day_date
+        quantaConc$sim <- i
+        transRisk$date <- day_date
+        transRisk$sim <- i
+        saveRDS(quantaConc, paste0("simulations/", clinic_name,  "/", day_date, "/QC-", i, ".rds"))
+        saveRDS(transRisk, paste0("simulations/", clinic_name,  "/", day_date, "/TR-", i, ".rds"))
+        return(NULL)
+      },
+    prep_data = prep_sim_data, clinic_name = cl, day_date = d,
+    mc.cores = no_cores)
   }
 }
 
-parallel::stopCluster(cl = my.cluster)
+# parallel::stopCluster(cl = my.cluster)
 

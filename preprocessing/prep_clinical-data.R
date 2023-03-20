@@ -18,7 +18,7 @@ df_pat_time_masi <- read.csv("data-raw/Masi/clinical-data/patient-time.csv") %>%
   filter(!is.na(time))
 
 df_tb_suspects <- read.csv("data-raw/Masi/clinical-data/tb-suspects.csv") %>%
-  select(patient_id, result_txt) %>%
+  dplyr::select(patient_id, result_txt) %>%
   rename(result = result_txt)
 
 df <- left_join(df_pat_time_masi, df_tb_suspects) %>%
@@ -26,6 +26,17 @@ df <- left_join(df_pat_time_masi, df_tb_suspects) %>%
   mutate(tb_suspect = ifelse(is.na(result), "no", "yes"),
          time = format(date_time, "%H:%M:%S"),
          date_time = as.POSIXct(as.character(date_time))) %>%
-  select(patient_id, date, time, date_time, tb_suspect)
+  dplyr::select(patient_id, date, time, date_time, tb_suspect)
 
 saveRDS(df, "data-clean/Masi/clinical-data/clinical-data.rds")
+
+selected_dates <- unique(df$date)
+save_dir <- paste0("data-clean/Masi/combined-data/", selected_dates)
+for (i in 1:length(selected_dates)) {
+  if (!dir.exists(save_dir[i])) {
+    dir.create(save_dir[i])
+  }
+  df_sub <- df %>%
+    dplyr::filter(date == as.Date(selected_dates[i])) 
+  saveRDS(df_sub, paste0(save_dir[i], "/clinical-data.rds"))
+}
