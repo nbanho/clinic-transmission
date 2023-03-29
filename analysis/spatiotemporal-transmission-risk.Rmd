@@ -149,28 +149,6 @@ passage <- shapeToSpatial(building_sf$geometry[4], cellSize)
 passage_df <- fortify(passage)
 tb_room <- shapeToSpatial(building_sf$geometry[3], cellSize)
 tb_room_df <- fortify(tb_room)
-
-# test
-# waiting_room_df$value <- rnorm(nrow(waiting_room_df))
-# passage_df$value <- rnorm(nrow(passage_df))
-# tb_room_df$value <- rnorm(nrow(tb_room_df))
-# 
-# ggplot(mapping = aes(x = long, y = lat, group = group, fill = value)) +
-#   geom_polygon(data = waiting_room_df) +
-#   geom_polygon(data = passage_df) +
-#   geom_polygon(data = tb_room_df) +
-#   ggpubr::background_image(clinic_img) +
-#   annotate("text", x = -13200, y = -5300, label = "Entrance", size = 8 / cm(1), fontface = 2, hjust=0,vjust=0) +
-#   annotate("text", x = -13400, y = -2300, label = "Waiting room", size = 8 / cm(1), fontface = 2, hjust=0,vjust=0) +
-#   annotate("text", x = -5000, y = -4100, label = "Registration", size = 8 / cm(1), fontface = 2, angle = 90, hjust=0,vjust=0) +
-#   annotate("text", x = 2600, y = -2700, label = "TB room", size = 8 / cm(1), fontface = 2) +
-#   scale_y_continuous(expand = expansion(add=c(2500, 4000))) +
-#   scale_x_continuous(expand = expansion(add=c(400, 500))) +
-#   labs(fill = "Density") +
-#   theme(axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(),
-#         legend.position = c(0.825,0.075), legend.direction = "horizontal", legend.title = element_blank(), #legend.title = element_text(vjust = .75),
-#         panel.background = element_rect(fill = RColorBrewer::brewer.pal(n = 3, name = "YlOrRd")[1]), panel.grid.major = element_blank(),
-#         panel.grid.minor = element_blank())
 ```
 
 
@@ -562,5 +540,25 @@ qc_pl <- ggplot(mapping = aes(x = long, y = lat, group = group, fill = N)) +
   guides(fill = guide_legend(title.position = "top"))
 qc_pl
 ggsave(plot = qc_pl, filename = "../doc/IWHOD/presentation/figures/quanta-concentration.png", width = width_descr * 1.5, height = height_descr * 2)
+
+
+# for abstract
+highRiskPat_pl_abs <- highRiskPat_pl +
+  labs(title = "1a | Estimated no. of attendees with high-risk of MtB infection",
+       subtitle = "Number (mean and 95%-limits) of high-risk clinical attendees (defined as P>1%)") +
+  theme(plot.title = element_text(face = 2),
+        plot.title.position = "plot")
+
+summary_tab_abs <- summary_tab +
+  labs(title = " ",
+       subtitle = " ")
+
+qc_pl_abs <- qc_pl +
+  labs(title = "1b | Estimated quanta concentration in the clinic by daytime",
+        subtitle = "Average concentration in the morning (7:30 to 12am) and afternoon (12am to 4pm)") +
+  theme(plot.title = element_text(face = 2))
+
+comb_abs_pl <- grid.arrange(grid.arrange(highRiskPat_pl_abs, summary_tab_abs, ncol = 2, widths = 16 * c(0.7,.3)), qc_pl_abs, ncol = 1, heights = 25 / cm(1) * c(0.35, 0.65))
+ggsave(plot = comb_abs_pl, filename = "../doc/Union/abstract/figure.png", width = 16 / cm(1), height = 25 / cm(1))
 ```
 
