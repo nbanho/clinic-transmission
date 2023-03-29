@@ -8,6 +8,7 @@ library(sfheaders)
 library(raster)
 library(terra)
 library(VennDiagram)
+library(parallel)
 source("utils/spatial.r")
 
 # roomplan
@@ -30,8 +31,8 @@ for (f in files) {
     rotate_xy(a = -9)
   
   # add room info
-  df$point <- map2(df$x, df$y, function(xi,yi) sfheaders::sf_point(c(xi,yi)))
-  df$poly = map(df$point, sf::st_within, y = clinic_sf)
+  df$point <- mcmapply(function(xi,yi) sfheaders::sf_point(c(xi,yi)), df$x, df$y, mc.cores = 6)
+  df$poly = mclapply(df$point, sf::st_within, y = clinic_sf, mc.cores = 6)
   df$is_waitingroom <- map_lgl(df$poly, function(p) ifelse(any(unlist(p) == 2), T, F))
   df$is_tbroom <- map_lgl(df$poly, function(p) ifelse(any(unlist(p) == 3), T, F))
   df$is_passage <- map_lgl(df$poly, function(p) ifelse(any(unlist(p) == 4), T, F))
@@ -43,6 +44,9 @@ for (f in files) {
   df$is_in_room_right <- map_lgl(df$poly, function(p) ifelse(any(unlist(p) == 13), T, F) ) 
   df$is_exit <- map_lgl(df$poly, function(p) ifelse(any(unlist(p) %in% c(6, 14:15)), T, F)) # entrance and corridors are considered as exits
  
+  df <- df %>% 
+    dplyr::select(-point, -poly)
+  
   saveRDS(df, file = paste0("data-raw/Masi/xovis/", file_name)) 
 }
 
