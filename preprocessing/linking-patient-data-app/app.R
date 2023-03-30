@@ -54,7 +54,11 @@ building_pl
 #### Functions ####
 
 standing_height <- function(x, min_height = 1500) {
-  quantile(x[x>1500], .95)
+  if (all(x < min_height)) {
+    return(max(x))
+  } else {
+    median(x[x>=min_height])
+  }
 }
 
 filter_oids <- function(df, oid, max_timediff, max_distance) {
