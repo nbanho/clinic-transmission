@@ -410,12 +410,10 @@ server <- function(input, output, session) {
                current_id_last_height = datCurrentID$last_height,
                current_id_max_height = datCurrentID$max_height,
                current_id_duration = datCurrentID$duration) %>%
-        mutate(across(c(current_id_last_height, current_id_max_height, first_height, max_height), ~ format(round(.x / 10)), nsmall = 0),
+        mutate(across(c(current_id_last_height, current_id_max_height, first_height, max_height), ~ format(round(.x / 10), nsmall = 0)),
                timediff = format(timediff, nsmall = 0)) %>%
-        dplyr::select(current_id, current_id_last_height, current_id_max_height, current_id_duration,
-                      patient_id, timediff, distance, first_height, max_height, duration) %>%
-        set_names("Pat. ID", "E: Last H", "E: Stand H", "E: Duration",
-                  "Obs. ID", "L: Time", "L: Dist.", "L: First H", "L: Stand H", "L: Duration")
+        dplyr::select(current_id, patient_id, current_id_last_height, first_height, current_id_max_height, max_height, duration, timediff, distance) %>%
+        set_names("Pat. ID (P)", "Obs. ID (O)", "P: Last H", "O: First H", "P: Stand H", "O: Stand H", "O: Duration", "Time", "Dist.")
       
       return(datDisplayedIDs)
     }
