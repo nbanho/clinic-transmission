@@ -240,6 +240,9 @@ server <- function(input, output, session) {
     wd <- getwd()
     sd <- dirname(dirname(wd))
     sd <- paste(sd, "data-clean", "Masi", "patient-tracking-data", as.character(as.Date(values$dat$time[1])), sep = "/")
+    if (!dir.exists(sd)) {
+      dir.create(sd)
+    }
     return(paste0(sd, "/linked-patient-id-data.rds"))
   })
   output$saveto <- reactive({
@@ -411,13 +414,27 @@ server <- function(input, output, session) {
                current_id_max_height = datCurrentID$max_height,
                current_id_duration = datCurrentID$duration) %>%
         mutate(across(c(current_id_last_height, current_id_max_height, first_height, max_height), ~ format(round(.x / 10), nsmall = 0)),
-               timediff = format(timediff, nsmall = 0)) %>%
+               timediff = format(timediff, nsmall = 0),
+               duration = format(round(duration, 2), nsmall = 1),
+               distance = format(round(distance, 1), nsmall = 1)) %>%
         dplyr::select(current_id, patient_id, current_id_last_height, first_height, current_id_max_height, max_height, duration, timediff, distance) %>%
-        set_names("Pat. ID (P)", "Obs. ID (O)", "P: Last H", "O: First H", "P: Stand H", "O: Stand H", "O: Duration", "Time", "Dist.")
+        set_names("Pat. ID", "Obs. ID", "Last height (cm)", "First height (cm)", "P: Stand height (cm)", "O: Stand height (cm)", "Duration (min)", "Time (sec)", "Distance (m)") %>%
+        mutate_all(as.character) 
+      
+      n_possibleIDs <- nrow(datDisplayedIDs)
+      
+      if (n_possibleIDs > 0) {
+        for (i in 1:n_possibleIDs) {
+          col <- scales::hue_pal()(n_possibleIDs)[i]
+          for (k in c(2, 4, 6, 7:9)) {
+            datDisplayedIDs[i,k] <- paste0('<span style="color:', col, '">', datDisplayedIDs[i,k], "</span>")
+          }
+        }
+      }
       
       return(datDisplayedIDs)
     }
-  })
+  }, sanitize.text.function = function(x) x)
 }
 
 
