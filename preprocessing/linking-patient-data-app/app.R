@@ -1,6 +1,7 @@
 #### Libraries ###
 library(shiny)
 library(shinyalert)
+library(shinyWidgets)
 library(tidyverse)
 library(reshape2)
 library(lubridate)
@@ -57,11 +58,11 @@ standing_height <- function(x, min_height = 1500) {
   if (all(x < min_height)) {
     return(max(x))
   } else {
-    median(x[x>=min_height])
+    quantile(x[x>=min_height], .9)
   }
 }
 
-filter_oids <- function(df, oid, max_timediff, max_distance) {
+filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff) {
   
   # current id
   df_i <- df %>%
@@ -82,9 +83,11 @@ filter_oids <- function(df, oid, max_timediff, max_distance) {
     ungroup() %>%
     merge(df_i, suffixes = c("_other", "_i"), by = NULL) %>%
     mutate(timediff = as.numeric(difftime(time_other, time_i, units = "secs")),
-           distance = convert_dist(euclidean(x_other, x_i, y_other, y_i))) %>%
+           distance = convert_dist(euclidean(x_other, x_i, y_other, y_i)),
+           heightdiff = (height_other - height_i) / 10) %>%
     filter(timediff <= max_timediff,
-           distance <= max_distance)
+           distance <= max_distance,
+           heightdiff <= heightdiff)
   
   # paths of other ids
   df_other <- df_other %>%
@@ -124,8 +127,9 @@ plot_other_oids <- function(pl_oid, df_i, df_other) {
   
 }
 
-default_time <- 15
+default_time <- 30
 default_dist <- 5
+default_height <- 10
 
 #### Shiny UI ####
 ui <- fluidPage(
@@ -141,8 +145,13 @@ ui <- fluidPage(
       uiOutput("currentTime"),
       uiOutput("currentDuration"),
       br(),
-      sliderInput("timeInput", "Time", min = 0, max = 900, value = default_time, step = 15, post = "s"),
-      sliderInput("distanceInput", "Distance", min = 0, max = 5, value = default_dist, step = 0.25, post = "m"),
+      radioButtons("quickInput", "Quick filter", choices = list("Moving" = 1, "Sitting" = 2)),
+      sliderTextInput("timeInput", "Time", from_min = 10, to_max = 900, selected = default_time, 
+                      choices = c(10, 20, 30, 60, 120, 180, 300, 600, 900), post = "sec"),
+      sliderTextInput("distanceInput", "Distance", from_min = 0.5, to_max = 5, selected = default_dist, 
+                      choices = c(0.5, 1, 3, 5), post = "m"),
+      sliderTextInput("heightInput", "Height", from_min = 10, to_max = 50, selected = default_height, 
+                      choices = c(10, 20, 50), post = "cm"),
       numericInput("linkID", "Link patient with ID", value = -1, min = 0, max = 100000, step = 1),
       actionButton("linkTrack", "Link track"),
       actionButton("unlinkTrack", "Unlink previous track"),
@@ -267,8 +276,9 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$idInput, {
-    updateSliderInput(inputId = "timeInput", value = default_time)
-    updateSliderInput(inputId = "distanceInput", value = default_dist)
+    updateSliderTextInput(session, inputId = "timeInput", selected = default_time)
+    updateSliderTextInput(session, inputId = "distanceInput", selected = default_dist)
+    updateSliderTextInput(session, inputId = "heightInput", selected = default_height)
   })
   
   # get currently selected date
@@ -279,6 +289,24 @@ server <- function(input, output, session) {
   # get currently selected distance
   current_distance <- reactive({
     as.numeric(input$distanceInput)
+  })
+  
+  # get currently selected height
+  current_height <- reactive({
+    as.numeric(input$heightInput)
+  })
+  
+  # quick filter
+  observeEvent(input$quickInput, {
+    if (input$quickInput == 1) {
+      updateSliderTextInput(session, inputId = "timeInput", selected = default_time)
+      updateSliderTextInput(session, inputId = "distanceInput", selected = default_dist)
+      updateSliderTextInput(session, inputId = "heightInput", selected = default_height)
+    } else {
+      updateSliderTextInput(session, inputId = "timeInput", selected = 300)
+      updateSliderTextInput(session, inputId = "distanceInput", selected = 0.5)
+      updateSliderTextInput(session, inputId = "heightInput", selected = 50)
+    }
   })
   
   # current ID
@@ -302,7 +330,7 @@ server <- function(input, output, session) {
     
   # possible IDs to link
   dat_other <- reactive({
-    dat_other <- filter_oids(values$dat, current_id(), current_time(), current_distance())
+    dat_other <- filter_oids(values$dat, current_id(), current_time(), current_distance(), current_height())
   })
   
   # current number of links
@@ -343,8 +371,6 @@ server <- function(input, output, session) {
     unlink_info <- paste("Unlinking ID", last_id, "from", current_id()) 
     shinyalert("Info", unlink_info, type = "info", timer = 1000)
     base::saveRDS(object = values$dat, file = save_dir())
-    updateSliderInput(inputId = "timeInput", value = default_time)
-    updateSliderInput(inputId = "distanceInput", value = default_dist)
     output$noLinks <- reactive({
       nL <- (n_distinct(values$dat$obs_id_new[values$dat$patient_id == current_id()]) - 1) %>% as.character()
       paste("No. of links:", nL)
@@ -363,8 +389,9 @@ server <- function(input, output, session) {
     output$totEntranceIDs <- reactive({
       paste("Remaining entered IDs:", as.character(length(values$entered_ids)))
     })
-    updateSliderInput(inputId = "timeInput", value = default_time)
-    updateSliderInput(inputId = "distanceInput", value = default_dist)
+    updateSliderTextInput(session, inputId = "timeInput", selected = default_time)
+    updateSliderTextInput(session, inputId = "distanceInput", selected = default_dist)
+    updateSliderTextInput(session, inputId = "heightInput", selected = default_height)
     output$cleanTracks <- reactive({
       clTracks <- values$dat %>%
       filter(!is.na(tracking_end),
@@ -417,12 +444,16 @@ server <- function(input, output, session) {
                current_id_last_height = datCurrentID$last_height,
                current_id_max_height = datCurrentID$max_height,
                current_id_duration = datCurrentID$duration) %>%
-        mutate(across(c(current_id_last_height, current_id_max_height, first_height, max_height), ~ format(round(.x / 10), nsmall = 0)),
+        mutate(last_height_diff = first_height - current_id_last_height,
+               stand_height_diff = max_height - current_id_max_height) %>%
+        mutate(across(c(current_id_last_height, current_id_max_height, first_height, max_height, last_height_diff, stand_height_diff), ~ format(round(.x / 10), nsmall = 0)),
                timediff = format(timediff, nsmall = 0),
                duration = format(round(duration, 2), nsmall = 1),
                distance = format(round(distance, 1), nsmall = 1)) %>%
-        dplyr::select(current_id, patient_id, current_id_last_height, first_height, current_id_max_height, max_height, duration, timediff, distance) %>%
-        set_names("Pat. ID", "Obs. ID", "Last height (cm)", "First height (cm)", "P: Stand height (cm)", "O: Stand height (cm)", "Duration (min)", "Time (sec)", "Distance (m)") %>%
+        mutate(last_height_comb = paste0(last_height_diff, " (", first_height, ", ", current_id_last_height, ")"),
+               stand_height_comb = paste0(stand_height_diff, " (", max_height, ", ", current_id_max_height, ")")) %>%
+        dplyr::select(current_id, patient_id, last_height_comb, stand_height_comb, duration, timediff, distance) %>%
+        set_names("Pid", "Oid", "Last heightdiff (Oid, Pid) [cm]", "Stand heightdiff (Oid, Pid) [cm]", "Duration Oid [min]", "Timediff [sec]", "Distance [m]") %>%
         mutate_all(as.character) 
       
       n_possibleIDs <- nrow(datDisplayedIDs)
@@ -430,7 +461,7 @@ server <- function(input, output, session) {
       if (n_possibleIDs > 0) {
         for (i in 1:n_possibleIDs) {
           col <- scales::hue_pal()(n_possibleIDs)[i]
-          for (k in c(2, 4, 6, 7:9)) {
+          for (k in 2:6) {
             datDisplayedIDs[i,k] <- paste0('<span style="color:', col, '">', datDisplayedIDs[i,k], "</span>")
           }
         }
