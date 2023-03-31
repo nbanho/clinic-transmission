@@ -62,7 +62,7 @@ standing_height <- function(x, min_height = 1500) {
   }
 }
 
-filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff) {
+filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff, next_ids = T) {
   
   # current id
   df_i <- df %>%
@@ -71,11 +71,20 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff) {
     dplyr::select(x, y, time, height)
   
   # other potential ids
-  df_other <- df %>%
-    filter(is.na(tracking_end)) %>%
-    group_by(patient_id) %>%
-    filter(first(time) > df_i$time) %>%
-    ungroup()
+  if (next_ids) {
+    df_other <- df %>%
+      filter(is.na(tracking_end)) %>%
+      group_by(patient_id) %>%
+      filter(first(time) > df_i$time) %>%
+      ungroup()
+  } else {
+    df_other <- df %>%
+      filter(is.na(tracking_end)) %>%
+      group_by(patient_id) %>%
+      filter(last(time) <= df_i$time) %>%
+      ungroup()
+  }
+  
   
   # other ids filtered for maximum timediff and distance
   df_other_feat <- df_other %>%
@@ -83,7 +92,7 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff) {
     slice(1) %>%
     ungroup() %>%
     base::merge(df_i, suffixes = c("", "_i"), by = NULL) %>%
-    mutate(timediff = as.numeric(difftime(time, time_i, units = "secs")), 
+    mutate(timediff = abs(as.numeric(difftime(time, time_i, units = "secs"))), 
            distance = convert_dist(euclidean(x, x_i, y, y_i)),
            heightdiff = abs(height - height_i) / 10) %>%
     filter(timediff <= max_timediff,
@@ -98,7 +107,7 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff) {
   return(df_other)
 }
 
-plot_other_oids <- function(pl_oid, df_i, df_other) {
+plot_other_oids <- function(pl_oid, df_i, df_other, df_rest) {
   
   df_i_f <- df_i %>%
     slice(1)
@@ -112,6 +121,13 @@ plot_other_oids <- function(pl_oid, df_i, df_other) {
     group_by(patient_id) %>%
     slice(n())
   
+  df_rest_f <- df_rest %>%
+    group_by(patient_id) %>% 
+    slice(1)
+  df_rest_l <- df_rest %>%
+    group_by(patient_id) %>%
+    slice(n())
+  
   pointsize <- 4
   
   pl_oid +
@@ -121,6 +137,9 @@ plot_other_oids <- function(pl_oid, df_i, df_other) {
     geom_path(data = df_other, mapping = aes(x = x, y = y, color = factor(patient_id))) +
     geom_point(data = df_other_f, mapping = aes(x = x, y = y, color = factor(patient_id)), shape = 1, fill = "white", size = pointsize) +
     geom_point(data = df_other_l, mapping = aes(x = x, y = y, color = factor(patient_id)), shape = 13, fill = "white", size = pointsize) +
+    geom_path(data = df_rest, mapping = aes(x = x, y = y, group = factor(patient_id)), alpha = .1) +
+    geom_point(data = df_rest_f, mapping = aes(x = x, y = y, group = factor(patient_id)), shape = 1, fill = "white", size = pointsize, alpha = .2) +
+    geom_point(data = df_rest_l, mapping = aes(x = x, y = y, group = factor(patient_id)), shape = 13, fill = "white", size = pointsize, alpha = .2) +
     theme(legend.position = "bottom", legend.title = element_blank())
   
 }
@@ -332,6 +351,11 @@ server <- function(input, output, session) {
     dat_other <- filter_oids(values$dat, current_id(), current_time(), current_distance(), current_height())
   })
   
+  # remaining IDs 
+  dat_rest <- reactive({
+    filter_oids(values$dat, current_id(), current_time(), Inf, Inf, next_ids = F)
+  })
+  
   # current number of links
   output$noLinks <- reactive({
     nL <- (n_distinct(values$dat$obs_id[values$dat$patient_id == current_id()]) - 1) %>% as.character()
@@ -417,7 +441,7 @@ server <- function(input, output, session) {
     if (is.null(values$dat)) {
       building_pl 
     } else {
-      plot_other_oids(building_pl, dat_i(), dat_other())
+      plot_other_oids(building_pl, dat_i(), dat_other(), dat_rest())
     } 
   }, height = 750, width = 1000)
   
