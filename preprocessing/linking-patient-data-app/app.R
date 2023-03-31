@@ -276,9 +276,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$idInput, {
-    updateSliderTextInput(session, inputId = "timeInput", selected = default_time)
-    updateSliderTextInput(session, inputId = "distanceInput", selected = default_dist)
-    updateSliderTextInput(session, inputId = "heightInput", selected = default_height)
+    updateRadioButtons(session, "quickInput", selected = 1)
   })
   
   # get currently selected date
@@ -389,9 +387,7 @@ server <- function(input, output, session) {
     output$totEntranceIDs <- reactive({
       paste("Remaining entered IDs:", as.character(length(values$entered_ids)))
     })
-    updateSliderTextInput(session, inputId = "timeInput", selected = default_time)
-    updateSliderTextInput(session, inputId = "distanceInput", selected = default_dist)
-    updateSliderTextInput(session, inputId = "heightInput", selected = default_height)
+    updateRadioButtons(session, "quickInput", selected = 1)
     output$cleanTracks <- reactive({
       clTracks <- values$dat %>%
       filter(!is.na(tracking_end),
