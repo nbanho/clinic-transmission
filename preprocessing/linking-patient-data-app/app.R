@@ -87,7 +87,7 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff) {
            heightdiff = (height_other - height_i) / 10) %>%
     filter(timediff <= max_timediff,
            distance <= max_distance,
-           heightdiff <= heightdiff)
+           heightdiff <= max_heightdiff)
   
   # paths of other ids
   df_other <- df_other %>%
@@ -424,30 +424,28 @@ server <- function(input, output, session) {
       datCurrentID <- dat_i() %>%
         group_by(patient_id) %>%
         summarize(last_height = last(height),
-                  max_height = standing_height(height),
-                  duration = as.numeric(difftime(last(time), first(time), units = "mins"))) %>%
-        ungroup() 
+                  stand_height = standing_height(height)) %>%
+        ungroup()
       
       datDisplayedIDs <- dat_other() %>%
         group_by(patient_id) %>%
         summarize(first_height = first(height),
-                  max_height = standing_height(height),
+                  stand_height = standing_height(height),
                   duration = as.numeric(difftime(last(time), first(time), units = "mins")),
                   timediff = first(timediff),
                   distance = first(distance)) %>%
         ungroup() %>%
         mutate(current_id = datCurrentID$patient_id,
                current_id_last_height = datCurrentID$last_height,
-               current_id_max_height = datCurrentID$max_height,
-               current_id_duration = datCurrentID$duration) %>%
+               current_id_stand_height = datCurrentID$stand_height) %>%
         mutate(last_height_diff = first_height - current_id_last_height,
-               stand_height_diff = max_height - current_id_max_height) %>%
-        mutate(across(c(current_id_last_height, current_id_max_height, first_height, max_height, last_height_diff, stand_height_diff), ~ format(round(.x / 10), nsmall = 0)),
+               stand_height_diff = stand_height - current_id_stand_height) %>%
+        mutate(across(contains("height"), ~ format(round(.x / 10), nsmall = 0)),
                timediff = format(timediff, nsmall = 0),
                duration = format(round(duration, 2), nsmall = 1),
                distance = format(round(distance, 1), nsmall = 1)) %>%
         mutate(last_height_comb = paste0(last_height_diff, " (", first_height, ", ", current_id_last_height, ")"),
-               stand_height_comb = paste0(stand_height_diff, " (", max_height, ", ", current_id_max_height, ")")) %>%
+               stand_height_comb = paste0(stand_height_diff, " (", stand_height, ", ", current_id_stand_height, ")")) %>%
         dplyr::select(current_id, patient_id, last_height_comb, stand_height_comb, duration, timediff, distance) %>%
         set_names("Pid", "Oid", "Last heightdiff (Oid, Pid) [cm]", "Stand heightdiff (Oid, Pid) [cm]", "Duration Oid [min]", "Timediff [sec]", "Distance [m]") %>%
         mutate_all(as.character) 
