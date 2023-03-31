@@ -67,13 +67,14 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff) {
   # current id
   df_i <- df %>%
     filter(patient_id == oid) %>%
-    slice(n())
+    slice(n()) %>%
+    dplyr::select(x, y, time, height)
   
   # other potential ids
   df_other <- df %>%
     filter(is.na(tracking_end)) %>%
     group_by(patient_id) %>%
-    filter(first(time) > df_i$time[1]) %>%
+    filter(first(time) > df_i$time) %>%
     ungroup()
   
   # other ids filtered for maximum timediff and distance
@@ -81,21 +82,18 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff) {
     group_by(patient_id) %>%
     slice(1) %>%
     ungroup() %>%
-    merge(df_i, suffixes = c("_other", "_i"), by = NULL) %>%
-    mutate(timediff = as.numeric(difftime(time_other, time_i, units = "secs")),
-           distance = convert_dist(euclidean(x_other, x_i, y_other, y_i)),
-           heightdiff = (height_other - height_i) / 10) %>%
+    base::merge(df_i, suffixes = c("", "_i"), by = NULL) %>%
+    mutate(timediff = as.numeric(difftime(time, time_i, units = "secs")), 
+           distance = convert_dist(euclidean(x, x_i, y, y_i)),
+           heightdiff = abs(height - height_i) / 10) %>%
     filter(timediff <= max_timediff,
            distance <= max_distance,
            heightdiff <= max_heightdiff)
   
   # paths of other ids
   df_other <- df_other %>%
-    filter(patient_id %in% df_other_feat$obs_id_other) %>%
-    left_join(df_other_feat %>% 
-                rename(patient_id = patient_id_other) %>%
-                dplyr::select(patient_id, timediff, distance), 
-              by = "patient_id")
+    filter(patient_id %in% df_other_feat$obs_id) %>%
+    left_join(dplyr::select(df_other_feat, patient_id, timediff, distance), by = "patient_id")
   
   return(df_other)
 }
@@ -277,6 +275,9 @@ server <- function(input, output, session) {
   
   observeEvent(input$idInput, {
     updateRadioButtons(session, "quickInput", selected = 1)
+    updateSliderTextInput(session, inputId = "timeInput", selected = default_time)
+    updateSliderTextInput(session, inputId = "distanceInput", selected = default_dist)
+    updateSliderTextInput(session, inputId = "heightInput", selected = default_height)
   })
   
   # get currently selected date
@@ -388,6 +389,9 @@ server <- function(input, output, session) {
       paste("Remaining entered IDs:", as.character(length(values$entered_ids)))
     })
     updateRadioButtons(session, "quickInput", selected = 1)
+    updateSliderTextInput(session, inputId = "timeInput", selected = default_time)
+    updateSliderTextInput(session, inputId = "distanceInput", selected = default_dist)
+    updateSliderTextInput(session, inputId = "heightInput", selected = default_height)
     output$cleanTracks <- reactive({
       clTracks <- values$dat %>%
       filter(!is.na(tracking_end),
