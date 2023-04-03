@@ -78,9 +78,6 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff, nex
       group_by(patient_id) %>%
       filter(first(time) > df_i$time) %>%
       ungroup()
-    if(!is.null(exclude)) {
-      df_other <- filter(df_other, patient_id != exclude)
-    }
     
     # other ids filtered for maximum timediff and distance
     df_other_feat <- df_other %>%
@@ -98,18 +95,16 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff, nex
     
     # other potential ids
     df_other <- df %>%
-      filter(is.na(tracking_end)) %>%
+      filter(is.na(tracking_end),
+             patient_id != exclude) %>%
       group_by(patient_id) %>%
       filter(last(time) < df_i$time) %>%
       ungroup()
-    if(!is.null(exclude)) {
-      df_other <- filter(df_other, patient_id != exclude)
-    }
     
     # other ids filtered for maximum timediff and distance
     df_other_feat <- df_other %>%
       group_by(patient_id) %>%
-      slice(1) %>%
+      slice(n()) %>%
       ungroup()
   }
   
@@ -418,6 +413,7 @@ server <- function(input, output, session) {
   
   # data for alternatives to possible links
   dat_alt <- reactive({
+    req(input$idInput)
     req(input$altIDs)
     filter_oids(values$dat, input$altIDs, current_time(), current_distance(), current_height(), nextIDs = F, exclude = current_id())
   })
