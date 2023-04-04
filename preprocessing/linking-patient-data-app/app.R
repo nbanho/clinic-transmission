@@ -90,7 +90,7 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff, nex
     df_other <- df %>%
       filter(is.na(tracking_end)) %>%
       group_by(patient_id) %>%
-      filter(first(time) > df_i$time) %>%
+      filter(first(time) >= df_i$time) %>%
       ungroup()
     
     # other ids filtered for maximum timediff and distance
@@ -111,7 +111,7 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff, nex
     df_other <- df %>%
       filter(is.na(tracking_end)) %>%
       group_by(patient_id) %>%
-      filter(last(time) < df_i$time) %>%
+      filter(last(time) <= df_i$time) %>%
       ungroup()
     
     # other ids filtered for maximum timediff and distance
