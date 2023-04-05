@@ -88,9 +88,10 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff, nex
     
     # other potential ids
     df_other <- df %>%
-      filter(is.na(tracking_end)) %>%
+      filter(is.na(tracking_end),
+             patient_id != oid) %>%
       group_by(patient_id) %>%
-      filter(first(time) >= df_i$time) %>%
+      filter(first(time) >= df_i$time - lubridate::seconds(1)) %>%
       ungroup()
     
     # other ids filtered for maximum timediff and distance
@@ -109,9 +110,10 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff, nex
     
     # other potential ids
     df_other <- df %>%
-      filter(is.na(tracking_end)) %>%
+      filter(is.na(tracking_end),
+             patient_id != oid) %>%
       group_by(patient_id) %>%
-      filter(last(time) <= df_i$time) %>%
+      filter(last(time) <= df_i$time + lubridate::seconds(1)) %>%
       ungroup()
     
     # other ids filtered for maximum timediff and distance
@@ -124,7 +126,8 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff, nex
   
   df_other_feat <- df_other_feat %>%
     base::merge(df_i, suffixes = c("", "_i"), by = NULL) %>%
-    mutate(timediff = abs(as.numeric(difftime(time, time_i, units = "secs"))), 
+    mutate(timediff_raw = (as.numeric(difftime(time, time_i, units = "secs"))), 
+           timediff = abs(timediff_raw),
            distance = convert_dist(euclidean(x, x_i, y, y_i)),
            heightdiff = abs(height - height_i) / 10) %>%
     filter(timediff <= max_timediff,
@@ -134,7 +137,7 @@ filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff, nex
   # paths of other ids
   df_other <- df_other %>%
     filter(patient_id %in% df_other_feat$obs_id) %>%
-    left_join(dplyr::select(df_other_feat, patient_id, timediff, distance), by = "patient_id")
+    left_join(dplyr::select(df_other_feat, patient_id, timediff_raw, distance), by = "patient_id")
   
   return(df_other)
 }
@@ -205,7 +208,7 @@ table_ids <- function(df_i, df_pos) {
     summarize(first_height = first(height),
               stand_height = standing_height(height),
               duration = as.numeric(difftime(last(time), first(time), units = "mins")),
-              timediff = first(timediff),
+              timediff = first(timediff_raw),
               distance = first(distance)) %>%
     ungroup() %>%
     mutate(current_id = datCurrentID$patient_id,
@@ -220,7 +223,7 @@ table_ids <- function(df_i, df_pos) {
     mutate(last_height_comb = paste0(last_height_diff, " (", first_height, ", ", current_id_last_height, ")"),
            stand_height_comb = paste0(stand_height_diff, " (", stand_height, ", ", current_id_stand_height, ")")) %>%
     dplyr::select(current_id, patient_id, last_height_comb, stand_height_comb, duration, timediff, distance) %>%
-    arrange(timediff) %>%
+    arrange(patient_id) %>%
     set_names("Pid", "Oid", "Last heightdiff (Oid, Pid) [cm]", "Stand heightdiff (Oid, Pid) [cm]", "Duration Oid [min]", "Timediff [sec]", "Distance [m]") %>%
     mutate_all(as.character) 
   
@@ -478,7 +481,7 @@ server <- function(input, output, session) {
     req(dat_i)
     req(dat_pos)
     table_ids(dat_i(), dat_pos())
-  }) %>% debounce(plot_wait_time)
+  }) 
   
   
   #### New link ####
