@@ -22,9 +22,9 @@ pointsize <- 4
 plot_wait_time <- 1000 # wait 1s until plot and table are generated
 
 # search parameters 
-time_choices <- c(30, 60, 900)
-dist_choices <- c(0.5, 1, 5)
-height_choices <- c(10, 20, 100)
+time_choices <- c(30, 60, 300, 600, 900)
+dist_choices <- c(0.5, 1, 3, 5)
+height_choices <- c(10, 20, 50, 100)
 short_move_time <- 30
 short_move_dist <- 5
 short_move_height <- 10
@@ -87,8 +87,8 @@ standing_height <- function(x, min_height = 1500) {
   }
 }
 
-filter_other_feat <- function(df, oid, nextIDs = T) {
-  if (nextIDs) {
+filter_other_feat <- function(df, oid, nextIDs = 1) {
+  if (nextIDs == 1) {
     
     # current id
     df_i <- df %>%
@@ -149,7 +149,7 @@ subset_other_feat <- function(df_other, max_timediff, max_distance, max_heightdi
 }
 
 
-plot_ids <- function(pl, df_i, df_pos, df_alt) {
+plot_ids <- function(pl, df_i, df_pos, df_alt, direction) {
   
   if (!is.null(df_i)) {
     if (nrow(df_i) > 0) {
@@ -167,6 +167,12 @@ plot_ids <- function(pl, df_i, df_pos, df_alt) {
   
   if (!is.null(df_pos)) {
     if (nrow(df_pos) > 0) {
+      
+      df_pos <- mutate(df_pos, patient_id = factor(patient_id))
+      if (direction == 2) {
+        df_pos <- mutate(df_pos, patient_id = forcats::fct_rev(patient_id))
+      }
+      
       df_pos_f <- df_pos %>%
         group_by(patient_id) %>%
         slice(1)
@@ -175,15 +181,21 @@ plot_ids <- function(pl, df_i, df_pos, df_alt) {
         slice(n())
       
       pl <- pl +
-        geom_path(data = df_pos, mapping = aes(x = x, y = y, color = factor(patient_id))) +
-        geom_point(data = df_pos_f, mapping = aes(x = x, y = y, color = factor(patient_id)), shape = 1, fill = "white", size = pointsize) +
-        geom_point(data = df_pos_l, mapping = aes(x = x, y = y, color = factor(patient_id)), shape = 13, fill = "white", size = pointsize) +
+        geom_path(data = df_pos, mapping = aes(x = x, y = y, color = patient_id)) +
+        geom_point(data = df_pos_f, mapping = aes(x = x, y = y, color = patient_id), shape = 1, fill = "white", size = pointsize) +
+        geom_point(data = df_pos_l, mapping = aes(x = x, y = y, color = patient_id), shape = 13, fill = "white", size = pointsize) +
         theme(legend.position = "bottom", legend.title = element_blank())
     }
   }
   
   if (!is.null(df_alt)) {
     if (nrow(df_alt) > 0) {
+      
+      df_alt <- mutate(df_alt, patient_id = factor(patient_id))
+      if (direction == 2) {
+        df_alt <- mutate(df_alt, patient_id = forcats::fct_rev(patient_id))
+      }
+      
       df_alt_f <- df_alt %>%
         group_by(patient_id) %>%
         slice(1)
@@ -192,17 +204,17 @@ plot_ids <- function(pl, df_i, df_pos, df_alt) {
         slice(n())
       
       pl  <- pl +
-        geom_path(data = df_alt, mapping = aes(x = x, y = y, group = factor(patient_id)), alpha = .25) +
-        geom_text_repel(data = df_alt_l, mapping = aes(x = x, y = y, group = factor(patient_id), label = patient_id), alpha = .66, size = 10 / cm(1)) +
-        geom_point(data = df_alt_f, mapping = aes(x = x, y = y, group = factor(patient_id)), shape = 1, fill = "white", size = pointsize, alpha = .5) +
-        geom_point(data = df_alt_l, mapping = aes(x = x, y = y, group = factor(patient_id)), shape = 13, fill = "white", size = pointsize, alpha = .5)
+        geom_path(data = df_alt, mapping = aes(x = x, y = y, group = patient_id), alpha = .25) +
+        geom_text_repel(data = df_alt_l, mapping = aes(x = x, y = y, group = patient_id, label = patient_id), alpha = .66, size = 10 / cm(1)) +
+        geom_point(data = df_alt_f, mapping = aes(x = x, y = y, group = patient_id), shape = 1, fill = "white", size = pointsize, alpha = .5) +
+        geom_point(data = df_alt_l, mapping = aes(x = x, y = y, group = patient_id), shape = 13, fill = "white", size = pointsize, alpha = .5)
     }
   }
   
   return(pl)
 }
 
-table_ids <- function(df_i, df_pos) {
+table_ids <- function(df_i, df_pos, direction) {
   
   if (is.null(df_i)) { return(NULL) }
   if (is.null(df_pos)) { return(NULL) }
@@ -244,6 +256,10 @@ table_ids <- function(df_i, df_pos) {
     set_names("Pid", "Oid", "Last heightdiff (Oid, Pid) [cm]", "Stand heightdiff (Oid, Pid) [cm]", "Duration Oid [min]", "Timediff [sec]", "Distance [m]") %>%
     arrange(Pid) %>%
     mutate_all(as.character) 
+  
+  if (direction == 2) {
+    df_feat <- purrr::map_df(df_feat, rev)
+  }
   
   n_possibleIDs <- nrow(df_feat)
   
@@ -304,6 +320,7 @@ ui <- fluidPage(
       actionButton("prevEnteredID", "Previous Entrance"),
       br(),
       br(),
+      radioButtons("direction", "Matching direction", choices = list("Forward" = 1, "Backward" = 2), inline = T),
       div(
         tags$span("ID Duration:", class = "bold-prefix"),
         textOutput("currentDuration"),
@@ -327,7 +344,8 @@ ui <- fluidPage(
       selectizeInput("altID", "Show alternatives for ID", choices = -1, selected = -1, options = list(maxItems = 1)),
       selectizeInput("posID", "Link with ID", choices = -1, selected = -1, options = list(maxItems = 1)),
       actionButton("linkTrack", "Link IDs"),
-      actionButton("unlinkTrack", "Unlink previous ID"),
+      actionButton("unlinkLastID", "Unlink last ID"),
+      actionButton("unlinkFirstID", "Unlink first ID"),
       br(),
       br(),
       selectInput("terminalInput", "Stop linking", choices = c("ID lost", "ID exited")),
@@ -455,6 +473,7 @@ server <- function(input, output, session) {
     req(input$ID)
     oid <- as.numeric(input$ID)
     updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = values$all_ids[values$all_ids>oid][1], server = T)
+    updateRadioButtons(session, "direction", selected = 1)
     updateRadioButtons(session, "quick", selected = 1)
   })
   
@@ -463,6 +482,7 @@ server <- function(input, output, session) {
     req(input$ID)
     oid <- as.numeric(input$ID)
     updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = values$entered_ids[values$entered_ids>oid][1], server = T)
+    updateRadioButtons(session, "direction", selected = 1)
     updateRadioButtons(session, "quick", selected = 1)
   })
   
@@ -471,6 +491,7 @@ server <- function(input, output, session) {
     req(input$ID)
     oid <- as.numeric(input$ID)
     updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = tail(values$all_ids[values$all_ids<oid],1), server = T)
+    updateRadioButtons(session, "direction", selected = 1)
     updateRadioButtons(session, "quick", selected = 1)
   })
   
@@ -479,6 +500,7 @@ server <- function(input, output, session) {
     req(input$ID)
     oid <- as.numeric(input$ID)
     updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = tail(values$entered_ids[values$entered_ids<oid],1), server = T)
+    updateRadioButtons(session, "direction", selected = 1)
     updateRadioButtons(session, "quick", selected = 1)
   })
   
@@ -496,7 +518,7 @@ server <- function(input, output, session) {
         dplyr::select(patient_id, obs_id, time, x, y, height)
       
       # filter others
-      values$dat_pos_feat <- filter_other_feat(values$dat, oid)
+      values$dat_pos_feat <- filter_other_feat(values$dat, oid, input$direction)
       # compute features
       values$dat_pos_feat <- compute_other_feat(values$dat_i, values$dat_pos_feat)
       
@@ -511,6 +533,16 @@ server <- function(input, output, session) {
     }
   })
   
+  observeEvent(input$direction, {
+    if (!is.null(values$dat) & !is.null(values$dat_i) & !is.null(values$dat_pos_feat)) {
+      oid <- as.numeric(input$ID)
+      # filter others
+      values$dat_pos_feat <- filter_other_feat(values$dat, oid, input$direction)
+      # compute features
+      values$dat_pos_feat <- compute_other_feat(values$dat_i, values$dat_pos_feat)
+    }
+  })
+  
   # possible link ID data
   observe({
     # get possible links
@@ -519,7 +551,7 @@ server <- function(input, output, session) {
       if (nrow(values$dat_pos_feat) > 0) {
         dat_pos_feat_sub <- subset_other_feat(values$dat_pos_feat, input$time, input$distance, input$height)
         if (nrow(dat_pos_feat_sub) > 0) {
-          posIDs <- sort(unique(dat_pos_feat_sub$patient_id_other))
+          posIDs <- unique(dat_pos_feat_sub$patient_id_other)
           values$dat_pos <- filter(values$dat, patient_id %in% posIDs)
         } else {
           values$dat_pos <- NULL
@@ -533,8 +565,8 @@ server <- function(input, output, session) {
     
     # update selection
     if (!is.null(values$dat_pos)) {
-      updateSelectizeInput(session, inputId = "posID", choices = posIDs)
-      updateSelectizeInput(session, inputId = "altID", choices = posIDs)
+      updateSelectizeInput(session, inputId = "posID", choices = ifelse(input$direction == 1, posIDs, rev(posIDs)))
+      updateSelectizeInput(session, inputId = "altID", choices = ifelse(input$direction == 1, posIDs, rev(posIDs)))
     } else {
       updateSelectizeInput(session, inputId = "posID", choices = -1)
       updateSelectizeInput(session, inputId = "altID", choices = -1)
@@ -547,7 +579,7 @@ server <- function(input, output, session) {
       aid <- as.numeric(input$altID)
       oid <- as.numeric(input$ID)
       dat_pos_i <- filter(values$dat, patient_id == aid)
-      values$dat_alt_feat <- filter_other_feat(values$dat, aid, nextIDs = F) %>%
+      values$dat_alt_feat <- filter_other_feat(values$dat, aid, ifelse(input$direction == 1, 2, 1)) %>%
         filter(patient_id != oid)
       if (nrow(values$dat_alt_feat) > 0) {
         values$dat_alt_feat <- compute_other_feat(dat_pos_i, values$dat_alt_feat)
@@ -567,16 +599,28 @@ server <- function(input, output, session) {
   #### New link ####
   observeEvent(input$linkTrack, {
     # make link
+    oid <- as.numeric(input$ID)
     lid <- input$posID
-    name_linkage_success <- paste("ID", input$ID, "linked to", lid, ".")
+    linkDir <- input$direction
+    name_linkage_success <- paste("ID", oid, "linked to", lid, ".")
     shinyalert("Success", name_linkage_success, type = "success", timer = 1000)
-    values$dat <- mutate(values$dat, patient_id = ifelse(patient_id == input$ID, lid, patient_id))
+    if (linkDir == 1) {
+      values$dat <- mutate(values$dat, patient_id = ifelse(patient_id == oid, lid, patient_id))
+    } else {
+      values$dat <- mutate(values$dat, patient_id = ifelse(patient_id == lid, oid, patient_id))
+    }
     base::saveRDS(object = values$dat, file = values$save_file)
     
     # update selection
-    values$entered_ids <- values$entered_ids[values$entered_ids != input$ID]
-    values$all_ids <- values$all_ids[values$all_ids != input$ID]
-    updateSelectizeInput(inputId = "ID", choices = values$all_ids, selected = lid, server = T)
+    if (linkDir == 1) {
+      values$entered_ids <- values$entered_ids[values$entered_ids != oid]
+      values$all_ids <- values$all_ids[values$all_ids != oid]
+      updateSelectizeInput(inputId = "ID", choices = values$all_ids, selected = lid, server = T) 
+    } else {
+      values$entered_ids <- values$entered_ids[values$entered_ids != lid]
+      values$all_ids <- values$all_ids[values$all_ids != lid]
+      updateSelectizeInput(inputId = "ID", choices = values$all_ids, selected = oid, server = T) 
+    }
     
     # update total counts
     # total number of patient IDs
@@ -587,10 +631,10 @@ server <- function(input, output, session) {
     output$totEntranceIDs <- renderText({ values$tot_entr_ids })
   })
   
-  #### Remove link ####
-  observeEvent(input$unlinkTrack, {
+  #### Un-link ####
+  observeEvent(input$unlinkLastID, {
     # unlink
-    last_id <- input$ID
+    last_id <- as.numeric(input$ID)
     old_id <- tail(sort(unique(values$dat$obs_id[values$dat$patient_id==last_id])),2)[1]
     values$dat <- values$dat %>%
       mutate(patient_id = ifelse(patient_id == last_id, old_id, patient_id),
@@ -602,6 +646,29 @@ server <- function(input, output, session) {
     if (old_id_entered) { values$entered_ids <- c(values$entered_ids, old_id) }
     values$all_ids <- c(values$all_ids, old_id)
     updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = old_id, server = T)
+    shinyalert("Info", paste("Unlinking ID", last_id, "from", old_id) , type = "info", timer = 1000)
+    
+    # update total counts
+    # total number of patient IDs
+    values$tot_ids <- values$tot_ids + 1
+    output$totalIDs <- renderText({values$tot_ids})
+    # entrance IDs 
+    values$tot_entr_ids <- length(values$entered_ids)
+    output$totEntranceIDs <- renderText({ values$tot_entr_ids })
+  })
+  
+  observeEvent(input$unlinkFirstID, {
+    # unlink
+    last_id <- as.numeric(input$ID)
+    old_id <- sort(unique(values$dat$obs_id[values$dat$patient_id==last_id]))[1]
+    values$dat <- mutate(values$dat, patient_id = ifelse(obs_id == old_id, old_id, patient_id))
+    base::saveRDS(object = values$dat, file = values$save_file)
+    
+    # update selection
+    old_id_entered <- values$dat$is_entrance[values$dat$patient_id == old_id][1]
+    if (old_id_entered) { values$entered_ids <- c(values$entered_ids, old_id) }
+    values$all_ids <- c(values$all_ids, old_id)
+    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = last_id, server = T)
     shinyalert("Info", paste("Unlinking ID", last_id, "from", old_id) , type = "info", timer = 1000)
     
     # update total counts
@@ -634,12 +701,12 @@ server <- function(input, output, session) {
     
   #### Plot ####
   output$clinic <- renderPlot({
-    plot_ids(building_pl, values$dat_i, values$dat_pos, values$dat_alt)
+    plot_ids(building_pl, values$dat_i, values$dat_pos, values$dat_alt, input$direction)
   }, height = 750, width = 1000)
   
   #### Table ####
   output$displayedIDs <- renderTable({
-    table_ids(values$dat_i, values$dat_pos)
+    table_ids(values$dat_i, values$dat_pos, input$direction)
   }, sanitize.text.function = function(x) x)
   
 }
