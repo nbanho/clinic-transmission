@@ -565,8 +565,11 @@ server <- function(input, output, session) {
     
     # update selection
     if (!is.null(values$dat_pos)) {
-      updateSelectizeInput(session, inputId = "posID", choices = ifelse(input$direction == 1, posIDs, rev(posIDs)))
-      updateSelectizeInput(session, inputId = "altID", choices = ifelse(input$direction == 1, posIDs, rev(posIDs)))
+      if (input$direction == 2) {
+        posIDs <- rev(posIDs)
+      }
+      updateSelectizeInput(session, inputId = "posID", choices = posIDs)
+      updateSelectizeInput(session, inputId = "altID", choices = posIDs)
     } else {
       updateSelectizeInput(session, inputId = "posID", choices = -1)
       updateSelectizeInput(session, inputId = "altID", choices = -1)
