@@ -22,15 +22,25 @@ pointsize <- 4
 plot_wait_time <- 1000 # wait 1s until plot and table are generated
 
 # search parameters 
-time_choices <- c(10, 20, 30, 60, 120, 180, 300, 600, 900)
-dist_choices <- c(0.5, 1, 3, 5)
-height_choices <- c(10, 20, 50, 100)
-default_time <- 30
-default_dist <- max(dist_choices)
-default_height <- min(height_choices)
-default_time_sit <- 300
-default_dist_sit <- min(dist_choices)
-default_height_sit <- max(height_choices)
+time_choices <- c(30, 60, 900)
+dist_choices <- c(0.5, 1, 5)
+height_choices <- c(10, 20, 100)
+short_move_time <- 30
+short_move_dist <- 5
+short_move_height <- 10
+long_move_time <- 60
+long_move_dist <- 5
+long_move_height <- 20
+short_sit_time <- 60
+short_sit_dist <- 0.5
+short_sit_height <- 100
+long_sit_time <- 900
+long_sit_dist <- 1
+long_sit_height <- 100
+all_time <- max(time_choices)
+all_dist <- max(dist_choices)
+all_height <- max(height_choices)
+
 
 #### Building ####
 building <- terra::vect(paste0("../../data-raw/", "Masi", "/building/clinic-vector.gpkg"))
@@ -77,69 +87,65 @@ standing_height <- function(x, min_height = 1500) {
   }
 }
 
-filter_oids <- function(df, oid, max_timediff, max_distance, max_heightdiff, nextIDs = T) {
-  
+filter_other_feat <- function(df, oid, nextIDs = T) {
   if (nextIDs) {
+    
     # current id
     df_i <- df %>%
       filter(patient_id == oid) %>%
-      slice(n()) %>%
-      dplyr::select(x, y, time, height)
+      slice(n()) 
+    
+    # pre time filter conditions
+    earliest_start <- df_i$time[1] - lubridate::seconds(1)
+    latest_start <- df_i$time[1] + lubridate::seconds(max(time_choices))
     
     # other potential ids
     df_other <- df %>%
-      filter(is.na(tracking_end),
-             patient_id != oid) %>%
+      filter(patient_id != oid) %>%
       group_by(patient_id) %>%
-      filter(first(time) >= df_i$time - lubridate::seconds(1)) %>%
-      ungroup()
-    
-    # other ids filtered for maximum timediff and distance
-    df_other_feat <- df_other %>%
-      group_by(patient_id) %>%
-      slice(1) %>%
-      ungroup()
+      slice(1) %>% 
+      ungroup() %>%
+      filter(patient_id > oid, 
+             between(time, earliest_start, latest_start)) 
     
   } else {
     
     # current id
     df_i <- df %>%
       filter(patient_id == oid) %>%
-      slice(1) %>%
-      dplyr::select(x, y, time, height)
+      slice(1) 
+    
+    # pre time filter conditions
+    latest_end <- df_i$time[1] + lubridate::seconds(1)
+    earliest_end <- df_i$time[1] - lubridate::seconds(max(time_choices))
     
     # other potential ids
     df_other <- df %>%
-      filter(is.na(tracking_end),
-             patient_id != oid) %>%
-      group_by(patient_id) %>%
-      filter(last(time) <= df_i$time + lubridate::seconds(1)) %>%
-      ungroup()
-    
-    # other ids filtered for maximum timediff and distance
-    df_other_feat <- df_other %>%
+      filter(patient_id != oid) %>%
       group_by(patient_id) %>%
       slice(n()) %>%
-      ungroup()
+      ungroup() %>%
+      filter(patient_id < oid, 
+             between(time, earliest_end, latest_end))
+    
   }
   
+  return(df_other)
   
-  df_other_feat <- df_other_feat %>%
-    base::merge(df_i, suffixes = c("", "_i"), by = NULL) %>%
-    mutate(timediff_raw = (as.numeric(difftime(time, time_i, units = "secs"))), 
-           timediff = abs(timediff_raw),
-           distance = convert_dist(euclidean(x, x_i, y, y_i)),
-           heightdiff = abs(height - height_i) / 10) %>%
+}
+
+compute_other_feat <- function(df_i, df_other) {
+  base::merge(df_other, df_i, suffixes = c("_other", "_i"), by = NULL) %>%
+    mutate(timediff = abs(as.numeric(difftime(time_other, time_i, units = "secs"))), 
+           distance = convert_dist(euclidean(x_other, x_i, y_other, y_i)),
+           heightdiff = abs(height_other - height_i) / 10)
+}
+
+subset_other_feat <- function(df_other, max_timediff, max_distance, max_heightdiff) {
+  df_other %>%
     filter(timediff <= max_timediff,
            distance <= max_distance,
            heightdiff <= max_heightdiff)
-  
-  # paths of other ids
-  df_other <- df_other %>%
-    filter(patient_id %in% df_other_feat$obs_id) %>%
-    left_join(dplyr::select(df_other_feat, patient_id, timediff_raw, distance), by = "patient_id")
-  
-  return(df_other)
 }
 
 
@@ -197,88 +203,140 @@ plot_ids <- function(pl, df_i, df_pos, df_alt) {
 }
 
 table_ids <- function(df_i, df_pos) {
-  datCurrentID <- df_i %>%
+  
+  if (is.null(df_i)) { return(NULL) }
+  if (is.null(df_pos)) { return(NULL) }
+  if (nrow(df_i) == 0) { return(NULL) }
+  if (nrow(df_pos) == 0) { return(NULL) }
+  
+  # last values from ID
+  df_i <- df_i %>%
+    mutate(stand_height = standing_height(height)) %>%
+    tail(1)
+  
+  # first values from possible links
+  df_pos_1 <- df_pos %>%
     group_by(patient_id) %>%
-    summarize(last_height = last(height),
+    summarize(duration = as.numeric(difftime(last(time), first(time), units = "mins")),
               stand_height = standing_height(height)) %>%
     ungroup()
-  
-  datDisplayedIDs <- df_pos %>%
+  df_pos_2 <- df_pos %>%
     group_by(patient_id) %>%
-    summarize(first_height = first(height),
-              stand_height = standing_height(height),
-              duration = as.numeric(difftime(last(time), first(time), units = "mins")),
-              timediff = first(timediff_raw),
-              distance = first(distance)) %>%
-    ungroup() %>%
-    mutate(current_id = datCurrentID$patient_id,
-           current_id_last_height = datCurrentID$last_height,
-           current_id_stand_height = datCurrentID$stand_height) %>%
-    mutate(last_height_diff = first_height - current_id_last_height,
-           stand_height_diff = stand_height - current_id_stand_height) %>%
+    slice(1) %>%
+    ungroup()
+  df_pos <- left_join(df_pos_1, df_pos_2, by = "patient_id")
+  
+  
+  # features
+  df_feat <- base::merge(df_pos, df_i, suffixes = c("_pos", "_i"), by = NULL) %>%
+    mutate(timediff = as.numeric(difftime(time_pos, time_i, units = "secs")),
+           distance = convert_dist(euclidean(x_pos, x_i, y_pos,y_i)),
+           last_heightdiff = height_pos - height_i,
+           stand_heightdiff = stand_height_pos - stand_height_i
+           ) %>%
     mutate(across(contains("height"), ~ format(round(.x / 10), nsmall = 0)),
            timediff = format(timediff, nsmall = 0),
            duration = format(round(duration, 2), nsmall = 1),
            distance = format(round(distance, 1), nsmall = 1)) %>%
-    mutate(last_height_comb = paste0(last_height_diff, " (", first_height, ", ", current_id_last_height, ")"),
-           stand_height_comb = paste0(stand_height_diff, " (", stand_height, ", ", current_id_stand_height, ")")) %>%
-    dplyr::select(current_id, patient_id, last_height_comb, stand_height_comb, duration, timediff, distance) %>%
-    arrange(patient_id) %>%
+    mutate(last_height_comb = paste0(last_heightdiff, " (", height_pos, ", ", height_i, ")"),
+           stand_height_comb = paste0(stand_heightdiff, " (", stand_height_pos, ", ", stand_height_i, ")")) %>%
+    dplyr::select(patient_id_i, patient_id_pos, last_height_comb, stand_height_comb, duration, timediff, distance) %>%
     set_names("Pid", "Oid", "Last heightdiff (Oid, Pid) [cm]", "Stand heightdiff (Oid, Pid) [cm]", "Duration Oid [min]", "Timediff [sec]", "Distance [m]") %>%
+    arrange(Pid) %>%
     mutate_all(as.character) 
   
-  n_possibleIDs <- nrow(datDisplayedIDs)
+  n_possibleIDs <- nrow(df_feat)
   
   if (n_possibleIDs > 0) {
     for (i in 1:n_possibleIDs) {
       col <- scales::hue_pal()(n_possibleIDs)[i]
       for (k in 2:6) {
-        datDisplayedIDs[i,k] <- paste0('<span style="color:', col, '">', datDisplayedIDs[i,k], "</span>")
+        df_feat[i,k] <- paste0('<span style="color:', col, '">', df_feat[i,k], "</span>")
       }
     }
   }
   
-  return(datDisplayedIDs)
+  return(df_feat)
 }
+
+display_duration <- function(st, et) {
+  duration <- format(round(as.numeric(difftime(et, st, units = "min")), 1), nsmall = 1)
+  st <- format(st, "%H:%M:%S")
+  et <- format(et, "%H:%M:%S")
+  paste(st, " to ", et, " (", duration,  " min)")
+}
+
 
 
 #### Shiny UI ####
 ui <- fluidPage(
   sidebarLayout(
     sidebarPanel(
+      tags$style(
+        HTML(".bold-prefix { font-weight: bold; margin-right: 5px; }")
+      ),
       fileInput("file", "Load file"),
-      textOutput("date", container = span),
-      uiOutput("totalIDs"),
-      uiOutput("cleanTracks"),
-      uiOutput("totEntranceIDs"),
+      div(
+        tags$span("Date:", class = "bold-prefix"),
+        textOutput("date"),
+        style = "display: flex;"
+      ),
+      div(
+        tags$span("Total patient IDs:", class = "bold-prefix"),
+        textOutput("totalIDs"),
+        style = "display: flex;"
+      ),
+      div(
+        tags$span("Remaining entrance IDs:", class = "bold-prefix"),
+        textOutput("entranceIDs"),
+        style = "display: flex;"
+      ),
+      div(
+        tags$span("Finished IDs:", class = "bold-prefix"),
+        textOutput("finishedIDs"),
+        style = "display: flex;"
+      ),
       br(),
-      selectizeInput("ID", "Patient ID", choices = NULL, multiple = F, options = list(maxItems = 1)),
+      selectizeInput("ID", "Patient ID", choices = -1, selected = -1, multiple = F, options = list(maxItems = 1)),
       actionButton("nextID", "Next ID"),
       actionButton("prevID", "Previous ID"),
       actionButton("nextEnteredID", "Next Entrance"),
       actionButton("prevEnteredID", "Previous Entrance"),
       br(),
       br(),
-      uiOutput("currentDuration"),
-      uiOutput("noLinks"),
+      div(
+        tags$span("ID Duration:", class = "bold-prefix"),
+        textOutput("currentDuration"),
+        style = "display: flex;"
+      ),
+      div(
+        tags$span("ID Links:", class = "bold-prefix"),
+        textOutput("currentLinks"),
+        style = "display: flex;"
+      ),
       br(),
-      radioButtons("quickInput", "Quick filter", choices = list("Moving" = 1, "Sitting" = 2), inline = T),
-      sliderTextInput("time", "Time", from_min = min(time_choices), to_max = max(time_choices), selected = default_time, 
+      radioButtons("quick", "Quick filter", choices = list("Short move" = 1, "Long move" = 2,  
+                                                                "Short sit" = 3, "Long sit" = 4,
+                                                                "All" = 5), inline = T),
+      sliderTextInput("time", "Time", from_min = min(time_choices), to_max = max(time_choices), selected = short_move_time, 
                       choices = time_choices, grid = T, post = "sec"),
-      sliderTextInput("distance", "Distance", from_min = min(dist_choices), to_max = max(dist_choices), selected = default_dist, 
+      sliderTextInput("distance", "Distance", from_min = min(dist_choices), to_max = max(dist_choices), selected = short_move_dist, 
                       choices = dist_choices, grid = T, post = "m"),
-      sliderTextInput("height", "Height", from_min = min(height_choices), to_max = max(height_choices), selected = default_height, 
+      sliderTextInput("height", "Height", from_min = min(height_choices), to_max = max(height_choices), selected = short_move_height, 
                       choices = height_choices, grid = T, post = "cm"),
-      selectizeInput("altID", "Show alternatives for ID", choices = NULL, options = list(maxItems = 1)),
-      selectizeInput("posID", "Link with ID", choices = NULL, options = list(maxItems = 1)),
+      selectizeInput("altID", "Show alternatives for ID", choices = -1, selected = -1, options = list(maxItems = 1)),
+      selectizeInput("posID", "Link with ID", choices = -1, selected = -1, options = list(maxItems = 1)),
       actionButton("linkTrack", "Link IDs"),
       actionButton("unlinkTrack", "Unlink previous ID"),
       br(),
       br(),
       selectInput("terminalInput", "Stop linking", choices = c("ID lost", "ID exited")),
       actionButton("endTrack", "End track"),
-      h5("Save file to"),
-      textOutput("saveto")
+      div(
+        tags$span("Saved path-file:", class = "bold-prefix"),
+        textOutput("saveto"),
+        style = "display: flex;"
+      ),
       ),
     mainPanel(plotOutput("clinic", inline = T),
               br(),
@@ -292,7 +350,10 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   #### Load data ####
-  values <- reactiveValues(dat = NULL, all_ids = NULL, entered_ids = NULL)
+  values <- reactiveValues(dat = NULL, all_ids = NULL, entered_ids = NULL,
+                           dat_i = NULL, dat_pos_feat = NULL, dat_pos = NULL, dat_alt = NULL,
+                           tot_ids = 0, tot_entr_ids = 0, tot_fin_ids = 0,
+                           i_start = NA, i_end = NA, i_links = 0)
   observeEvent(input$file, {
     
     # get file
@@ -311,8 +372,14 @@ server <- function(input, output, session) {
       values$dat$patient_id <- values$dat$obs_id_new
     }
     
+    # load data and filter ended tracks
     values$dat <- values$dat %>%
-      mutate(across(c(patient_id, obs_id, obs_id_new), ~ as.integer(.x))) 
+      mutate(across(c(patient_id, obs_id, obs_id_new), ~ as.integer(.x))) %>%
+      group_by(patient_id) %>%
+      arrange(obs_id) %>%
+      mutate(patient_id = last(obs_id)) %>%
+      ungroup() %>%
+      filter(is.na(tracking_end))
     
     # get IDs to match
     match_ids <- values$dat %>%
@@ -327,8 +394,20 @@ server <- function(input, output, session) {
     # update patient ID selection
     updateSelectizeInput(session, "ID", choices = values$all_ids, selected = min(values$all_ids), server = T)
     
-    # get date
-    output$date <- renderText({paste("Date:", as.character(as.Date(values$dat$time[1])))})
+    # total number of patient IDs
+    values$tot_ids <- n_distinct(values$dat$patient_id)
+    output$totalIDs <- renderText({values$tot_ids})
+    
+    # entrance IDs 
+    values$tot_entr_ids <- length(values$entered_ids)
+    output$totEntranceIDs <- renderText({ values$tot_entr_ids })
+    
+    # finished ids
+    values$tot_fin_ids <- n_distinct(values$dat$patient_id[!is.na(values$dat$tracking_end)])
+    output$finishedIDs <- renderText({ values$tot_fin_ids })
+    
+    #  date
+    output$date <- renderText({ as.Date(values$dat$time[1]) })
     
     # create directory to save file
     values$save_dir <- paste(dirname(dirname(getwd())), 
@@ -344,200 +423,223 @@ server <- function(input, output, session) {
   })
   
   
-  #### File info ####
-  # total number of patient IDs
-  output$totalIDs <- reactive({
-    if (!is.null(values$dat)) {
-      paste("Total number of patient IDs:", as.character(n_distinct(values$dat$patient_id)))
-    }
-  })
-  
-  # entrance IDs 
-  output$totEntranceIDs <- reactive({
-    if (!is.null(values$dat)) {
-      paste("Unfinished IDs starting at entrance:", as.character(length(values$entered_ids)))
-    }
-  })
-  
-  # number of clean tracks
-  output$cleanTracks <- reactive({
-    if (!is.null(values$dat)) {
-      clTracks <- values$dat %>%
-        filter(!is.na(tracking_end),
-               tracking_end == "ID exited") %>%
-        group_by(patient_id) %>%
-        slice(1) %>%
-        ungroup() %>%
-        nrow() %>%
-        as.character()
-      paste("Clean tracks:", clTracks)
-    }
-  })
-  
-  
   #### Parameters ####
   
   # quick filter
-  observeEvent(input$quickInput, {
-    if (input$quickInput == 1) {
-      updateSliderTextInput(session, inputId = "time", selected = default_time)
-      updateSliderTextInput(session, inputId = "distance", selected = default_dist)
-      updateSliderTextInput(session, inputId = "height", selected = default_height)
+  observeEvent(input$quick, {
+    if (input$quick == 1) {
+      updateSliderTextInput(session, inputId = "time", selected = short_move_time)
+      updateSliderTextInput(session, inputId = "distance", selected = short_move_dist)
+      updateSliderTextInput(session, inputId = "height", selected = short_move_height)
+    } else if (input$quick == 2) {
+      updateSliderTextInput(session, inputId = "time", selected = long_move_time)
+      updateSliderTextInput(session, inputId = "distance", selected = long_move_dist)
+      updateSliderTextInput(session, inputId = "height", selected = long_move_height)
+    } else if (input$quick == 3) {
+      updateSliderTextInput(session, inputId = "time", selected = short_sit_time)
+      updateSliderTextInput(session, inputId = "distance", selected = short_sit_dist)
+      updateSliderTextInput(session, inputId = "height", selected = short_sit_height)
+    } else if (input$quick == 4) {
+      updateSliderTextInput(session, inputId = "time", selected = long_sit_time)
+      updateSliderTextInput(session, inputId = "distance", selected = long_sit_dist)
+      updateSliderTextInput(session, inputId = "height", selected = long_sit_height)
     } else {
-      updateSliderTextInput(session, inputId = "time", selected = default_time_sit)
-      updateSliderTextInput(session, inputId = "distance", selected = default_dist_sit)
-      updateSliderTextInput(session, inputId = "height", selected = default_height_sit)
+      updateSliderTextInput(session, inputId = "time", selected = all_time)
+      updateSliderTextInput(session, inputId = "distance", selected = all_dist)
+      updateSliderTextInput(session, inputId = "height", selected = all_height)
     }
   })
   
   # select next entered ID
   observeEvent(input$nextID, {
     req(input$ID)
-    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = values$all_ids[values$all_ids>as.numeric(input$ID)][1], server = T)
-    updateRadioButtons(session, "quickInput", selected = 1)
+    oid <- as.numeric(input$ID)
+    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = values$all_ids[values$all_ids>oid][1], server = T)
+    updateRadioButtons(session, "quick", selected = 1)
   })
   
   # select next entered ID
   observeEvent(input$nextEnteredID, {
     req(input$ID)
-    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = values$entered_ids[values$entered_ids>as.numeric(input$ID)][1], server = T)
-    updateRadioButtons(session, "quickInput", selected = 1)
+    oid <- as.numeric(input$ID)
+    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = values$entered_ids[values$entered_ids>oid][1], server = T)
+    updateRadioButtons(session, "quick", selected = 1)
   })
   
   # select previous entered ID
   observeEvent(input$prevID, {
     req(input$ID)
-    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = tail(values$all_ids[values$all_ids<as.numeric(input$ID)],1), server = T)
-    updateRadioButtons(session, "quickInput", selected = 1)
+    oid <- as.numeric(input$ID)
+    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = tail(values$all_ids[values$all_ids<oid],1), server = T)
+    updateRadioButtons(session, "quick", selected = 1)
   })
   
   # select previous entered ID
   observeEvent(input$prevEnteredID, {
     req(input$ID)
-    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = tail(values$entered_ids[values$entered_ids<as.numeric(input$ID)],1), server = T)
-    updateRadioButtons(session, "quickInput", selected = 1)
-  })
-  
-  
-  #### ID Info ####
-  
-  # current track duration
-  output$currentDuration <- reactive({
-    req(input$ID)
-    start_time <- head(values$dat$time[values$dat$patient_id==as.numeric(input$ID)], 1)
-    end_time <- tail(values$dat$time[values$dat$patient_id==as.numeric(input$ID)], 1)
-    duration <- format(round(as.numeric(difftime(end_time, start_time, units = "min")), 1), nsmall = 1)
-    start_time <- format(start_time, "%H:%M:%S")
-    end_time <- format(end_time, "%H:%M:%S")
-    paste("Track from ", start_time, " to ", end_time, " (", duration,  " min)")
-  })
-  
-  # current number of links
-  output$noLinks <- reactive({
-    paste("No. of IDs linked:", as.character(n_distinct(values$dat$obs_id[values$dat$patient_id == as.numeric(input$ID)]) - 1))
+    oid <- as.numeric(input$ID)
+    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = tail(values$entered_ids[values$entered_ids<oid],1), server = T)
+    updateRadioButtons(session, "quick", selected = 1)
   })
   
   
   #### Data ####
   
-  # ID
-  dat_i <- reactive({
-    req(input$ID)
-    filter(values$dat, patient_id == as.numeric(input$ID))
+  # ID data and
+  observeEvent(input$ID, {
+    if (!is.null(values$dat)) {
+      oid <- as.numeric(input$ID)
+      
+      # filter data
+      values$dat_i <- values$dat %>% 
+        filter(patient_id == oid) %>%
+        dplyr::select(patient_id, obs_id, time, x, y, height)
+      
+      # filter others
+      values$dat_pos_feat <- filter_other_feat(values$dat, oid)
+      # compute features
+      values$dat_pos_feat <- compute_other_feat(values$dat_i, values$dat_pos_feat)
+      
+      # duration
+      values$i_start <- head(values$dat$time[values$dat$patient_id==oid], 1)
+      values$i_end <- tail(values$dat$time[values$dat$patient_id==oid], 1)
+      output$currentDuration <- renderText({ display_duration(values$i_start, values$i_end) })
+      
+      # number of links
+      values$i_links <- n_distinct(values$dat_i$obs_id) - 1
+      output$currentLinks <- renderText(values$i_links)
+    }
   })
   
-  # possible links
-  dat_pos <- reactive({
-    req(input$ID)
-    posDF <- filter_oids(values$dat, as.numeric(input$ID), input$time, input$distance, input$height)
-    posIDs <- sort(unique(posDF$patient_id))
-    updateSelectizeInput(session, inputId = "posID", choices = posIDs)
-    updateSelectizeInput(session, inputId = "altID", choices = posIDs)
-    return(posDF)
-  }) 
+  # possible link ID data
+  observe({
+    # get possible links
+    if (!is.null(values$dat_pos_feat)) {
+      oid <- as.numeric(input$ID)
+      if (nrow(values$dat_pos_feat) > 0) {
+        dat_pos_feat_sub <- subset_other_feat(values$dat_pos_feat, input$time, input$distance, input$height)
+        if (nrow(dat_pos_feat_sub) > 0) {
+          posIDs <- sort(unique(dat_pos_feat_sub$patient_id_other))
+          values$dat_pos <- filter(values$dat, patient_id %in% posIDs)
+        } else {
+          values$dat_pos <- NULL
+        }
+      } else {
+        values$dat_pos <- NULL
+      }
+    } else {
+      values$dat_pos <- NULL
+    }
+    
+    # update selection
+    if (!is.null(values$dat_pos)) {
+      updateSelectizeInput(session, inputId = "posID", choices = posIDs)
+      updateSelectizeInput(session, inputId = "altID", choices = posIDs)
+    } else {
+      updateSelectizeInput(session, inputId = "posID", choices = -1)
+      updateSelectizeInput(session, inputId = "altID", choices = -1)
+    }
+  })
   
-  # alternatives to possible links
-  dat_alt <- reactive({
-    req(input$ID)
-    req(dat_i)
-    req(dat_pos)
-    req(input$altID)
-    filter_oids(values$dat, input$altID, input$time, input$distance, input$height, nextIDs = F) %>%
-      filter(patient_id != as.numeric(input$ID))
-  }) 
-  
-  plot_dat <- reactive({
-    tryCatch({
-      dat_pos()
-      plot_ids(building_pl, dat_i(), dat_pos(), dat_alt())
-    },
-    shiny.silent.error = function(e) {
-      plot_ids(building_pl, dat_i(), NULL, NULL)
-    })
-  }) %>% debounce(plot_wait_time)
-  
-  
-  table_dat <- reactive({
-    req(dat_i)
-    req(dat_pos)
-    table_ids(dat_i(), dat_pos())
-  }) 
+  # alternatives data
+  observeEvent(input$altID, {
+    if (!is.null(values$dat_pos)) {
+      aid <- as.numeric(input$altID)
+      oid <- as.numeric(input$ID)
+      dat_pos_i <- filter(values$dat, patient_id == aid)
+      values$dat_alt_feat <- filter_other_feat(values$dat, aid, nextIDs = F) %>%
+        filter(patient_id != oid)
+      if (nrow(values$dat_alt_feat) > 0) {
+        values$dat_alt_feat <- compute_other_feat(dat_pos_i, values$dat_alt_feat)
+        moving_alt <- subset_other_feat(values$dat_alt_feat, long_move_time, long_move_dist, long_move_height)
+        sitting_alt <- subset_other_feat(values$dat_alt_feat, long_sit_time, long_sit_dist, long_sit_height)
+        altIDs <- unique(moving_alt$patient_id_other, sitting_alt$patient_id_other)
+        values$dat_alt <- filter(values$dat, patient_id %in% altIDs)
+      } else {
+        values$dat_alt <- NULL
+      }
+    } else {
+      values$dat_alt <- NULL
+    }
+  })
   
   
   #### New link ####
-  # make link
   observeEvent(input$linkTrack, {
+    # make link
     lid <- input$posID
     name_linkage_success <- paste("ID", input$ID, "linked to", lid, ".")
     shinyalert("Success", name_linkage_success, type = "success", timer = 1000)
-    values$entered_ids <- values$entered_ids[values$entered_ids != lid]
-    values$all_ids <- values$all_ids[values$all_ids != lid]
-    values$dat <- mutate(values$dat, patient_id = ifelse(patient_id == lid, as.numeric(input$ID), patient_id))
+    values$dat <- mutate(values$dat, patient_id = ifelse(patient_id == input$ID, lid, patient_id))
     base::saveRDS(object = values$dat, file = values$save_file)
-    updateSelectizeInput(inputId = "ID", choices = values$all_ids, selected = input$ID, server = T)
+    
+    # update selection
+    values$entered_ids <- values$entered_ids[values$entered_ids != input$ID]
+    values$all_ids <- values$all_ids[values$all_ids != input$ID]
+    updateSelectizeInput(inputId = "ID", choices = values$all_ids, selected = lid, server = T)
+    
+    # update total counts
+    # total number of patient IDs
+    values$tot_ids <- values$tot_ids - 1
+    output$totalIDs <- renderText({values$tot_ids})
+    # entrance IDs 
+    values$tot_entr_ids <- length(values$entered_ids)
+    output$totEntranceIDs <- renderText({ values$tot_entr_ids })
   })
   
   #### Remove link ####
   observeEvent(input$unlinkTrack, {
-    last_id <- values$dat %>%
-      filter(patient_id == as.numeric(input$ID)) %>%
-      slice(n()) %>%
-      dplyr::select(obs_id_new) %>%
-      unlist()
-    if (values$dat$is_entrance[values$dat$obs_id_new==last_id][1]) {
-      values$entered_ids <- c(values$entered_ids, last_id)
-    }
-    values$all_ids <- c(values$all_ids, last_id)
-    values$dat <- mutate(values$dat, patient_id = ifelse(obs_id_new == last_id, last_id, patient_id))
+    # unlink
+    last_id <- input$ID
+    old_id <- tail(sort(unique(values$dat$obs_id[values$dat$patient_id==last_id])),2)[1]
+    values$dat <- values$dat %>%
+      mutate(patient_id = ifelse(patient_id == last_id, old_id, patient_id),
+             patient_id = ifelse(obs_id == last_id, last_id, patient_id))
     base::saveRDS(object = values$dat, file = values$save_file)
-    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = input$ID, server = T)
-    shinyalert("Info", paste("Unlinking ID", last_id, "from", input$ID) , type = "info", timer = 1000)
+    
+    # update selection
+    old_id_entered <- values$dat$is_entrance[values$dat$patient_id == old_id][1]
+    if (old_id_entered) { values$entered_ids <- c(values$entered_ids, old_id) }
+    values$all_ids <- c(values$all_ids, old_id)
+    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = old_id, server = T)
+    shinyalert("Info", paste("Unlinking ID", last_id, "from", old_id) , type = "info", timer = 1000)
+    
+    # update total counts
+    # total number of patient IDs
+    values$tot_ids <- values$tot_ids + 1
+    output$totalIDs <- renderText({values$tot_ids})
+    # entrance IDs 
+    values$tot_entr_ids <- length(values$entered_ids)
+    output$totEntranceIDs <- renderText({ values$tot_entr_ids })
   })
   
   
   #### End track ####
   observeEvent(input$endTrack, {
+    # finish track
     values$dat$tracking_end[values$dat$patient_id==as.numeric(input$ID)] <- input$terminalInput
     base::saveRDS(object = values$dat, file = values$save_file)
     shinyalert("Done.", paste("Ending tracking of ID", input$ID, "because", input$terminalInput), type = "info", timer = 1000)
     values$entered_ids <- values$entered_ids[values$entered_ids != as.numeric(input$ID)]
     values$all_ids <- values$all_ids[values$all_ids != as.numeric(input$ID)]
     updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = values$all_ids[values$all_ids>as.numeric(input$ID)][1], server = T)
-    updateRadioButtons(session, "quickInput", selected = 1)
-    updateSliderTextInput(session, inputId = "time", selected = default_time)
-    updateSliderTextInput(session, inputId = "distance", selected = default_dist)
-    updateSliderTextInput(session, inputId = "height", selected = default_height)
+    updateRadioButtons(session, "quick", selected = 1)
+    
+    # update counts
+    # finished ids
+    values$tot_fin_ids <- values$tot_fin_ids + 1
+    output$finishedIDs <- renderText({ values$tot_fin_ids })
   })
+  
     
   #### Plot ####
   output$clinic <- renderPlot({
-    plot_dat()
+    plot_ids(building_pl, values$dat_i, values$dat_pos, values$dat_alt)
   }, height = 750, width = 1000)
-  
   
   #### Table ####
   output$displayedIDs <- renderTable({
-    table_dat()
+    table_ids(values$dat_i, values$dat_pos)
   }, sanitize.text.function = function(x) x)
   
 }
