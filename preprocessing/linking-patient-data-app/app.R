@@ -88,6 +88,10 @@ standing_height <- function(x, min_height = 1500) {
 }
 
 filter_other_feat <- function(df, oid, nextIDs = 1) {
+  
+  df <- df %>%
+    filter(is.na(tracking_end))
+  
   if (nextIDs == 1) {
     
     # current id
@@ -424,8 +428,7 @@ server <- function(input, output, session) {
       group_by(patient_id) %>%
       arrange(obs_id) %>%
       mutate(patient_id = last(obs_id)) %>%
-      ungroup() %>%
-      filter(is.na(tracking_end))
+      ungroup() 
     
     # get IDs to match
     match_ids <- values$dat %>%
