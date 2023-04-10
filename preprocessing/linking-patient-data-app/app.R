@@ -130,12 +130,14 @@ filter_other_feat <- function(df, oid, nextIDs = 1) {
     
   }
   
+  df_other <- base::merge(df_other, df_i, suffixes = c("_other", "_i"), by = NULL)
+  
   return(df_other)
   
 }
 
-compute_other_feat <- function(df_i, df_other) {
-  base::merge(df_other, df_i, suffixes = c("_other", "_i"), by = NULL) %>%
+compute_other_feat <- function(df_other) {
+  df_other %>%
     mutate(timediff = abs(as.numeric(difftime(time_other, time_i, units = "secs"))), 
            distance = convert_dist(euclidean(x_other, x_i, y_other, y_i)),
            heightdiff = abs(height_other - height_i) / 10)
@@ -222,9 +224,16 @@ table_ids <- function(df_i, df_pos, direction) {
   if (nrow(df_pos) == 0) { return(NULL) }
   
   # last values from ID
-  df_i <- df_i %>%
-    mutate(stand_height = standing_height(height)) %>%
-    tail(1)
+  if (direction == 1) {
+    df_i <- df_i %>%
+      mutate(stand_height = standing_height(height)) %>%
+      tail(1)
+  } else {
+    df_i <- df_i %>%
+      mutate(stand_height = standing_height(height)) %>%
+      head(1)
+  }
+  
   
   # first values from possible links
   df_pos_1 <- df_pos %>%
@@ -232,20 +241,39 @@ table_ids <- function(df_i, df_pos, direction) {
     summarize(duration = as.numeric(difftime(last(time), first(time), units = "mins")),
               stand_height = standing_height(height)) %>%
     ungroup()
-  df_pos_2 <- df_pos %>%
-    group_by(patient_id) %>%
-    slice(1) %>%
-    ungroup()
+  if (direction == 1) {
+    df_pos_2 <- df_pos %>%
+      group_by(patient_id) %>%
+      slice(1) %>%
+      ungroup()
+  } else {
+    df_pos_2 <- df_pos %>%
+      group_by(patient_id) %>%
+      slice(n()) %>%
+      ungroup()
+  }
+  
   df_pos <- left_join(df_pos_1, df_pos_2, by = "patient_id")
   
   
   # features
-  df_feat <- base::merge(df_pos, df_i, suffixes = c("_pos", "_i"), by = NULL) %>%
-    mutate(timediff = as.numeric(difftime(time_pos, time_i, units = "secs")),
-           distance = convert_dist(euclidean(x_pos, x_i, y_pos,y_i)),
-           last_heightdiff = height_pos - height_i,
-           stand_heightdiff = stand_height_pos - stand_height_i
-           ) %>%
+  df_feat <- base::merge(df_pos, df_i, suffixes = c("_pos", "_i"), by = NULL) 
+  
+  if (direction == 1) {
+    df_feat <- df_feat %>%
+      mutate(timediff = as.numeric(difftime(time_pos, time_i, units = "secs")),
+             distance = convert_dist(euclidean(x_pos, x_i, y_pos,y_i)),
+             last_heightdiff = height_pos - height_i,
+             stand_heightdiff = stand_height_pos - stand_height_i)
+  } else {
+    df_feat <- df_feat %>%
+      mutate(timediff = as.numeric(difftime(time_i, time_pos, units = "secs")),
+             distance = convert_dist(euclidean(x_pos, x_i, y_pos,y_i)),
+             last_heightdiff = height_i - height_pos,
+             stand_heightdiff = stand_height_i - stand_height_pos)
+  }
+  
+  df_feat <- df_feat %>%
     mutate(across(contains("height"), ~ format(round(.x / 10), nsmall = 0)),
            timediff = format(timediff, nsmall = 0),
            duration = format(round(duration, 2), nsmall = 1),
@@ -520,7 +548,7 @@ server <- function(input, output, session) {
       # filter others
       values$dat_pos_feat <- filter_other_feat(values$dat, oid, input$direction)
       # compute features
-      values$dat_pos_feat <- compute_other_feat(values$dat_i, values$dat_pos_feat)
+      values$dat_pos_feat <- compute_other_feat(values$dat_pos_feat)
       
       # duration
       values$i_start <- head(values$dat$time[values$dat$patient_id==oid], 1)
@@ -539,7 +567,7 @@ server <- function(input, output, session) {
       # filter others
       values$dat_pos_feat <- filter_other_feat(values$dat, oid, input$direction)
       # compute features
-      values$dat_pos_feat <- compute_other_feat(values$dat_i, values$dat_pos_feat)
+      values$dat_pos_feat <- compute_other_feat(values$dat_pos_feat)
     }
   })
   
@@ -583,9 +611,9 @@ server <- function(input, output, session) {
       oid <- as.numeric(input$ID)
       dat_pos_i <- filter(values$dat, patient_id == aid)
       values$dat_alt_feat <- filter_other_feat(values$dat, aid, ifelse(input$direction == 1, 2, 1)) %>%
-        filter(patient_id != oid)
+        filter(patient_id_other != oid)
       if (nrow(values$dat_alt_feat) > 0) {
-        values$dat_alt_feat <- compute_other_feat(dat_pos_i, values$dat_alt_feat)
+        values$dat_alt_feat <- compute_other_feat(values$dat_alt_feat)
         moving_alt <- subset_other_feat(values$dat_alt_feat, long_move_time, long_move_dist, long_move_height)
         sitting_alt <- subset_other_feat(values$dat_alt_feat, long_sit_time, long_sit_dist, long_sit_height)
         altIDs <- unique(moving_alt$patient_id_other, sitting_alt$patient_id_other)
