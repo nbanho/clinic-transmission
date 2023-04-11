@@ -100,7 +100,7 @@ filter_other_feat <- function(df, oid, nextIDs = 1) {
       slice(n()) 
     
     # pre time filter conditions
-    earliest_start <- df_i$time[1] - lubridate::seconds(1)
+    earliest_start <- df_i$time[1] - lubridate::seconds(3)
     latest_start <- df_i$time[1] + lubridate::seconds(max(time_choices))
     
     # other potential ids
@@ -120,7 +120,7 @@ filter_other_feat <- function(df, oid, nextIDs = 1) {
       slice(1) 
     
     # pre time filter conditions
-    latest_end <- df_i$time[1] + lubridate::seconds(1)
+    latest_end <- df_i$time[1] + lubridate::seconds(3)
     earliest_end <- df_i$time[1] - lubridate::seconds(max(time_choices))
     
     # other potential ids
