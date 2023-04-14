@@ -22,19 +22,19 @@ pointsize <- 4
 plot_wait_time <- 1000 # wait 1s until plot and table are generated
 
 # search parameters 
-time_choices <- c(30, 60, 300, 600, 900)
-dist_choices <- c(0.5, 1, 3, 5)
-height_choices <- c(10, 20, 50, 100)
+time_choices <- c(10, 20, 30, 45, 60, 300, 600, 900, 1500, 1800)
+dist_choices <- c(0.5, 1, 2, 3, 4, 5, 7)
+height_choices <- c(10, 20, 50, 100, 200)
 short_move_time <- 30
 short_move_dist <- 5
-short_move_height <- 10
+short_move_height <- 50
 long_move_time <- 60
-long_move_dist <- 5
-long_move_height <- 20
+long_move_dist <- 7
+long_move_height <- 100
 short_sit_time <- 60
-short_sit_dist <- 0.5
+short_sit_dist <- 1
 short_sit_height <- 100
-long_sit_time <- 900
+long_sit_time <- 300
 long_sit_dist <- 1
 long_sit_height <- 100
 all_time <- max(time_choices)
@@ -90,7 +90,7 @@ standing_height <- function(x, min_height = 1500) {
 filter_other_feat <- function(df, oid, nextIDs = 1) {
   
   df <- df %>%
-    filter(is.na(tracking_end))
+    filter(is.na(tracking_end) | grepl("Lost", tracking_end))
   
   if (nextIDs == 1) {
     
@@ -246,7 +246,7 @@ table_ids <- function(df_i, df_pos, direction) {
   # first values from possible links
   df_pos_1 <- df_pos %>%
     group_by(patient_id) %>%
-    summarize(duration = as.numeric(difftime(last(time), first(time), units = "mins")),
+    summarize(duration = duration_min_sec(first(time), last(time)),
               stand_height = standing_height(height)) %>%
     ungroup()
   if (direction == 1) {
@@ -283,7 +283,6 @@ table_ids <- function(df_i, df_pos, direction) {
   
   df_feat <- df_feat %>%
     mutate(across(contains("height"), ~ format(round(.x / 10), nsmall = 0)),
-           duration = format(round(duration, 2), nsmall = 1),
            distance = format(round(distance, 1), nsmall = 1)) %>%
     mutate(last_height_comb = paste0(last_heightdiff, " (", height_pos, ", ", height_i, ")"),
            stand_height_comb = paste0(stand_heightdiff, " (", stand_height_pos, ", ", stand_height_i, ")")) %>%
@@ -307,11 +306,34 @@ table_ids <- function(df_i, df_pos, direction) {
   return(df_feat)
 }
 
+duration_min_sec <- function(st, et) {
+  duration_min <- as.integer(floor(difftime(et, st, units = "min")))
+  duration_sec <- as.integer(as.numeric(difftime(et, st, units = "secs")) %% 60)
+  duration <- paste(duration_min, "min", duration_sec, "sec")
+  return(duration)
+}
+
 display_duration <- function(st, et) {
-  duration <- format(round(as.numeric(difftime(et, st, units = "min")), 1), nsmall = 1)
+  duration <- duration_min_sec(st, et)
   st <- format(st, "%H:%M:%S")
   et <- format(et, "%H:%M:%S")
-  paste(st, " to ", et, " (", duration,  " min)")
+  paste(st, " to ", et, " (", duration,  ")")
+}
+
+display_id_counts <- function(df) {
+  n_obs_id_new <- n_distinct(df$obs_id_new)
+  n_pat_id <- n_distinct(df$patient_id)
+  n_links <- n_obs_id_new - n_pat_id
+  counts <- paste0("Initial: ", n_obs_id_new, ", Current: ", n_pat_id, ", Links: ", n_links)
+  return(counts)
+}
+
+display_label_counts <- function(df) {
+  n_unfinished <- n_distinct(df$patient_id[is.na(df$tracking_end)])
+  n_finished <- n_distinct(df$patient_id[df$tracking_end %in% c("Possible HCW", "Entered + Exited", "Noise")])
+  n_lost <- n_distinct(df$patient_id[grepl("Lost", df$tracking_end)])
+  counts <- paste0("None: ", n_unfinished, ", Ended: ", n_finished, ", Lost: ", n_lost)
+  return(counts)
 }
 
 update.all_ids <- function(df) {
@@ -356,26 +378,22 @@ ui <- fluidPage(
         style = "display: flex;"
       ),
       div(
-        tags$span("Total patient IDs:", class = "bold-prefix"),
+        tags$span("#IDs:", class = "bold-prefix"),
         textOutput("totalIDs"),
         style = "display: flex;"
       ),
       div(
-        tags$span("Remaining entrance IDs:", class = "bold-prefix"),
-        textOutput("entranceIDs"),
-        style = "display: flex;"
-      ),
-      div(
-        tags$span("Finished IDs:", class = "bold-prefix"),
-        textOutput("finishedIDs"),
+        tags$span("#Labels:", class = "bold-prefix"),
+        textOutput("totalLabels"),
         style = "display: flex;"
       ),
       br(),
       selectizeInput("ID", "Patient ID", choices = -1, selected = -1, multiple = F, options = list(maxItems = 1)),
+      actionButton("firstID", "First ID"),
       actionButton("nextID", "Next ID"),
-      actionButton("prevID", "Previous ID"),
+      actionButton("prevID", "Prev ID"),
       actionButton("nextEnteredID", "Next Entrance"),
-      actionButton("prevEnteredID", "Previous Entrance"),
+      actionButton("prevEnteredID", "Prev Entrance"),
       br(),
       br(),
       radioButtons("direction", "Matching direction", choices = list("Forward" = 1, "Backward" = 2), inline = T),
@@ -391,8 +409,8 @@ ui <- fluidPage(
       ),
       br(),
       radioButtons("quick", "Quick filter", choices = list("Short move" = 1, "Long move" = 2,  
-                                                                "Short sit" = 3, "Long sit" = 4,
-                                                                "All" = 5), inline = T),
+                                                           "Short sit" = 3, "Long sit" = 4,
+                                                           "All" = 5), inline = T),
       sliderTextInput("time", "Time", from_min = min(time_choices), to_max = max(time_choices), selected = short_move_time, 
                       choices = time_choices, grid = T, post = "sec"),
       sliderTextInput("distance", "Distance", from_min = min(dist_choices), to_max = max(dist_choices), selected = short_move_dist, 
@@ -406,8 +424,11 @@ ui <- fluidPage(
       actionButton("unlinkFirstID", "Unlink first ID"),
       br(),
       br(),
-      selectInput("terminalInput", "Stop linking", choices = c("ID lost", "ID exited")),
-      actionButton("endTrack", "End track"),
+      selectInput("terminalInput", "Label or end tracking", choices = c("Entered + Exited", "Possible HCW", "Noise",
+                                                                        "Lost enter", "Lost exit", "Lost both")),
+      actionButton("endTrack", "Label/End track"),
+      br(),
+      br(),
       div(
         tags$span("Saved path-file:", class = "bold-prefix"),
         textOutput("saveto"),
@@ -428,7 +449,6 @@ server <- function(input, output, session) {
   #### Load data ####
   values <- reactiveValues(dat = NULL, all_ids = NULL, entered_ids = NULL,
                            dat_i = NULL, dat_pos_feat = NULL, dat_pos_feat_sub = NULL, dat_pos = NULL, dat_alt = NULL,
-                           tot_ids = 0, tot_entr_ids = 0, tot_fin_ids = 0,
                            i_start = NA, i_end = NA, i_links = 0)
   observeEvent(input$file, {
     
@@ -448,39 +468,26 @@ server <- function(input, output, session) {
       values$dat$patient_id <- values$dat$obs_id_new
     }
     
-    # load data and set patient ID to last obs_id
+    # light preprocessing
     values$dat <- values$dat %>%
-      mutate(across(c(patient_id, obs_id, obs_id_new), ~ as.integer(.x))) %>%
-      group_by(obs_id_new) %>%
-      arrange(obs_id) %>%
-      mutate(obs_id_new = last(obs_id)) %>%
-      ungroup() %>%
-      group_by(patient_id) %>%
-      arrange(obs_id) %>%
-      mutate(patient_id = max(c(last(obs_id), last(obs_id_new)))) %>%
-      ungroup() 
+      mutate(across(c(patient_id, obs_id_new, obs_id), ~ as.integer(.x))) %>%
+      dplyr::select(patient_id, obs_id_new, obs_id, tracking_end, match_type, everything())
     
     # get IDs to match
     values$all_ids <- update.all_ids(values$dat)
     values$entered_ids <- update.entered_ids(values$dat)
     
     # update patient ID selection
-    updateSelectizeInput(session, "ID", choices = values$all_ids, selected = min(values$all_ids), server = T)
+    updateSelectizeInput(session, "ID", choices = values$all_ids, server = T)
     
-    # total number of patient IDs
-    values$tot_ids <- n_distinct(values$dat$patient_id)
-    output$totalIDs <- renderText({values$tot_ids})
+    # ID counts
+    output$totalIDs <- renderText({ display_id_counts(values$dat) })
     
-    # entrance IDs 
-    values$tot_entr_ids <- length(values$entered_ids)
-    output$totEntranceIDs <- renderText({ values$tot_entr_ids })
-    
-    # finished ids
-    values$tot_fin_ids <- n_distinct(values$dat$patient_id[!is.na(values$dat$tracking_end)])
-    output$finishedIDs <- renderText({ values$tot_fin_ids })
+    # label counts
+    output$totalLabels <- renderText({ display_label_counts(values$dat) })
     
     #  date
-    output$date <- renderText({ as.Date(values$dat$time[1]) })
+    output$date <- renderText({ as.character(as.Date(values$dat$time[1])) })
     
     # create directory to save file
     values$save_dir <- paste(dirname(dirname(getwd())), 
@@ -523,7 +530,17 @@ server <- function(input, output, session) {
     }
   })
   
-  # select next entered ID
+  #### Select ID ####
+  # select first ID
+  observeEvent(input$firstID, {
+    all_ids <- as.integer(values$all_ids)
+    first_id <- all_ids[1]
+    updateSelectizeInput(session, inputId = "ID", choices = all_ids, selected = first_id, server = T)
+    updateRadioButtons(session, "direction", selected = 1)
+    updateRadioButtons(session, "quick", selected = 1)
+  })
+  
+  # select next ID
   observeEvent(input$nextID, {
     req(input$ID)
     oid <- as.integer(input$ID)
@@ -540,7 +557,7 @@ server <- function(input, output, session) {
     oid <- as.integer(input$ID)
     all_ids <- as.integer(values$all_ids)
     entered_ids <- as.integer(values$entered_ids)
-    next_entered_id <- entered_ids[which(entered_ids == oid) + 1]
+    next_entered_id <- entered_ids[entered_ids > oid][1]
     updateSelectizeInput(session, inputId = "ID", choices = all_ids, selected = next_entered_id, server = T)
     updateRadioButtons(session, "direction", selected = 1)
     updateRadioButtons(session, "quick", selected = 1)
@@ -563,7 +580,11 @@ server <- function(input, output, session) {
     oid <- as.integer(input$ID)
     all_ids <- as.integer(values$all_ids)
     entered_ids <- as.integer(values$entered_ids)
-    prev_entered_id <- entered_ids[which(entered_ids == oid) - 1]
+    if (oid < min(entered_ids)) {
+      prev_entered_id <- min(entered_ids)
+    } else {
+      prev_entered_id <- tail(entered_ids[entered_ids < oid], 1)
+    }
     updateSelectizeInput(session, inputId = "ID", choices = all_ids, selected = prev_entered_id, server = T)
     updateRadioButtons(session, "direction", selected = 1)
     updateRadioButtons(session, "quick", selected = 1)
@@ -666,40 +687,35 @@ server <- function(input, output, session) {
   observeEvent(input$linkTrack, {
     # make link
     oid <- as.integer(input$ID)
-    lid <- input$posID
+    lid <- as.integer(input$posID)
     if (lid == -1) {
       shinyalert("Error: -1", name_linkage_success, type = "success", timer = 1000)
     } else {
       linked_ids <- c(oid, lid)
+      new_id <- max(linked_ids)
       linkDir <- input$direction
       name_linkage_success <- paste("ID", oid, "linked to", lid, ".")
       shinyalert("Success", name_linkage_success, type = "success", timer = 1000)
-      values$dat$patient_id[values$dat$patient_id %in% linked_ids] <- max(linked_ids)
+      values$dat$patient_id[values$dat$patient_id %in% linked_ids] <- new_id
       base::saveRDS(object = values$dat, file = values$save_file)
       
       # update selection
       values$all_ids <- update.all_ids(values$dat)
       values$entered_ids <- update.entered_ids(values$dat)
-      sel_id <- ifelse(input$direction == 1, lid, oid)
-      updateSelectizeInput(inputId = "ID", choices = values$all_ids, selected = sel_id, server = T)
+      updateSelectizeInput(inputId = "ID", choices = values$all_ids, selected = new_id, server = T)
       
-      # update total counts
-      # total number of patient IDs
-      values$tot_ids <- values$tot_ids - 1
-      output$totalIDs <- renderText({values$tot_ids})
-      # entrance IDs 
-      values$tot_entr_ids <- length(values$entered_ids)
-      output$totEntranceIDs <- renderText({ values$tot_entr_ids })
+      # update ID counts
+      output$totalIDs <- renderText({ display_id_counts(values$dat) })
     }
   })
   
   #### Un-link ####
   observeEvent(input$unlinkLastID, {
-    # unlink
+    # unlink last ID
     last_id <- as.integer(input$ID)
-    old_id <- tail(sort(unique(values$dat$obs_id_new[values$dat$patient_id==last_id])),2)[1]
+    old_id <- tail(sort(unique(values$dat$obs_id_new[values$dat$patient_id==last_id])),2)[1] 
     shinyalert("Info", paste("Unlinking ID", last_id, "from", old_id) , type = "info", timer = 1000)
-    values$dat$patient_id[values$dat$patient_id == last_id & values$dat$obs_id_new != last_id] <- old_id
+    values$dat$patient_id[values$dat$patient_id == last_id & values$dat$obs_id_new != last_id] <- old_id 
     base::saveRDS(object = values$dat, file = values$save_file)
     
     # update selection
@@ -707,20 +723,15 @@ server <- function(input, output, session) {
     values$entered_ids <- update.entered_ids(values$dat)
     updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = old_id, server = T)
     
-    # update total counts
-    # total number of patient IDs
-    values$tot_ids <- values$tot_ids + 1
-    output$totalIDs <- renderText({values$tot_ids})
-    # entrance IDs 
-    values$tot_entr_ids <- length(values$entered_ids)
-    output$totEntranceIDs <- renderText({ values$tot_entr_ids })
+    # update ID counts
+    output$totalIDs <- renderText({ display_id_counts(values$dat) })
   })
   
   observeEvent(input$unlinkFirstID, {
-    # unlink
+    # unlink first ID
     last_id <- as.integer(input$ID)
-    old_id <- sort(unique(values$dat$obs_id_new[values$dat$patient_id==last_id]))[1]
-    values$dat$patient_id[values$dat$obs_id_new == old_id] <- old_id
+    old_id <- sort(unique(values$dat$obs_id_new[values$dat$patient_id==last_id]))[1] 
+    values$dat$patient_id[values$dat$obs_id_new == old_id] <- old_id 
     base::saveRDS(object = values$dat, file = values$save_file)
     shinyalert("Info", paste("Unlinking ID", last_id, "from", old_id) , type = "info", timer = 1000)
     
@@ -729,33 +740,30 @@ server <- function(input, output, session) {
     values$entered_ids <- update.entered_ids(values$dat)
     updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = last_id, server = T)
     
-    # update total counts
-    # total number of patient IDs
-    values$tot_ids <- values$tot_ids + 1
-    output$totalIDs <- renderText({values$tot_ids})
-    # entrance IDs 
-    values$tot_entr_ids <- length(values$entered_ids)
-    output$totEntranceIDs <- renderText({ values$tot_entr_ids })
+    # update ID counts
+    output$totalIDs <- renderText({ display_id_counts(values$dat) })
   })
   
   
   #### End track ####
   observeEvent(input$endTrack, {
-    # finish track
-    oid <- as.integer(input$ID)
-    values$dat$tracking_end[values$dat$patient_id == oid] <- input$terminalInput
-    base::saveRDS(object = values$dat, file = values$save_file)
-    shinyalert("Done.", paste("Ending tracking of ID", input$ID, "because", input$terminalInput), type = "info", timer = 1000)
-    values$all_ids <- update.all_ids(values$dat)
-    values$entered_ids <- update.entered_ids(values$dat)
-    next_id <- values$all_ids[values$all_ids > oid][1]
-    updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = next_id, server = T)
-    updateRadioButtons(session, "quick", selected = 1)
-    
-    # update counts
-    # finished ids
-    values$tot_fin_ids <- values$tot_fin_ids + 1
-    output$finishedIDs <- renderText({ values$tot_fin_ids })
+    if (input$direction == 2) {
+      shinyalert("Error", "Direction is backward. Please only end tracks forward.", type = "error", timer = 1000)
+    } else {
+      # finish track
+      oid <- as.integer(input$ID)
+      values$dat$tracking_end[values$dat$patient_id == oid] <- input$terminalInput
+      base::saveRDS(object = values$dat, file = values$save_file)
+      shinyalert("Done.", paste("Ending tracking of ID", input$ID, "because", input$terminalInput), type = "info", timer = 1000)
+      values$all_ids <- update.all_ids(values$dat)
+      values$entered_ids <- update.entered_ids(values$dat)
+      next_id <- values$all_ids[values$all_ids > oid][1]
+      updateSelectizeInput(session, inputId = "ID", choices = values$all_ids, selected = next_id, server = T)
+      updateRadioButtons(session, "quick", selected = 1)
+      
+      # update label counts
+      output$totalLabels <- renderText({ display_label_counts(values$dat) })
+    }
   })
   
     

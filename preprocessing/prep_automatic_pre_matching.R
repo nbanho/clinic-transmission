@@ -17,51 +17,60 @@ source("utils/spatial.r")
 #' 
 #' @param location string
 #' @param date date %Y-%m-%d
-#' @param max_time maximum time (in seconds) to look ahead for matches
-#' @param min_standing_height minimum standing height
-#' @param max_mov_time maximum time (in seconds) to look ahead for people moving
-#' @param max_sit_time maximum time (in seconds) to look ahead for people sitting
-#' @param max_mov_distance maximum distance someone can make while moving
-#' @param max_sit_distance maximum distance someone can make while sitting
-#' @param max_mov_heightdiff maximum height difference when moving
 #' @param min_duration minimum duration of a track, otherwise filtered
 #' @param min_total_distance minimum total distance of a track, otherwise filtered
+#' @param min_time minimum time (in seconds) to look ahead for matches
+#' @param max_time maximum time (in seconds) to look ahead for matches
+#' @param max_mov_time maximum time (in seconds) to look ahead when moving
+#' @param max_mov_distance maximum distance (in m) to look around when moving
+#' @param max_mov_heightdiff maximum height difference (in cm) when moving
+#' @param max_sit_time maximum time (in seconds) to look ahead when sitting
+#' @param max_sit_distance maximum distance (in m) too look around when sitting
+#' @param max_sit_heightdiff maximum height difference (in cm) when sitting
 
 match_xovis <- function(location,
                         date, 
-                        max_time = 30 * 60, 
-                        min_standing_height = 1500, 
-                        max_mov_time = 10, 
+                        min_duration = 10,
+                        min_total_distance = 2,
+                        min_time = -1,
+                        max_time = 30, 
+                        max_mov_time = c(5, 10), 
                         max_mov_distance = 3,
-                        max_sit_time = 30,
+                        max_mov_heightdiff = 20,
+                        max_sit_time = c(30, 60),
                         max_sit_distance =  0.5,
-                        max_mov_heightdiff = 100,
-                        min_duration = 5,
-                        min_total_distance = 1
+                        max_sit_heightdiff = 80
+                        
 ) {
   
   #### Data ####
   
   # xovis
   file <- paste0("data-raw/", location, "/xovis/", date, ".rds")
-  save_dir <- paste0("data-raw/", location, "/patient-tracking-data/", date, ".rds")
+  save_dir <- paste0("data-raw/", location, "/patient-tracking-data/", date)
   masi <- readRDS(file) 
+  
+  # info
+  n_obs_id <- n_distinct(masi$obs_id)
   
   # pre filter
   masi <- masi %>%
     group_by(obs_id) %>%
     mutate(duration = as.numeric(difftime(last(time), first(time), units = "secs")),
-           distance = convert_dist( euclidean(first(x), last(x), first(y), last(y)) ),
-           first_entered = first(is_entrance),
-           has_exited = any(is_exit)) %>%
+           distance = convert_dist( euclidean(last(x), first(x), last(y), first(y)) )) %>%
     ungroup() %>%
-    filter(!(duration <= min_duration & distance <= min_total_distance & !first_entered & !has_exited) ) %>%
+    filter(!(duration <= min_duration & distance <= min_total_distance)) %>%
     dplyr::select(-distance, -duration)
+  
+  # info 
+  n_obs_id_filt <- n_distinct(masi$obs_id)
+  n_filtered <- n_obs_id - n_obs_id_filt
   
   #### Matching ####
   
   # initialize
   masi$obs_id_new <- masi$obs_id
+  masi$match_type <- NA
   ids <- unique(masi$obs_id_new)
   
   while(length(ids) > 0) {
@@ -76,17 +85,19 @@ match_xovis <- function(location,
     while (continue_matching) {
       
       # select patient
-      masi_p <- filter(masi, obs_id_new == i)
-      masi_p_last <- tail(masi_p, 1)
+      masi_p_last <- masi %>%
+        filter(obs_id_new == i) %>%
+        slice(n())
       
       # check for possible matches
+      earliest_start <- masi_p_last$time + lubridate::seconds(min_time)
+      latest_end <- masi_p_last$time + lubridate::seconds(max_time)
       possible_matches <- masi %>%
+        filter(obs_id_new > i) %>%
         group_by(obs_id_new) %>%
         slice(1) %>%
         ungroup() %>%
-        filter(between(time, masi_p_last$time %m+% seconds(1), masi_p_last$time %m+% seconds(max_time))) %>%
-        mutate(p_height = masi_p_last$height,
-               p_is_seat = masi_p_last$is_seat)
+        filter(between(time, earliest_start, latest_end)) 
       
       if (nrow(possible_matches) == 0) {
         
@@ -98,49 +109,52 @@ match_xovis <- function(location,
         possible_matches <- possible_matches %>%
           mutate(distance = convert_dist( euclidean(x, masi_p_last$x, y, masi_p_last$y) ),
                  timediff = as.numeric(difftime(time, masi_p_last$time, units = c("secs"))),
-                 heightdiff = abs(height - masi_p_last$height),
-                 !is_seat)
+                 heightdiff = abs(height - masi_p_last$height) / 10)
         
         # priority 1: moving
-        matches_moving <- possible_matches %>%
-          filter(timediff <= max_mov_time,
+        matches <- possible_matches %>%
+          filter(timediff <= max_mov_time[1],
                  distance <= max_mov_distance,
-                 heightdiff <= max_mov_heightdiff,
-                 !p_is_seat) %>%
-          mutate(match_type = "Moving") 
-        
-        # priority 2: person sitting in seating area
-        matches_sitting <- possible_matches %>%
-          filter(timediff <= max_sit_time,
-                 distance <= max_sit_distance,
-                 p_is_seat,
-                 height <= min_standing_height,
-                 p_height <= min_standing_height) %>%
-          mutate(match_type = "Seating area: sitting")
-        
-        # priority 3: person moving in seating area
-        matches_moving_seating <- possible_matches %>%
-          filter(timediff <= max_mov_time,
-                 distance <= max_sit_distance,
-                 p_is_seat) %>%
-          mutate(match_type = "Seating area: moving") 
-          
-        # combine matches
-        matches <- rbind(matches_moving, matches_sitting, matches_moving_seating) 
+                 heightdiff <= max_mov_heightdiff) %>%
+          mutate(match_type = "Moving")
         
         if (nrow(matches) == 0) {
+          matches <- possible_matches %>%
+            filter(timediff <= max_mov_time[2],
+                   distance <= max_mov_distance,
+                   heightdiff <= max_mov_heightdiff) %>%
+            mutate(match_type = "Moving")
+        }
+        
+        # priority 2: sitting
+        if (nrow(matches) == 0 & masi_p_last$is_seat) {
+          matches <- possible_matches %>%
+            filter(timediff <= max_sit_time[1],
+                   distance <= max_sit_distance,
+                   heightdiff <= max_sit_heightdiff,
+                   is_seat) %>%
+            mutate(match_type = "Sitting")
+        }
+        
+        if (nrow(matches) == 0 & masi_p_last$is_seat) {
+          matches <- possible_matches %>%
+            filter(timediff <= max_sit_time[2],
+                   distance <= max_sit_distance,
+                   heightdiff <= max_sit_heightdiff,
+                   is_seat) %>%
+            mutate(match_type = "Sitting")
+        }
+          
+        # only match if there is only one possibility
+        if (nrow(matches) != 1) {
           
           continue_matching <- F
           
         } else {
           
-          # rank matches 
-          matches <- matches %>%
-            arrange(timediff, distance, heightdiff) %>%
-            slice(1)
-          
           # make match
-          masi$obs_id_new[masi$obs_id_new==matches$obs_id_new] <- masi_p_last$obs_id_new
+          masi$obs_id_new[masi$obs_id_new == matches$obs_id_new] <- masi_p_last$obs_id_new
+          masi$match_type[masi$obs_id == matches$obs_id] <- matches$match_type
           
           # message
           pid <- masi_p_last$obs_id_new
@@ -148,23 +162,49 @@ match_xovis <- function(location,
           type <- matches$match_type
           dt <- matches$timediff
           dd <- as.character( round(matches$distance, 1) )
-          dh <- as.character( round(matches$heightdiff / 10, 1) )
+          dh <- as.character( round(matches$heightdiff, 1) )
           message(sprintf("Linking %s with %s. Type: %s, t: %is, d: %sm, h: %scm.", pid, oid, type, dt, dd, dh))
           
           # remove ID from round
-          ids <- ids[ids!=matches$obs_id_new]
-          
-          # check if patient exited
-          if (tail(masi$is_exit[masi$obs_id_new == masi_p_last$obs_id_new], 1)) {
-            
-            continue_matching <- F
-            
-          }
+          ids <- ids[ids != matches$obs_id_new]
         }
       }
     }
   }
-  saveRDS(masi %>% dplyr::select(obs_id_new, obs_id, everything()), save_dir)
+  
+  # save log
+  n_obs_id_new <- n_distinct(masi$obs_id_new)
+  n_matched <- n_obs_id_filt - n_obs_id_new
+  match_type_counts <- masi %>%
+    group_by(obs_id) %>%
+    slice(1) %>%
+    ungroup() %>%
+    mutate(match_type = ifelse(is.na(match_type), "Unmatched", match_type)) %>%
+    group_by(match_type) %>%
+    summarize(n = n()) %>%
+    ungroup()
+  n_type_moving <- match_type_counts$n[match_type_counts$match_type == "Moving"]
+  n_type_sitting <- match_type_counts$n[match_type_counts$match_type == "Sitting"]
+  n_type_unmatched <- match_type_counts$n[match_type_counts$match_type == "Unmatched"]
+  info_df <- data.frame(
+    Variable = c("#IDs before filtering", "#IDs filtered", "IDs after filtering",
+                 "#IDs matched", "#IDs after matching",
+                 "#Moving matches", "#Sitting matches", "#Ummatched"),
+    Count = c(n_obs_id, n_filtered, n_obs_id_filt,
+              n_matched, n_obs_id_new,
+              n_type_moving, n_type_sitting, n_type_unmatched)
+  )
+  save_log_file <- paste0(save_dir, "_log", ".csv")
+  write.csv(info_df, file = save_log_file, row.names = F)
+  
+  # save data
+  masi <- masi %>% 
+    dplyr::select(obs_id_new, obs_id, match_type, everything()) %>%
+    group_by(obs_id_new) %>%
+    mutate(obs_id_new = max(obs_id)) %>%
+    ungroup()
+  save_data_file <- paste0(save_dir, ".rds")
+  saveRDS(masi, save_data_file)
 }
 
 
