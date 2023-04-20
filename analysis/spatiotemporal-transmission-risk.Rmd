@@ -34,7 +34,7 @@ source("../utils/plotting.R")
 # plot with and height of input and data graphs
 width_descr <- 10.5 / cm(1)
 height_descr <- 7.5 / cm(1)
-text_descr <- 12
+text_descr <- 10
 ```
 
 
@@ -543,22 +543,70 @@ ggsave(plot = qc_pl, filename = "../doc/IWHOD/presentation/figures/quanta-concen
 
 
 # for abstract
-highRiskPat_pl_abs <- highRiskPat_pl +
-  labs(title = "1a | Estimated no. of attendees with high-risk of MtB infection",
-       subtitle = "Number (mean and 95%-limits) of high-risk clinical attendees (defined as P>1%)") +
-  theme(plot.title = element_text(face = 2),
-        plot.title.position = "plot")
-
-summary_tab_abs <- summary_tab +
-  labs(title = " ",
-       subtitle = " ")
+# highRiskPat_pl_abs <- highRiskPat_pl +
+#   labs(title = "1a | Estimated no. of attendees with high-risk of MtB infection",
+#        subtitle = "Number (mean and 95%-limits) of high-risk clinical attendees (defined as P>1%)") +
+#   theme(plot.title = element_text(face = 2),
+#         plot.title.position = "plot")
+# 
+# summary_tab_abs <- summary_tab +
+#   labs(title = " ",
+#        subtitle = " ")
 
 qc_pl_abs <- qc_pl +
   labs(title = "1b | Estimated quanta concentration in the clinic by daytime",
         subtitle = "Average concentration in the morning (7:30 to 12am) and afternoon (12am to 4pm)") +
   theme(plot.title = element_text(face = 2))
+```
 
-comb_abs_pl <- grid.arrange(grid.arrange(highRiskPat_pl_abs, summary_tab_abs, ncol = 2, widths = 16 * c(0.7,.3)), qc_pl_abs, ncol = 1, heights = 25 / cm(1) * c(0.35, 0.65))
-ggsave(plot = comb_abs_pl, filename = "../doc/Union/abstract/figure.png", width = 16 / cm(1), height = 25 / cm(1))
+x### Track examples
+
+```{r}
+examples <- no_people %>%
+  group_by(patient_id) %>%
+  mutate(first_entered = first(is_entrance),
+         last_exited = last(is_entrance|is_exit),
+         duration = as.numeric(difftime(last(time), first(time), units = "mins"))) %>%
+  ungroup() %>%
+  filter(first_entered,
+         last_exited,
+         duration > 10) %>%
+  ungroup()
+
+n_distinct(examples$patient_id)
+
+examples_se <- examples %>%
+  group_by(patient_id) %>%
+  slice(1, n()) %>%
+  mutate(type = factor(c("Start", "End"), levels=c("Start", "End"))) %>%
+  ungroup()
+
+examples_pl <- examples %>%
+  ggplot(aes(x = x, y = y, group = patient_id)) +
+  geom_path(color = "darkred", alpha = .5) +
+  geom_point(data = examples_se, mapping = aes(shape = type)) +
+  ggpubr::background_image(clinic_img) +
+  scale_y_continuous(expand = expansion(add=c(2000, 3250))) +
+  scale_x_continuous(expand = expansion(add=c(800, 0))) +
+  scale_shape_manual(values = c(1,13)) +
+  annotation_custom(entrance_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  annotation_custom(wr_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  annotation_custom(tb_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  annotation_custom(re_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  labs(title = "1a | Subset of patient movement data",
+       subtitle = "Examples of trackings from 40 patients in the clinic") + 
+  theme_classic() +
+  theme(text = element_text(size = text_descr),
+        axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(), legend.key.width = unit(0.3, "cm"), legend.key.height = unit(0.3, "cm"),
+        legend.position = c(0.825,0.075), legend.direction = "horizontal",
+        panel.background = element_rect(fill = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")[1]), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), legend.title = element_blank()) +
+  theme(plot.title = element_text(face = 2))
+
+examples_pl
+
+comb_abs_pl <- grid.arrange(grid.arrange(examples_pl, ggplot() + theme_classic() + theme(axis.line = element_blank()), ncol = 1, heights = c(8.5,6.5)), 
+                            qc_pl_abs, ncol = 2, widths = 26.5 / cm(1) * c(0.475, 0.525))
+ggsave(plot = comb_abs_pl, filename = "../doc/Union/abstract/figure.png", width = 26.5 / cm(1), height = 15 / cm(1))
 ```
 

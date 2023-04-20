@@ -1,13 +1,44 @@
-#' Compute the quanta removal rate
+#' Compute quanta removal
 #' 
-#' 
-#' @param AER air exchange rate per hour
+#' @param C N x M matrix of quanta concentration per grid cell
+#' @param aer air exchange rate per hour
 #' @param k rate per hour for particle deposition on surfaces
 #' @param lambda viral inactivation rate per hour
+#' @param dt time step (in s)
 #' 
 
-compute_RR <- function(AER, k = 0, lambda = 0) {
-  return(AER + k + lambda)
+removal <- function(C, aer, k = 0, lambda = 0, dt = 1) {
+  
+  # quanta removal rate
+  rr <- aer + k + lambda
+  
+  # removal
+  qr <- function(x) x * exp(- rr * dt)
+  
+  # quanta concentration after removal
+  C_rq <- apply(C, c(1,2), qr)
+  
+  return(C_rq)
+}
+
+
+#' Compute quanta emission
+#' 
+#' @param C N x M matrix of quanta concentration per grid cell
+#' @param W N x M matrix with weights for quanta emission (in m)
+#' @param qer quanta emission rate (in quanta/s)
+#' @param dt time step (in s)
+#' 
+
+emission <- function(C, W, qer, dt = 1) {
+  
+  # emitted quanta 
+  eq <- qer * dt
+  
+  # quanta concentration after emission
+  C_eq <- C + W * eq
+  
+  return(C_eq)
 }
 
 
@@ -20,7 +51,7 @@ compute_RR <- function(AER, k = 0, lambda = 0) {
 #' @param n number of people in ventilated space (in 1/m3) 
 #' 
 
-compute_AER <- function(G, Co, C, n, V) {
+compute_aer <- function(G, Co, C, n, V) {
   # add 1 person for the person working behind the registry (and such that n is not 0)
   n <- n + 1
   # excess CO2 in ppm
@@ -32,41 +63,21 @@ compute_AER <- function(G, Co, C, n, V) {
   # ventilation rate (in l/s per person)
   Q <- G / Ce
   # air exchange rate (in s)
-  AER <- Q * n / V
+  aer <- Q * n / V
   # air exchange rate (in h)
-  AER <- 3600 * AER
-  return( AER )
+  aer <- 3600 * aer
+  return( aer )
 }
-
-
-#' Compute quanta concentration (quanta / m3)
-#' 
-#' 
-#' @param E quanta emission (quanta emission rate times the number of infectious)
-#' @param I number of infectious people in space
-#' @param RR quanta removal rate
-#' @param N0 initial quanta concentration
-#' @param V volume of space (in 1/m3) 
-#' 
-#' @references Buonanno G, Stabile L, Morawska L. Estimation of airborne viral emission:
-#' Quanta emission rate of SARS-CoV-2 for infection risk assessment. 
-#' Environment international. 2020;141:105794.
-
-compute_Nt <- function(E, RR, N0, V) {
-  return( E / (RR * V) + (N0 + E / (RR * V)) * exp(-RR) )
-}
-
 
 #' Compute risk of infection
 #' 
-#' 
-#' @param N quanta concentration (quanta / m3)
+#' @param C quanta concentration (quanta / m3)
 #' @param t duration of exposure (in seconds)
 #' @param p is the breathing rate (in L/seconds)
 #' 
 
-compute_P <- function(N, t = 1, p = 8.0 / 60) {
-  1 - exp(-N * t * p)
+riskOfInfection <- function(C, t = 1, p = 8.0 / 60) {
+  1 - exp(-C * t * p)
 } 
 
 
@@ -132,4 +143,37 @@ rG <- function(n) {
 
 rTBunmasked <- function(n, lambda) {
   rpois(n, lambda)
+}
+
+
+#' Spatial diffusion of quanta
+#' 
+#' @param C N x M matrix of quanta concentration per grid cell
+#' @param dx the size of the grid cell in x direction (in m)
+#' @param dy the size of the grid cell in y direction (in m)
+#' @param Lx the size of the room in x direction (in m)
+#' @param Ly the size of the room in y direction (in m)
+#' @param D diffusion constant (in m2/s)
+#' @param dt time step (in s)
+#' 
+
+diffusion <- function(C, dx, dy, Lx, Ly, D, dt = 1) {
+  
+  # parameters
+  nx <- ncol(C)
+  ny <- nrow(C)
+  
+  # Compute the change in quanta due to diffusion
+  #' C.y and C.x are the boundary conditions
+  #' flux ensures mass consistency
+  dC <- ReacTran::tran.2D(C, C.x.up = rep(0, nx), C.x.down = rep(0, nx),
+                          C.y.up = rep(0, ny), C.y.down = rep(0, ny),
+                          flux.x.up = rep(0, nx), flux.x.down = rep(0, nx),
+                          flux.y.up = rep(0, ny), flux.y.down = rep(0, ny),
+                          D.x = D, D.y = D, dx = dx, dy = dy)$dC
+  
+  # Update the concentration using the Euler method
+  C_diff <- C + dC
+  
+  return(C_diff)
 }
