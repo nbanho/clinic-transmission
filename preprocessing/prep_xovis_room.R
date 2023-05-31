@@ -19,7 +19,7 @@ clinic_df <- fortify(clinic_sf)
 
 # xovis raw data files
 files <- list.files("data-raw/Masi/xovis/", full.names = T)
-files <- files[grepl("rds", files)]
+files <- files[grepl(".rds", files)]
 
 for (f in files) {
   # file info

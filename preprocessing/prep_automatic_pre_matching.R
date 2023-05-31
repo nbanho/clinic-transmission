@@ -202,7 +202,7 @@ match_xovis <- function(location,
     dplyr::select(obs_id_new, obs_id, match_type, everything()) %>%
     group_by(obs_id_new) %>%
     mutate(obs_id_new = max(obs_id)) %>%
-    ungroup()
+    ungroup() 
   save_data_file <- paste0(save_dir, ".rds")
   saveRDS(masi, save_data_file)
 }
