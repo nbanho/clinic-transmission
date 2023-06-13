@@ -22,17 +22,17 @@ pointsize <- 4
 plot_wait_time <- 1000 # wait 1s until plot and table are generated
 
 # search parameters 
-time_choices <- c(10, 20, 30, 45, 60, 300, 600, 900, 1500, 1800)
-dist_choices <- c(0.5, 1, 2, 3, 4, 5, 7)
+time_choices <- c(5, 10, 20, 30, 45, 60, 300, 600, 900, 1500, 1800) # time_choices <- c(10, 20, 30, 45, 60, 300, 600, 900, 1500, 1800)
+dist_choices <- c(.25, .5, 1., 1.5, 2., 3., 5.) # dist_choices <- c(0.5, 1, 2, 3, 4, 5, 7)
 height_choices <- c(10, 20, 50, 100, 200)
-short_move_time <- 30
-short_move_dist <- 5
+short_move_time <- 10 # 30
+short_move_dist <- 1.5 # 5
 short_move_height <- 50
-long_move_time <- 60
-long_move_dist <- 7
+long_move_time <- 30 # 60
+long_move_dist <- 3 # 7
 long_move_height <- 100
 short_sit_time <- 60
-short_sit_dist <- 1
+short_sit_dist <- .5 # 1
 short_sit_height <- 100
 long_sit_time <- 300
 long_sit_dist <- 1
@@ -43,7 +43,7 @@ all_height <- max(height_choices)
 
 
 #### Building ####
-building <- terra::vect(paste0("../../data-raw/", "Masi", "/building/clinic-vector.gpkg"))
+building <- terra::vect(paste0("../../data-raw/", "Massi", "/building/clinic-vector.gpkg"))
 building_sf <- sf::st_as_sf(building, crs = NA)
 st_crs(building_sf) <- NA
 building_df <- fortify(building_sf)
@@ -100,8 +100,8 @@ filter_other_feat <- function(df, oid, nextIDs = 1) {
       slice(n()) 
     
     # pre time filter conditions
-    earliest_start <- df_i$time[1] - lubridate::seconds(3)
-    latest_start <- df_i$time[1] + lubridate::seconds(max(time_choices))
+    earliest_start <- df_i$date_time[1] - lubridate::seconds(3)
+    latest_start <- df_i$date_time[1] + lubridate::seconds(max(time_choices))
     
     # other potential ids
     df_other <- df %>%
@@ -110,7 +110,7 @@ filter_other_feat <- function(df, oid, nextIDs = 1) {
       slice(1) %>% 
       ungroup() %>%
       filter(patient_id > oid, 
-             between(time, earliest_start, latest_start)) 
+             between(date_time, earliest_start, latest_start)) 
     
   } else {
     
@@ -120,8 +120,8 @@ filter_other_feat <- function(df, oid, nextIDs = 1) {
       slice(1) 
     
     # pre time filter conditions
-    latest_end <- df_i$time[1] + lubridate::seconds(3)
-    earliest_end <- df_i$time[1] - lubridate::seconds(max(time_choices))
+    latest_end <- df_i$date_time[1] + lubridate::seconds(3)
+    earliest_end <- df_i$date_time[1] - lubridate::seconds(max(time_choices))
     
     # other potential ids
     df_other <- df %>%
@@ -130,7 +130,7 @@ filter_other_feat <- function(df, oid, nextIDs = 1) {
       slice(n()) %>%
       ungroup() %>%
       filter(patient_id < oid, 
-             between(time, earliest_end, latest_end))
+             between(date_time, earliest_end, latest_end))
     
   }
   
@@ -143,13 +143,13 @@ filter_other_feat <- function(df, oid, nextIDs = 1) {
 compute_other_feat <- function(df_other, direction) {
   if (direction == 1) {
     df_other %>%
-      mutate(timediff_raw = as.numeric(difftime(time_other, time_i, units = "secs")), 
+      mutate(timediff_raw = as.numeric(difftime(date_time_other, date_time_i, units = "secs")), 
              timediff = abs(timediff_raw),
              distance = convert_dist(euclidean(x_other, x_i, y_other, y_i)),
              heightdiff = abs(height_other - height_i) / 10)
   } else {
     df_other %>%
-      mutate(timediff_raw = as.numeric(difftime(time_i, time_other, units = "secs")), 
+      mutate(timediff_raw = as.numeric(difftime(date_time_i, date_time_other, units = "secs")), 
              timediff = abs(timediff_raw),
              distance = convert_dist(euclidean(x_other, x_i, y_other, y_i)),
              heightdiff = abs(height_other - height_i) / 10)
@@ -246,7 +246,7 @@ table_ids <- function(df_i, df_pos, direction) {
   # first values from possible links
   df_pos_1 <- df_pos %>%
     group_by(patient_id) %>%
-    summarize(duration = duration_min_sec(first(time), last(time)),
+    summarize(duration = duration_min_sec(first(date_time), last(date_time)),
               stand_height = standing_height(height)) %>%
     ungroup()
   if (direction == 1) {
@@ -269,13 +269,13 @@ table_ids <- function(df_i, df_pos, direction) {
   
   if (direction == 1) {
     df_feat <- df_feat %>%
-      mutate(timediff = as.numeric(difftime(time_pos, time_i, units = "secs")),
+      mutate(timediff = as.numeric(difftime(date_time_pos, date_time_i, units = "secs")),
              distance = convert_dist(euclidean(x_pos, x_i, y_pos,y_i)),
              last_heightdiff = height_pos - height_i,
              stand_heightdiff = stand_height_pos - stand_height_i)
   } else {
     df_feat <- df_feat %>%
-      mutate(timediff = as.numeric(difftime(time_i, time_pos, units = "secs")),
+      mutate(timediff = as.numeric(difftime(date_time_i, date_time_pos, units = "secs")),
              distance = convert_dist(euclidean(x_pos, x_i, y_pos,y_i)),
              last_heightdiff = height_i - height_pos,
              stand_heightdiff = stand_height_i - stand_height_pos)
@@ -330,7 +330,7 @@ display_id_counts <- function(df) {
 
 display_label_counts <- function(df) {
   n_unfinished <- n_distinct(df$patient_id[is.na(df$tracking_end)])
-  n_finished <- n_distinct(df$patient_id[df$tracking_end %in% c("Possible HCW", "Entered + Exited", "Noise")])
+  n_finished <- n_distinct(df$patient_id[!grepl("Lost", df$tracking_end) & !is.na(df$tracking_end)])
   n_lost <- n_distinct(df$patient_id[grepl("Lost", df$tracking_end)])
   counts <- paste0("None: ", n_unfinished, ", Ended: ", n_finished, ", Lost: ", n_lost)
   return(counts)
@@ -340,7 +340,7 @@ update.all_ids <- function(df) {
   df %>%
     filter(is.na(tracking_end)) %>%
     group_by(patient_id) %>%
-    summarize(last_time = last(time)) %>%
+    summarize(last_time = last(date_time)) %>%
     ungroup() %>%
     arrange(last_time) %>%
     ungroup() %>%
@@ -354,7 +354,7 @@ update.entered_ids <- function(df) {
     filter(is.na(tracking_end)) %>%
     group_by(patient_id) %>%
     summarize(first_entered = first(is_entrance),
-              last_time = last(time)) %>%
+              last_time = last(date_time)) %>%
     ungroup() %>%
     filter(first_entered) %>%
     arrange(last_time) %>%
@@ -424,8 +424,16 @@ ui <- fluidPage(
       actionButton("unlinkFirstID", "Unlink first ID"),
       br(),
       br(),
-      selectInput("terminalInput", "Label or end tracking", choices = c("Entered + Exited", "Possible HCW", "Noise",
-                                                                        "Lost enter", "Lost exit", "Lost both")),
+      selectInput("terminalInput", "Label or end tracking", choices = c("Entered + Exited",
+                                                                        "Entered WR + Exited",
+                                                                        "Entered + Exited WR",
+                                                                        "Entered WR + Exited WR",
+                                                                        "Lost enter + Exited",
+                                                                        "Lost enter + Exited WR",
+                                                                        "Entered + Lost exit",
+                                                                        "Entered WR + Lost exit",
+                                                                        "Lost enter + Lost exit",
+                                                                        "Noise")),
       actionButton("endTrack", "Label/End track"),
       br(),
       br(),
@@ -487,15 +495,14 @@ server <- function(input, output, session) {
     output$totalLabels <- renderText({ display_label_counts(values$dat) })
     
     #  date
-    output$date <- renderText({ as.character(as.Date(values$dat$time[1])) })
+    output$date <- renderText({ as.character(as.Date(values$dat$date_time[1])) })
     
     # create directory to save file
-    values$save_dir <- paste(dirname(dirname(getwd())), 
-                             "data-clean", "Masi", "patient-tracking-data",
-                             as.character(as.Date(values$dat$time[1])), 
-                             sep = "/")
+    file_year <- lubridate::year(values$dat$date_time[1])
+    file_date <- as.character(as.Date(values$dat$date_time[1]))
+    values$save_dir <- paste(dirname(dirname(getwd())), "data-clean", "Massi", file_year, "patient-tracking", sep = "/")
     if (!dir.exists(values$save_dir)) { dir.create(values$save_dir) }
-    values$save_file <- paste0(values$save_dir, "/linked-patient-id-data.rds")
+    values$save_file <- paste0(values$save_dir, "/", file_date, ".rds")
     
     # display directory where file is stored
     output$saveto <- renderText({ values$save_file })
@@ -601,7 +608,7 @@ server <- function(input, output, session) {
       # filter data
       values$dat_i <- values$dat %>% 
         filter(patient_id == oid) %>%
-        dplyr::select(patient_id, obs_id, time, x, y, height)
+        dplyr::select(patient_id, obs_id, date_time, x, y, height)
       
       # filter others
       values$dat_pos_feat <- filter_other_feat(values$dat, oid, input$direction)
@@ -609,8 +616,8 @@ server <- function(input, output, session) {
       values$dat_pos_feat <- compute_other_feat(values$dat_pos_feat, input$direction)
       
       # duration
-      values$i_start <- head(values$dat$time[values$dat$patient_id==oid], 1)
-      values$i_end <- tail(values$dat$time[values$dat$patient_id==oid], 1)
+      values$i_start <- head(values$dat$date_time[values$dat$patient_id==oid], 1)
+      values$i_end <- tail(values$dat$date_time[values$dat$patient_id==oid], 1)
       output$currentDuration <- renderText({ display_duration(values$i_start, values$i_end) })
       
       # number of links

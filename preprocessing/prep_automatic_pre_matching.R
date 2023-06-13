@@ -46,8 +46,9 @@ match_xovis <- function(location,
   #### Data ####
   
   # xovis
-  file <- paste0("data-raw/", location, "/xovis/", date, ".rds")
-  save_dir <- paste0("data-raw/", location, "/patient-tracking-data/", date)
+  yr <- lubridate::year(as.Date(date))
+  file <- paste0("data-raw/", location, "/", yr, "/patient-tracking/annotated/", date, ".rds")
+  save_dir <- paste0("data-raw/", location, "/", yr, "/patient-tracking/pre-matched/", date)
   masi <- readRDS(file) 
   
   # info
@@ -56,7 +57,7 @@ match_xovis <- function(location,
   # pre filter
   masi <- masi %>%
     group_by(obs_id) %>%
-    mutate(duration = as.numeric(difftime(last(time), first(time), units = "secs")),
+    mutate(duration = as.numeric(difftime(last(date_time), first(date_time), units = "secs")),
            distance = convert_dist( euclidean(last(x), first(x), last(y), first(y)) )) %>%
     ungroup() %>%
     filter(!(duration <= min_duration & distance <= min_total_distance)) %>%
@@ -90,14 +91,14 @@ match_xovis <- function(location,
         slice(n())
       
       # check for possible matches
-      earliest_start <- masi_p_last$time + lubridate::seconds(min_time)
-      latest_end <- masi_p_last$time + lubridate::seconds(max_time)
+      earliest_start <- masi_p_last$date_time + lubridate::seconds(min_time)
+      latest_end <- masi_p_last$date_time + lubridate::seconds(max_time)
       possible_matches <- masi %>%
         filter(obs_id_new > i) %>%
         group_by(obs_id_new) %>%
         slice(1) %>%
         ungroup() %>%
-        filter(between(time, earliest_start, latest_end)) 
+        filter(between(date_time, earliest_start, latest_end)) 
       
       if (nrow(possible_matches) == 0) {
         
@@ -108,7 +109,7 @@ match_xovis <- function(location,
         # compute features
         possible_matches <- possible_matches %>%
           mutate(distance = convert_dist( euclidean(x, masi_p_last$x, y, masi_p_last$y) ),
-                 timediff = as.numeric(difftime(time, masi_p_last$time, units = c("secs"))),
+                 timediff = as.numeric(difftime(date_time, masi_p_last$date_time, units = c("secs"))),
                  heightdiff = abs(height - masi_p_last$height) / 10)
         
         # priority 1: moving
@@ -210,8 +211,9 @@ match_xovis <- function(location,
 
 #### Run matching ####
 args <- commandArgs(trailingOnly = TRUE)
-clinics <- ifelse(args[1]=="Both", c("Masi", "Ocean"), args[1])
-no_cores <- as.numeric(args[2])
+cl <- args[1]
+yr <- args[2]
+no_cores <- as.numeric(args[3])
 
 av_cores <- parallel::detectCores() - 1
 n.cores <- ifelse(no_cores > av_cores, av_cores, no_cores)
@@ -225,20 +227,17 @@ registered <- ifelse(foreach::getDoParRegistered(), "Yes", "No")
 message(sprintf("Info: Cluster registration? %s", registered))
 message(sprintf("Info: Cluster using %i cores", foreach::getDoParWorkers()))
 
-for(cl in clinics) {
-  
-  message(sprintf("Clinic: %s", cl))
-  
-  # dates
-  files <- list.files(paste0("data-raw/", cl, "/xovis/"))
-  sel_dates <- files[grepl("rds", files)]
-  sel_dates <- gsub(".rds", "", sel_dates, fixed = T)
-  
-  foreach::foreach(i = 1:length(sel_dates), .packages = c("tidyverse", "lubridate")) %dopar% {
-    d <- as.character(sel_dates[i])
-    message(sprintf("-- Date: %s", d))
-    match_xovis(location = cl, date = d)
-  }
+message(sprintf("Clinic: %s", cl))
+
+# dates
+files <- list.files(paste0("data-raw/", cl, "/", yr, "/patient-tracking/annotated/"))
+sel_dates <- files[grepl("rds", files)]
+sel_dates <- gsub(".rds", "", sel_dates, fixed = T)
+
+foreach::foreach(i = 1:length(sel_dates), .packages = c("tidyverse", "lubridate")) %dopar% {
+  d <- as.character(sel_dates[i])
+  message(sprintf("-- Date: %s", d))
+  match_xovis(location = cl, date = d)
 }
 
 parallel::stopCluster(cl = my.cluster)

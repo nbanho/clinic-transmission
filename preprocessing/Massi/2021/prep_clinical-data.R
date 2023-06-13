@@ -11,13 +11,13 @@ library(lubridate)
 
 # Masi
 
-df_pat_time_masi <- read.csv("data-raw/Masi/clinical-data/patient-time.csv") %>%
+df_pat_time_masi <- read.csv("data-raw/Massi/2021/clinical/patient-time.csv") %>%
   rename(date = action_date) %>%
   mutate(time = parse_date_time(paste(date, time), '%m/%d/%Y %I:%M:%S %p'),
          date = as.Date(time)) %>%
   filter(!is.na(time))
 
-df_tb_suspects <- read.csv("data-raw/Masi/clinical-data/tb-suspects.csv") %>%
+df_tb_suspects <- read.csv("data-raw/Massi/2021/clinical/tb-suspects.csv") %>%
   dplyr::select(patient_id, result_txt) %>%
   rename(result = result_txt)
 
