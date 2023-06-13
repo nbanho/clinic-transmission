@@ -1,105 +1,3 @@
-#' Compute quanta removal
-#' 
-#' @param C N x M matrix of quanta concentration per grid cell
-#' @param aer air exchange rate per hour
-#' @param k rate per hour for particle deposition on surfaces
-#' @param lambda viral inactivation rate per hour
-#' @param dt time step (in s)
-#' 
-
-removal <- function(C, aer, k = 0, lambda = 0, dt = 1) {
-  
-  # quanta removal rate
-  rr <- aer + k + lambda
-  
-  # removal
-  qr <- function(x) x * exp(- rr * dt)
-  
-  # quanta concentration after removal
-  C_rq <- apply(C, c(1,2), qr)
-  
-  return(C_rq)
-}
-
-
-#' Compute quanta emission
-#' 
-#' @param C N x M matrix of quanta concentration per grid cell
-#' @param W N x M matrix with weights for quanta emission (in m)
-#' @param qer quanta emission rate (in quanta/s)
-#' @param dt time step (in s)
-#' 
-
-emission <- function(C, W, qer, dt = 1) {
-  
-  # emitted quanta 
-  eq <- qer * dt
-  
-  # quanta concentration after emission
-  C_eq <- C + W * eq
-  
-  return(C_eq)
-}
-
-
-#' Compute air exchange rate per hour
-#' 
-#' @param G CO2 generation rate in L/s per person
-#' @param Co CO2 concentration in outdoor air (in ppm)
-#' @param C CO2 concentration (in ppm)
-#' @param V volume of ventilated space (in m3)
-#' @param n number of people in ventilated space (in 1/m3) 
-#' 
-
-compute_aer <- function(G, Co, C, n, V) {
-  # add 1 person for the person working behind the registry (and such that n is not 0)
-  n <- n + 1
-  # excess CO2 in ppm
-  Ce <- C - Co
-  # TODO: is there are more elegant way to ensure that the denominator is not 0?
-  Ce <- ifelse(Ce < 1, 1, Ce) 
-  # excess CO2 in l/m3 (1l/m3 = 1,000ppm)
-  Ce <- Ce / 1000
-  # ventilation rate (in l/s per person)
-  Q <- G / Ce
-  # air exchange rate (in s)
-  aer <- Q * n / V
-  # air exchange rate (in h)
-  aer <- 3600 * aer
-  return( aer )
-}
-
-#' Compute risk of infection
-#' 
-#' @param C quanta concentration (quanta / m3)
-#' @param t duration of exposure (in seconds)
-#' @param p is the breathing rate (in L/seconds)
-#' 
-
-riskOfInfection <- function(C, t = 1, p = 8.0 / 60) {
-  1 - exp(-C * t * p)
-} 
-
-
-#' Relative viral concentration by distance to infector
-#' 
-#' @param distance distance in m
-#' @param mu mean of the exponential decaying distribution
-#' 
-
-dIc <- function(distance, mu) { 
-  1 - pexp(distance, 1 / mu)
-}
-
-#' Mean parameter of exponentially decaying distribution for the relative viral concentration by distance to infector
-#' 
-#' @param n number of samples
-
-rMuIc <- function(n) {
-  rgamma(n, shape = 10, scale = .2)
-}
-
-
 #' Quanta emission rate
 #' 
 #' @param n number of samples
@@ -114,27 +12,6 @@ dq <- function(x) {
 }
 
 
-#' Average volume of exhaled gas
-#' 
-#' @param n number of samples
-#' 
-
-
-rV <- function(n) {
-  runif(n, 0.1, 0.17)
-}
-
-
-#' CO2 generation rate
-#' 
-#' @param n number of samples
-#' 
-
-rG <- function(n) {
-  runif(n, 0.003, 0.005)
-}
-
-
 #' Unmasked TB Patients
 #' 
 #' @param n number of samples
@@ -146,34 +23,42 @@ rTBunmasked <- function(n, lambda) {
 }
 
 
-#' Spatial diffusion of quanta
+#' Compute air change rate using transient mass balance method
 #' 
-#' @param C N x M matrix of quanta concentration per grid cell
-#' @param dx the size of the grid cell in x direction (in m)
-#' @param dy the size of the grid cell in y direction (in m)
-#' @param Lx the size of the room in x direction (in m)
-#' @param Ly the size of the room in y direction (in m)
-#' @param D diffusion constant (in m2/s)
-#' @param dt time step (in s)
-#' 
+#' @param data data frame with columns C1 (lead CO2), C (CO2), n (number of people), and V (volume)
+#' @param G CO2 generation rate in L/min
+#' @param dt time step of C and n in h
 
-diffusion <- function(C, dx, dy, Lx, Ly, D, dt = 1) {
-  
-  # parameters
-  nx <- ncol(C)
-  ny <- nrow(C)
-  
-  # Compute the change in quanta due to diffusion
-  #' C.y and C.x are the boundary conditions
-  #' flux ensures mass consistency
-  dC <- ReacTran::tran.2D(C, C.x.up = rep(0, nx), C.x.down = rep(0, nx),
-                          C.y.up = rep(0, ny), C.y.down = rep(0, ny),
-                          flux.x.up = rep(0, nx), flux.x.down = rep(0, nx),
-                          flux.y.up = rep(0, ny), flux.y.down = rep(0, ny),
-                          D.x = D, D.y = D, dx = dx, dy = dy)$dC
-  
-  # Update the concentration using the Euler method
-  C_diff <- C + dC
-  
-  return(C_diff)
+# estimate air change rate
+#' based on Equation 16, page 7, Batterman et al. (2017): https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5334699/
+#' assume CO2 generation rate based G on Persily et al. (2007): https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5666301/
+#' --> use 0.004 L/s = 0.24 L/min
+transient_mass_balance <- function(A, C, n, V, Cr, G, dt) {
+  Q <- A * V
+  C1hat <- 6 * 10^4 * n * G / Q * (1 - exp(- Q / V * dt)) + (C - Cr) * exp(- Q / V * dt) + Cr
+  return(C1hat)
+}
+
+# minimize residual sum of squares
+min_rss <- function(data, par, G, dt) {
+  #' par[1] is the air change rate
+  #' par[2] is the outdoor CO2 level
+  with(data, sum( (C1 - transient_mass_balance(par[1], C, n, V, par[2], G, dt)) ^ 2))
+}
+
+# optimize 
+estimate_aer <- function(data, G = 0.004 * 60, dt = 1 / 60) { 
+  optim(par = c(4, 400), fn = min_rss, data = data, G = G, dt = dt, lower = c(0.01, 350), upper = c(100, 500), method = "L-BFGS-B")$par[1]
+}
+
+#' Compute air change rate with steady-state method
+#' 
+#' @param n number of people in steady state
+#' @param G CO2 generation rate in L/min
+#' @param V volume
+#' @param Cs steady-state CO2
+#' @param Cr outdoor CO2 level (default 400ppm)
+
+steady_state_aer <- function(n, G, V, Cs, Cr = 400) {
+  6 * 10^4 * n * G / (V * (Cs-Cr))
 }

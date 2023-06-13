@@ -10,3 +10,16 @@ inv_lnorm_moments <- function(mean, sd) {
   s <- sqrt(log((sd/mean)^2 + 1))
   return(list(meanlog = m, sdlog = s))
 }
+
+
+gamma_moments <- function(shape, rate) {
+  m <- shape / rate
+  s <- sqrt(shape) / rate
+  return(list(mean = m, sd = s))
+}
+
+inv_gamma_moments <- function(mean, sd) {
+  s <- (mean / sd) ^ 2
+  r <- mean / (sd ^ 2)
+  return(list(shape = s, rate = r))
+}
