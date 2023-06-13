@@ -72,10 +72,11 @@ W2 <- apply(W2, c(1,2), dIc, mu = 1)
 W2 <- W2 / sum(W1)
 
 # quanta removal rate
-aer <- 3 / 3600
+aer <- 1 / 3600
+lambda <- 0.84 / 3600
 
-# quanta diffusion constant
-D <- 0.05 
+# quanta diffusion constant (in m/s2)
+D <- 0.0283
 
 
 #### Spatiotemporal quanta concentration ####
@@ -85,8 +86,6 @@ CL <- list()
 for (t in 1:TT) {
   # quanta emission
   if (t <= 5 * 60) {
-    C <- emission(C, W1, q, dt)
-  } else if (between(t, 30 * 60, 35 * 60)) {
     C <- emission(C, W1, q, dt)
   } 
   
@@ -99,7 +98,7 @@ for (t in 1:TT) {
   C <- C + dC
   
   # quanta removal
-  C <- removal(C, aer, dt = dt)
+  C <- removal(C, aer = aer, lambda = lambda, dt = dt)
   
   CL[[t]] <- C
 }
@@ -117,7 +116,7 @@ plotC <- function(C) {
 DFC <- do.call(rbind, lapply(seq_along(CL), function(t) reshape2::melt(CL[[t]]) %>% mutate(t = t) ))
 
 DFC %>%
-  filter(t %in% seq(1, 3600, 30)) %>%
+  filter(t %in% seq(1, 1200, 60)) %>%
   ggplot(aes(Var1, Var2, fill = value)) +
   facet_wrap(~ t) +
   geom_tile() +
