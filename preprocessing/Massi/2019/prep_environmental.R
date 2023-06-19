@@ -24,17 +24,21 @@ df <- read_dta("data-raw/Massi/2019/environmental/CleanCo2data.dta") %>%
 #### Filter ####
 
 # get tracking files and dates
-tracking_files <- list.files("data-raw/Massi/2019/patient-tracking/xovis/included", full.names = T)
+tracking_files <- list.files("data-raw/Massi/2019/patient-tracking/pre-matched/", full.names = T)
 tracking_dates <- basename(tracking_files)
-tracking_dates <- as.Date(gsub("_exported_data.csv", "", tracking_dates, fixed = T), format = "%Y_%m_%d")
+tracking_dates <- tracking_dates[grepl("rds", tracking_dates)]
+tracking_dates <- gsub(".rds", "", tracking_dates, fixed = T)
+tracking_dates <- as.Date(tracking_dates)
 
 # check whether tracking dates are in environmental dates
 env_dates <- unique(df$date)
 unav_dates <- tracking_dates[!(tracking_dates %in% env_dates)]
 
 # remove corresponding files from clean data
-unav_files <- paste0("data-clean/Massi/2019/patient-tracking/", unav_dates, ".rds")
-file.remove(unav_files)
+if (length(unav_dates) > 0) {
+  unav_files <- paste0("data-raw/Massi/2019/patient-tracking/", unav_dates, ".rds")
+  file.remove(unav_files)
+}
 
 # check whether environmental dates are in tracking dates
 unav_dates_env <- env_dates[!(env_dates %in% tracking_dates)]
@@ -45,7 +49,7 @@ df <- df %>%
   filter(date %in% env_dates)
 
 # subset start and end times
-tracking_files <- paste0("data-clean/Massi/2019/patient-tracking/", env_dates, ".rds")
+tracking_files <- paste0("data-raw/Massi/2019/patient-tracking/pre-matched/", env_dates, ".rds")
 se_tracking <- parallel::mclapply(tracking_files, function(f) {
   readRDS(f) %>%
     mutate(date = as.Date(date_time)) %>%

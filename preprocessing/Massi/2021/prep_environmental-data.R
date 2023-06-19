@@ -46,7 +46,7 @@ masi2021_prep <- read_dta("data-raw/Massi/2021/environmental/co2_data.dta") %>%
 
 #### Filter dates with tracking data ####
 
-tracking_dates <- basename(list.files("data-raw/Massi/2021/patient-tracking/"))
+tracking_dates <- basename(list.files("data-raw/Massi/2021/patient-tracking/pre-matched"))
 tracking_dates <- tracking_dates[grepl("rds", tracking_dates)]
 tracking_dates <- gsub(".rds", "", tracking_dates, fixed = T)
 tracking_dates <- as.Date(tracking_dates)
@@ -85,7 +85,7 @@ masi2021 %>%
 
 #### Filter start/end time of tracking ####
 
-tracking_files <- list.files("data-raw/Massi/2021/patient-tracking/", full.names = T)
+tracking_files <- list.files("data-raw/Massi/2021/patient-tracking/pre-matched", full.names = T)
 tracking_files <- tracking_files[grepl("rds", tracking_files)]
 tracking_files <- tracking_files[as.Date(gsub(".rds", "", basename(tracking_files), fixed = T)) %in% env_dates]
 tracking_data <- do.call(rbind, lapply(tracking_files, readRDS)) %>%

@@ -433,6 +433,7 @@ ui <- fluidPage(
                                                                         "Entered + Lost exit",
                                                                         "Entered WR + Lost exit",
                                                                         "Lost enter + Lost exit",
+                                                                        "Possible HCW",
                                                                         "Noise")),
       actionButton("endTrack", "Label/End track"),
       br(),
