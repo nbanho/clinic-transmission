@@ -22,17 +22,17 @@ pointsize <- 4
 plot_wait_time <- 1000 # wait 1s until plot and table are generated
 
 # search parameters 
-time_choices <- c(5, 10, 20, 30, 45, 60, 300, 600, 900, 1500, 1800) # time_choices <- c(10, 20, 30, 45, 60, 300, 600, 900, 1500, 1800)
-dist_choices <- c(.25, .5, 1., 1.5, 2., 3., 5.) # dist_choices <- c(0.5, 1, 2, 3, 4, 5, 7)
+time_choices <- c(10, 20, 30, 45, 60, 300, 600, 900, 1500, 1800) # time_choices <- c(5, 10, 20, 30, 45, 60, 300, 600, 900, 1500, 1800) 
+dist_choices <- c(0.5, 1, 2, 3, 4, 5, 7) # dist_choices <- c(.25, .5, 1., 1.5, 2., 3., 5.) 
 height_choices <- c(10, 20, 50, 100, 200)
-short_move_time <- 10 # 30
-short_move_dist <- 1.5 # 5
+short_move_time <- 30 # 10 
+short_move_dist <- 5 # 1.5
 short_move_height <- 50
-long_move_time <- 30 # 60
-long_move_dist <- 3 # 7
+long_move_time <- 60 # 30 
+long_move_dist <- 7 # 3 
 long_move_height <- 100
 short_sit_time <- 60
-short_sit_dist <- .5 # 1
+short_sit_dist <- 1 # .5
 short_sit_height <- 100
 long_sit_time <- 300
 long_sit_dist <- 1
@@ -425,14 +425,17 @@ ui <- fluidPage(
       br(),
       br(),
       selectInput("terminalInput", "Label or end tracking", choices = c("Entered + Exited",
-                                                                        "Entered WR + Exited",
-                                                                        "Entered + Exited WR",
-                                                                        "Entered WR + Exited WR",
-                                                                        "Lost enter + Exited",
-                                                                        "Lost enter + Exited WR",
-                                                                        "Entered + Lost exit",
-                                                                        "Entered WR + Lost exit",
-                                                                        "Lost enter + Lost exit",
+                                                                        #"Entered WR + Exited",
+                                                                        #"Entered + Exited WR",
+                                                                        #"Entered WR + Exited WR",
+                                                                        #"Lost enter + Exited",
+                                                                        #"Lost enter + Exited WR",
+                                                                        #"Entered + Lost exit",
+                                                                        #"Entered WR + Lost exit",
+                                                                        #"Lost enter + Lost exit",
+                                                                        "Lost enter",
+                                                                        "Lost exit",
+                                                                        "Lost both",
                                                                         "Possible HCW",
                                                                         "Noise")),
       actionButton("endTrack", "Label/End track"),
@@ -502,7 +505,7 @@ server <- function(input, output, session) {
     file_year <- lubridate::year(values$dat$date_time[1])
     file_date <- as.character(as.Date(values$dat$date_time[1]))
     values$save_dir <- paste(dirname(dirname(getwd())), "data-clean", "Massi", file_year, "patient-tracking", sep = "/")
-    if (!dir.exists(values$save_dir)) { dir.create(values$save_dir) }
+    if (!dir.exists(values$save_dir)) { dir.create(values$save_dir, recursive = T) }
     values$save_file <- paste0(values$save_dir, "/", file_date, ".rds")
     
     # display directory where file is stored
