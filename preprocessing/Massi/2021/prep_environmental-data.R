@@ -89,8 +89,7 @@ tracking_files <- list.files("data-raw/Massi/2021/patient-tracking/pre-matched",
 tracking_files <- tracking_files[grepl("rds", tracking_files)]
 tracking_files <- tracking_files[as.Date(gsub(".rds", "", basename(tracking_files), fixed = T)) %in% env_dates]
 tracking_data <- do.call(rbind, lapply(tracking_files, readRDS)) %>%
-  mutate(date = as.Date(time)) %>%
-  rename(date_time = time)
+  mutate(date = as.Date(date_time)) 
 
 se_tracking_times <- tracking_data %>%
   group_by(date) %>%
