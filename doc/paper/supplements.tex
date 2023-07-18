@@ -408,6 +408,7 @@ We illustrate our modeling approach with an example. Consider a room with a volu
 
 \section{Case study}
 
+
 We divide the clinical day into a morning (7am to 12am) and afternoon period (12am to 5pm) and estimate the $AER$ separately for each period, allowing it to vary by daytime.
 
 Previous studies estimated $q$ for \emph{Mtb} or SARS-CoV-2 using the Wells-Riley model [REFs]. The range of estimates is large, suggesting that the infectiousness of \emph{Mtb} patients varies considerably. We model $q$ with a Student-t distribution with 1 degree of freedom $t_1(\mu = 2, \sigma = 2.5)$ that is truncated at 0 (lower) and 200 (upper). The distribution is shown in \Cref{fig:quanta-distribution} along with the estimates from the literature.
