@@ -1,0 +1,139 @@
+\PassOptionsToPackage{top=3cm,left=3cm,right=3cm,bottom=3cm}{geometry}
+\documentclass[fleqn,11pt]{wlscirep}
+
+\usepackage{import}
+\usepackage{main}
+
+\renewcommand{\paragraph}[1]{\vspace{0.3cm}\noindent\underline{\emph{#1}}\hfill\noindent}
+
+% word count
+% \newcommand{\maincount}[1]{%
+%   \immediate\write18{texcount -1 -sum=1 -merge -q -nobib #1.tex > #1-words.sum}%
+%   \input{#1-words.sum}%
+% }
+
+% \newcommand{\abstractcount}[1]{%
+%   \immediate\write18{texcount -template="{abst}" #1.tex > #1-words.sum}%
+%   \input{#1-words.sum}%
+% }
+
+\begin{document}
+
+\doublespacing
+
+\title{\bfseries\LARGE\singlespacing{Spatiotemporal modeling of \emph{Mtb} transmission in a South African primary care clinic}}
+% author list
+\author[1$\ddag$]{Nicolas Banholzer}
+\author[2]{Keren Middelkoop}
+\author[2]{Juane Leukes}
+\author[1]{Kathrin Zürcher}
+\author[2]{Robin Wood}
+\author[1]{Matthias Egger}
+\author[1*]{Lukas Fenner}
+
+\affil[1]{Institute of Social and Preventive Medicine, University of Bern, Bern, Switzerland}
+\affil[2]{Desmond Tutu HIV Centre, Department of Medicine, University of Cape Town, Cape Town, South Africa}
+
+\affil[*]{Corresponding author: lukas.fenner@unibe.ch }
+
+\vspace{1em}
+
+% \begin{information}\normalfont
+% \noindent\textbf{Running head}: SARS-COV-2 transmission in schools and effect of air cleaners
+
+% %\noindent\textbf{Subject categorization}: 6.20  Indoor Air; 10.11 Pediatrics: Respiratory Infections
+
+% \noindent\textbf{Word count}: \maincount{manuscript}words, abstract \abstractcount{manuscript}words (max. 500), title 157 chars (max. 200)
+
+% %\noindent\textbf{Inserts:} 2 tables, 6 figures, 44 references
+
+% \noindent\textbf{S1 Appendix:} Includes supplementary text, tables and figures.
+
+% \vspace{1em}
+
+% \noindent\textbf{Funding}
+
+% \noindent This study is funded by the Multidisciplinary Center for Infectious Diseases, University of Bern, Bern, Switzerland. NB, LF, and ME are supported by the National Institute of Allergy and Infectious Diseases (NIAID) through cooperative agreement 5U01-AI069924-05. ME is supported by special project funding from the Swiss National Science Foundation (grant 32FP30-189498). \medskip
+
+% \noindent\textbf{Contributions}
+
+% \noindent Conception and design: NB, LF. Epidemiological and environmental data collection: NB, PJ, TS, LF. Laboratory data collection: PB, LFu. Additional data collection: TH. Statistical analysis: NB, KZ. Genomic analysis: LB, LFu. Paper draft: NB, LF, ME. All authors reviewed and approved the final version of the manuscript.
+
+% \par
+% \end{information}
+
+%TC:newcounter abst Words in abstract
+%TC:envir abstract [] abst
+\begin{abstract}\normalfont
+\noindent\textbf{Background:} ... \medskip
+\noindent\textbf{Methods and Findings:} ... 
+\medskip %\vspace{-1.3em}
+\noindent\textbf{Conclusions:} ... 
+
+\par
+\end{abstract}
+
+%TC:ignore
+
+\flushbottom
+\maketitle
+\setcounter{page}{1}
+\thispagestyle{fancy}
+
+\vspace{2em}
+
+%\noindent\textbf{Word count:} \abstractcount{manuscript}words (max. 500)
+
+\vspace{0.5em}
+
+\noindent\textbf{Keywords:} Mycobacterium tuberculosis, airborne transmission, spatiotemporal modeling, Wells-Riley model
+% maximum of 3-5 keywords
+\newpage
+
+\sloppy
+\raggedbottom
+%TC:endignore
+
+\newpage
+
+%TC:break main
+\section{Introduction} 
+
+...
+
+\newpage
+
+\section{Methods}
+
+...
+
+
+\newpage
+
+\section{Results}
+
+...
+
+
+\FloatBarrier
+
+\newpage
+
+\section{Discussion}
+
+% summary
+
+... 
+
+
+\newpage
+
+
+%TC:ignore
+\section*{Acknowledgements}
+...
+
+\bibliography{references.bib}
+%TC:endignore
+
+\end{document}
