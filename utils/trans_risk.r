@@ -7,19 +7,29 @@ rq <- function(n, disease = "TB") {
   LaplacesDemon::rtrunc(n, spec = "st", a = 0, b = 200, mu = 2, sigma = 2.5, nu = 1)
 }
 
-dq <- function(x) {
+dq <- function(x, disease = "TB") {
   LaplacesDemon::dtrunc(x, spec = "st", a = 0, b = 200, mu = 2, sigma = 2.5, nu = 1)
+}
+
+pq <- function(x, disease = "TB") {
+  LaplacesDemon::ptrunc(x, spec = "st", a = 0, b = 200, mu = 2, sigma = 2.5, nu = 1)
 }
 
 #' Viral inactivation rate
 #' 
+#' @param n number of samples
+#' @param x viral inactivation rate
 
 rlambda <- function(n, disease = "TB") {
-  rgamma(1, shape = 2.25, rate = 1.5)
+  rgamma(n, shape = 2.25, rate = 1.5)
 }
 
 dlambda <- function(x, disease = "TB") {
   dgamma(x, shape = 2.25, rate = 1.5)
+}
+
+plambda <- function(x, disease = "TB") {
+  pgamma(x, shape = 0.21, rate = 0.46)
 }
 
 
@@ -44,6 +54,7 @@ rTBunmasked <- function(n, lambda) {
 #' based on Equation 16, page 7, Batterman et al. (2017): https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5334699/
 #' assume CO2 generation rate based G on Persily et al. (2007): https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5666301/
 #' --> use 0.004 L/s = 0.24 L/min
+
 transient_mass_balance <- function(A, C, n, V, Cr, G, dt) {
   Q <- A * V
   C1hat <- 6 * 10^4 * n * G / Q * (1 - exp(- Q / V * dt)) + (C - Cr) * exp(- Q / V * dt) + Cr

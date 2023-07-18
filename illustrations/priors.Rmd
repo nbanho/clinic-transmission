@@ -1,0 +1,85 @@
+---
+title: "Priors"
+author: "Nicolas Banholzer"
+date: "2023-07-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r}
+library(tidyverse)
+library(LaplacesDemon)
+source("../utils/trans_risk.r")
+source("../utils/plotting.r")
+```
+
+
+## Quanta
+
+```{r}
+q_dat <- data.frame(x = seq(0, 200, 0.1)) %>%
+  mutate(y = pq(x))
+
+prev_est <- data.frame(
+  study = c("Andrews (2014)", "Escombe (2008)", "Nardell (1991)", "Riley (1962)"),
+  x = c(0.89, 8.2, 12.5, 1.25)
+) %>%
+  mutate(y = pq(x))
+
+q_pl <- ggplot(mapping = aes(x = x, y = y)) +
+  geom_line(data = q_dat, direction = "vh") +
+  geom_segment(data = prev_est, mapping = aes(xend = x, yend = 0, color = study), linetype = "dotted") +
+  geom_segment(data = prev_est, mapping = aes(yend = y, xend = 0, color = study), linetype = "dotted") +
+  geom_point(data = prev_est, mapping = aes(color = study), shape = 17, size = 2) +
+  geom_text(data = prev_est, mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_x = log(1.35)) +
+  scale_x_continuous(expand = expansion(mult = c(0,.025)), breaks = c(0, 1, 10, 100, 200), trans = scales::pseudo_log_trans(base = 10)) +
+  scale_y_continuous(expand = c(0,0), labels = scales::percent_format(suffix = "")) +
+  scale_color_manual(values = wes_palette("Cavalcanti1")) +
+  labs(x = "Quanta generation rate (quanta/h)", y = "Cumulative probability (%)") +
+  theme_custom() +
+  theme(legend.position = "none")
+
+q_pl
+save_plot(q_pl, pdf_file = "../illustrations/prior-q.pdf", w = 12, h = 8)
+```
+
+
+## Viral inactivation rate
+
+```{r}
+plambda <- function(x, disease = "TB") {
+  #LaplacesDemon::ptrunc(x, spec = "st", a = 0, b = 10, mu = 0.5, sigma = 1, nu = 5)
+  plnorm(x, meanlog = log(0.5), sdlog = 1)
+}
+
+lambda_dat <- data.frame(x = seq(0, 10, .01)) %>%
+  mutate(y = plambda(x))
+
+prev_est_vir <- data.frame(
+  study = c("Loudon (1969)", "Lever (2000)", "Gannon (2007)"),
+  x = c(0.12, 8.3, 0.46)
+) %>%
+  mutate(y = plambda(x))
+
+lambda_pl <- ggplot(mapping = aes(x = x, y = y)) +
+  geom_line(data = lambda_dat, direction = "vh") +
+  geom_segment(data = prev_est_vir, mapping = aes(xend = x, yend = 0, color = study), linetype = "dotted") +
+  geom_segment(data = prev_est_vir, mapping = aes(yend = y, xend = 0, color = study), linetype = "dotted") +
+  geom_point(data = prev_est_vir, mapping = aes(color = study), shape = 17, size = 2) +
+  geom_text(data = prev_est_vir %>% dplyr::filter(study != "Lever (2000)"), mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_x = log(1.35), nudge_y = .02) +
+  geom_text(data = prev_est_vir %>% dplyr::filter(study == "Lever (2000)"), mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_y = 0.05) +
+  scale_x_continuous(expand = expansion(mult = c(0,.025)), breaks = c(0, 0.5, 1, 2, 5, 10), trans = scales::pseudo_log_trans(base = 10)) +
+  scale_y_continuous(expand = expansion(mult = c(0,.025)), labels = scales::percent_format(suffix = "")) +
+  scale_color_manual(values = wes_palette("Cavalcanti1")) +
+  labs(x = "Viral inactivation rate (quanta/h)", y = "Cumulative probability (%)") +
+  theme_custom() +
+  theme(legend.position = "none")
+
+lambda_pl
+save_plot(lambda_pl, pdf_file = "../illustrations/prior-lambda.pdf", w = 12, h = 8)
+```

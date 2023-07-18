@@ -46,11 +46,11 @@ quanta_concn_pl <- ctDF %>%
   geom_tile() +
   labs(fill = expression("Concentration (10"^-2*" quanta/m"^3*")")) +
   scale_fill_viridis_c(limits = c(0, NA), labels = function(x) x * 100) +
-  scale_x_continuous(expand = c(0,0), limits = c(0,40), labels = function(x) x * 0.25, breaks = seq(0,40,10)) +
-  scale_y_continuous(expand = c(0,0), limits = c(0,20), labels = function(x) x * 0.25, breaks = seq(0,10,5)) +
+  scale_x_continuous(expand = c(0,0), limits = c(0,40), labels = function(x) x * 0.25, breaks = seq(0,40,20)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,20), labels = function(x) x * 0.25, breaks = seq(0,20,10)) +
   theme_bw2() +
   theme(legend.position = "bottom", legend.key.width = unit(2, "cm"),
-        axis.title = element_blank(), panel.spacing = unit(0.025, "cm"),
+        axis.title = element_blank(), panel.spacing = unit(0.5, "cm"),
         plot.margin = margin(r = 10))
 
 quanta_concn_pl
