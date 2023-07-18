@@ -362,7 +362,7 @@ where $\Delta$ is the Laplace operator and $D$ is the diffusion constant (in m$^
 
 The diffusion constant $D$ is unknown but can be approximated using an empirical relationship between the eddy diffusion coefficient $K$ and the outdoor air exchange rate $AER$ (in air changes/h)
 \begin{align}
-    K = (0.52 \cdot AER + 8.61e-5) * V^(2/3),
+    K = (0.52 \cdot AER + 8.61e-5) * V^{\frac{2}{3}},
 \end{align}
 where $V$ is the volume of the airspace (in m$^3$). We assume that $D \approx K$. 
 
@@ -397,8 +397,8 @@ We illustrate our modeling approach with an example. Consider a room with a volu
 
 \begin{figure}
     \centering
-    \includegraphics{}
-    \caption{Quanta concentration at different time points following the generation of the first quanta (8:00:00am) and last quanta (9:00:00am) from an infectious individual that is placed in a fixed location in the middle of the room with dimensions L=10$\times$B=\5$\times$H=3m.}
+    \includegraphics{../../tests/stm_v2-toy_example.pdf}
+    \caption{Quanta concentration at different time points following the generation of the first quanta (8:00:00am) and last quanta (9:00:00am) from an infectious individual that is placed in a fixed location in the middle of the room with dimensions L=10m$\times$B=5m$\times$H=3m.}
     \label{fig:toy-example}
 \end{figure}
 
