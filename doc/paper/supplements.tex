@@ -362,19 +362,19 @@ where $\Delta$ is the Laplace operator and $D$ is the diffusion constant (in m$^
 
 The diffusion constant $D$ is unknown but can be approximated using an empirical relationship between the eddy diffusion coefficient $K$ and the outdoor air exchange rate $AER$ (in air changes/h)
 \begin{align}
-    K = (0.52 \cdot AER + 8.61e-5) * V^{\frac{2}{3}},
+    K = (0.52 \cdot AER + 8.61\cdot10^{-5}) \cdot V^{\frac{2}{3}},
 \end{align}
 where $V$ is the volume of the airspace (in m$^3$). We assume that $D \approx K$. 
 
 The $AER$ can be estimated from indoor CO$_2$ levels and room occupancy. Under steady-state conditions (CO$_2$ levels reaching a steady-state concentration), $AER$ can be computed as
 \begin{align}
-    AER = \frac{6e4 \cdot n \cdot G}{V\cdot(CO^{\text{I}}-CO^{\text{O}})},
+    AER = \frac{6\cdot10^4 \cdot n \cdot G}{V\cdot(CO^{\text{I}}-CO^{\text{O}})},
 \end{align}
 where $n$ is the number of people in the airspace, $G$ is the average CO$_2$ generation rate per person (in L$\cdot$min$^{-1}\cdot$person$^{-1}$), $CO^{\text{I}}$ is the CO$_2$ concentration in indoor and $CO^{\text{O}}$ is the concentration in outdoor air (both in parts per million [ppm]) [Battermann]. In a primary care clinic, room occupancy varies continuously and thus it may be difficult to determine the steady-state CO$_2$ concentration. Therefore, we determine $AER$ using a transient mass balance model of the form [Battermann]
 \begin{align}
-    CO_{t+1}^{\text{I}} = \frac{6e4 \cdot n_t + G}{Q} \cdot \left(1 - \exp(-Q/V \Delta t)\right) + (CO_t^{\text{I}}-CO^{\text{O}}) \cdot \exp(-Q/V \Delta t) + CO^{\text{O}},
+    CO_{t+1}^{\text{I}} = \frac{6\cdot10^4 \cdot n_t + G}{Q} \cdot \left(1 - \exp(-Q/V \Delta t)\right) + (CO_t^{\text{I}}-CO^{\text{O}}) \cdot \exp(-Q/V \Delta t) + CO^{\text{O}},
 \end{align}
-where $Q$ is the outdoor air supply rate (in m$^3$/h) and $AER = Q/V$. We numerically solve the transient mass balance model with the limited memory Broyden–Fletcher–Goldfarb–Shanno algorithm (L-BFGS) [REF], a quasi-Newton method. The optimal solution is the outdoor air supply rate $Q$ that minimizes the root mean square error. We also follow recommendations to fit the outdoor CO$_2$ level with reasonable constraints $CO^{\text{O}} = [350,500]$ [Battermann]. The $AER$ may be computed at different time intervals, thus we add the subscript $t$, \ie $AER_t$
+where $Q$ is the outdoor air supply rate (in m$^3$/h) and $AER = Q/V$. We numerically solve the transient mass balance model with the limited memory Broyden–Fletcher–Goldfarb–Shanno algorithm (L-BFGS) [REF], a quasi-Newton method. The optimal solution is the outdoor air supply rate $Q$ that minimizes the root mean square error. We also follow recommendations to fit the outdoor CO$_2$ level with reasonable constraints $CO^{\text{O}} = [350,500]$ [Battermann]. The $AER$ may be computed at different time intervals, thus we add the subscript $t$, \ie $AER_t$.
 
 \subsection{Quanta removal}\label{sec:quanta-removal}
 
@@ -405,13 +405,21 @@ We illustrate our modeling approach with an example. Consider a room with a volu
 \clearpage
 
 
+\section{Estimation of infection risk in the primary care clinic}
 
-\section{Case study}
+\subsection{Building and setup}
+
+\subsection{Identifying infectious individuals}
+
+\subsection{Monte-Carlo simulation}
+
+\subsection{Priors for modeling parameters}
 
 
 We divide the clinical day into a morning (7am to 12am) and afternoon period (12am to 5pm) and estimate the $AER$ separately for each period, allowing it to vary by daytime.
 
 Previous studies estimated $q$ for \emph{Mtb} or SARS-CoV-2 using the Wells-Riley model [REFs]. The range of estimates is large, suggesting that the infectiousness of \emph{Mtb} patients varies considerably. We model $q$ with a Student-t distribution with 1 degree of freedom $t_1(\mu = 2, \sigma = 2.5)$ that is truncated at 0 (lower) and 200 (upper). The distribution is shown in \Cref{fig:quanta-distribution} along with the estimates from the literature.
+
 
 \begin{figure}
     \centering
