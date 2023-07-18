@@ -44,13 +44,14 @@ quanta_concn_pl <- ctDF %>%
   ggplot(aes(x = Var2, y = Var1, fill = value)) +
   facet_wrap(~ t) +
   geom_tile() +
-  labs(fill = expression("Concentration (quanta/m"^3*")")) +
-  scale_fill_viridis_c(limits = c(0, NA)) +
-  scale_x_continuous(expand = c(0,0), limits = c(0,40), labels = function(x) x * 0.25) +
-  scale_y_continuous(expand = c(0,0), limits = c(0,20), labels = function(x) x * 0.25) +
+  labs(fill = expression("Concentration (10"^-2*" quanta/m"^3*")")) +
+  scale_fill_viridis_c(limits = c(0, NA), labels = function(x) x * 100) +
+  scale_x_continuous(expand = c(0,0), limits = c(0,40), labels = function(x) x * 0.25, breaks = seq(0,40,10)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,20), labels = function(x) x * 0.25, breaks = seq(0,10,5)) +
   theme_bw2() +
   theme(legend.position = "bottom", legend.key.width = unit(2, "cm"),
-        axis.title = element_blank())
+        axis.title = element_blank(), panel.spacing = unit(0.025, "cm"),
+        plot.margin = margin(r = 10))
 
 quanta_concn_pl
 save_plot(quanta_concn_pl, pdf_file = "tests/stm_v2-toy_example.pdf", w = 16, h = 10)
