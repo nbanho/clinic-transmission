@@ -30,9 +30,9 @@ stm <- function(c0,
                 roomDim,
                 cellLength = 0.5,
                 pd = 1,
-                q = function() LaplacesDemon::rtrunc(1, "st", a = 0, b = 200, mu = 1, sigma = 0.67, nu = 1), 
-                lambda = function() rgamma(1, shape = 2.25, rate = 1.5),
-                k = function() 0,
+                q = 10, 
+                lambda = 0.5,
+                k = 0,
                 seed = 12345) {
   
   # room dimensions
@@ -64,7 +64,7 @@ stm <- function(c0,
         yb <- min(nr,inf_t$y[i]+pd)
         
         # distribute quanta uniformely
-        quanta_per_sec <- q() / 3600
+        quanta_per_sec <- q / 3600
         n_cells <- prod(dim(ct[[t+1]][yt:yb,xl:xr]))
         ct[[t+1]][yt:yb,xl:xr] <- ct[[t+1]][yt:yb,xl:xr] + quanta_per_sec * dt[t] / n_cells
       }
@@ -87,8 +87,8 @@ stm <- function(c0,
     }
     
     # removal
-    lambda_per_sec <- lambda() / 3600
-    k_per_sec <- k() / 3600
+    lambda_per_sec <- lambda / 3600
+    k_per_sec <- k / 3600
     ct[[t+1]] <- ct[[t+1]] * exp(-(aer_per_sec+lambda_per_sec+k_per_sec) * dt[t])
   }
   

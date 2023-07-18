@@ -11,6 +11,17 @@ dq <- function(x) {
   LaplacesDemon::dtrunc(x, spec = "st", a = 0, b = 200, mu = 2, sigma = 2.5, nu = 1)
 }
 
+#' Viral inactivation rate
+#' 
+
+rlambda <- function(n, disease = "TB") {
+  rgamma(1, shape = 2.25, rate = 1.5)
+}
+
+dlambda <- function(x, disease = "TB") {
+  dgamma(x, shape = 2.25, rate = 1.5)
+}
+
 
 #' Unmasked TB Patients
 #' 
