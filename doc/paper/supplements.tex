@@ -302,7 +302,7 @@ We extend the Wells-Riley model [Wells-Riley], which is an established epidemiol
 \end{align}
 where $C$ is the number of disease cases, $S$ is the number of susceptibles, $I$ is the number of infectious individuals in space, $p$ is the breathing rate per person, $q$ is the generation rate of infectious quanta, $t$ is the duration of exposure, and $Q$ is the outdoor air supply rate. 
 
-The unknown parameter $q$ is not the actual number of infectious particles in the air. It rather represents the dose of infectious particles that corresponds to a probability of infection with a Poisson relationship, \eg one quantum corresponds to $P = 1 - \exp (1) = 63\%$ risk of infection [Rudnick and Milton]. It is an attempt to consider the stochastic behavior of airborne transmission, which depends on the environment, characteristics of the pathogen, and characteristics of the individual. For example, the type of respiratory (\eg breathing, coughing, or sneezing) of the infectious individual influences the size distribution of the generated particles, with smaller particles getting more easily deposited in the lower respiratory tract of the susceptible person [Wang], increasing the probability of infection. 
+The unknown parameter $q$ is not the actual number of infectious particles in the air. It rather represents the dose of infectious particles that corresponds to a probability of infection with a Poisson relationship, \eg one quantum corresponds to $P = 1 - \exp (1) = 63\%$ risk of infection [Rudnick and Milton]. It is an attempt to consider the stochastic behavior of airborne transmission, since the number of infectious particles that cause an infection is unknown. Moreover, the risk of transmission depends on the environment, characteristics of the pathogen, and characteristics of the individual. For example, the type of respiratory (\eg breathing, coughing, or sneezing) of the infectious individual influences the size distribution of the generated particles, with smaller particles getting more easily deposited in the lower respiratory tract of the susceptible person [Wang], increasing the probability of infection. 
 
 While considering the stochastic behaviour of airborne transmission, the Wells-Riley model makes two simplifying assumptions. First, it assumes a well-mixed airspace, which means that the generated quanta disperse immediately and evenly in the indoor airspace. In other words, the exposure to infectious quanta is the same regardless of the locations of the infectious and susceptible individual. Second, the Wells-Riley model assumes steady-state conditions, which means that the quanta concentration and the outdoor air supply rate are constant over time. In other words, the risk of infection for each susceptible depends only on the duration of exposure (the time they spent in the indoor space). 
 
@@ -389,16 +389,16 @@ Considering the generation (\Cref{eq:generation}), diffusion (\Cref{eq:diffusion
     \underbrace{N_{t}}_{\text{new concn.}} = \underbrace{\left(D \Delta (\underbrace{N_{t-1}}_{\text{prev. concn.}} + \underbrace{I_t \cdot q}_{\text{generation}})\right)}_{\text{diffusion}} \cdot \underbrace{\exp\left(-(AER_t + \lambda)\right)}_{\text{removal}} ~.
 \end{align}
 
-\subsection{Illustrative example}
+\subsection{Illustrative example}\label{sec:example}
 
-We illustrate our modeling approach with an example. Consider a room with a volume $V$=150m$^3$ (length [L] = 10m, breadth [B] = 5m, height [H] = 3m). We divide the room into a grid of $S = 40 \cdot 20 = 800$ cubic cells with dimensions 0.25m$^2 \cdot 3$m, \ie a diagonal length of $\sqrt{0.25^2 + 0.25^2} = 0.35$\,m. We assume that quanta generation is confined to the cell where the infectious individual is located as well as the first neighbouring cells (\ie initially quanta reach a maximum distance of 0.7m through exhalation corresponding to the diagonal length of two cells). We monitor the room from 8am to 12am and consider one infectious individual generating quanta continuously for one hour between 8am and 9am at a fixed location in the middle of the room, \ie cell (20,10), so that the generation of quanta will be confined to cells $(20\pm1,10\pm1)$. We further assume a quanta generation rate of $q = 10$\,quanta/h, a constant outdoor air exchange rate of $AER = 1$\,air changes/h (corresponding to a removal rate of also 1\,quanta/h and a diffusion coefficient of 0.007m$^2$/s), and a viral inactivation rate of $\lambda = 0.5$\,quanta/h. 
+We illustrate our modeling approach with an example. Consider a room with a volume $V$=150m$^3$ (length [L] = 10m, breadth [B] = 5m, height [H] = 3m). We divide the room into a grid of $S = 40 \cdot 20 = 800$ cubic cells with dimensions 0.25m$^2 \cdot 3$m, \ie a diagonal length of $\sqrt{0.25^2 + 0.25^2} = 0.35$\,m. We assume that quanta generation is confined to the cell where the infectious individual is located as well as the first neighbouring cells (\ie initially quanta reach a maximum distance of 0.7m through exhalation corresponding to the diagonal length of two cells). We monitor the room from 8am to 12am and consider one infectious individual generating quanta continuously for one hour between 8am and 9am at a fixed location in the middle of the room, \ie cell (20,10), so that the generation of quanta will be confined to cells $(x_s = 20\pm1, y_s = 10\pm1)$, \ie $N_{s,t} = (I \cdot q) / 9 ~~ \forall s \in (x_s = 20\pm1, y_s = 10\pm1)$. We further assume a quanta generation rate of $q = 10$\,quanta/h, a constant outdoor air exchange rate of $AER = 1$\,air changes/h (corresponding to a removal rate of also 1\,quanta/h and a diffusion coefficient of 0.007m$^2$/s), and a viral inactivation rate of $\lambda = 0.5$\,quanta/h. 
 
 \Cref{fig:toy-example} shows the quanta concentration at different time points following the generation of the first quanta (8:00:00am) and last quanta (9:00:00am). The quanta is generated at the location of the infectious individual. The quanta concentration remains high around this location until the individual ceases to generate more quanta at 9am. The quanta diffuses relatively quickly and at 10min past 9am the airspace is well-mixed with quanta. Over time, the removal through outdoor air exchange and viral inactivation brings the concentration in the room back towards 0. 
 
-\begin{figure}
+\begin{figure}[!htpb]
     \centering
     \includegraphics{../../tests/stm_v2-toy_example.pdf}
-    \caption{Quanta concentration at different time points following the generation of the first quanta (8:00:00am) and last quanta (9:00:00am) from an infectious individual that is placed in a fixed location in the middle of the room with dimensions L=10m$\times$B=5m$\times$H=3m.}
+    \caption{Quanta concentration at different time points following the generation of the first quanta (8:00:00am) and last quanta (9:00:00am) from an infectious individual that is placed in a fixed location in the middle of the room with dimensions L=10m $\times$ B=5m $\times$ H=3m.}
     \label{fig:toy-example}
 \end{figure}
 
@@ -409,36 +409,49 @@ We illustrate our modeling approach with an example. Consider a room with a volu
 
 \subsection{Building and setup}
 
+A schematic view of the clinic is shown in \Cref{fig:clinic}. Clinical attendees were tracked when entering the clinic, in the waiting room, the corridor, and the TB room. If they moved into one of the care rooms along the corridor or into other parts of the clinic they were only tracked once they came back. We divide the clinic into three spaces: the waiting room (L=10.55m $\times$ B=5.50m $\times$ H=3.00m), the corridor (L=12.45m $\times$ B=2.20m $\times$ H=2.50m), and the TB room (L=4.75m $\times$ B=3.50m $\times$ H=3.00m). We separated the waiting room and the corridor because we observed small differences in the time-varying CO$_2$ levels, but we acknowledge that the two areas could also be evaluated jointly since the doors to the corridor were often most of the time. Moreover, the corridor and waiting room are not completely enclosed, but connected to the entrance, exit, and other parts of the clinic. Thus, we simplify our modeling analysis when we limit quanta diffusion within these rooms and also note that the calculated air change rate is affected by the separation of the waiting room and corridor (\ie the volume and room occupancy would otherwise be different). 
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{doc/clinic-schematic-annotated-view.pdf}
+    \caption{Schematic view of the part of the clinic where clinical attendees were tracked.}
+    \label{fig:clinic}
+\end{figure}
+
+As in our illustrative example (\Cref{sec:example}), we divide each room into a grid of cubic cells with dimensions 0.25m$^2 \cdot 3$m, \ie a diagonal length of $\sqrt{0.25^2 + 0.25^2} = 0.35$\,m. Since the rooms have different height, the quanta concentration (quanta/m$^3$) in the corridors' cells will (all else equal) be higher than in the waiting and TB room by a factor of 3/2.5 = 1.2. We assume that quanta generation is confined only to the cell where the infectious individual is located, thereby using a smaller radius as compared to our example due to the fact that mask wearing was compulsory during the time of the study (\ie we assume that mask wearing halves the maximum distance that the quanta reaches through exhalation). Nevertheless, we compare our results with the assumption made in our example that the quanta concentration is confined to the cell where the infectious individual is located as well as the first neighbouring cells. 
+
+We divide the clinical day into a morning (7am to 12am) and afternoon period (12am to 5pm) and estimate the outdoor air exchange rate separately for each period. Thereby, we allow the $AER$ to vary by daytime, considering potential differences in natural ventilation habits in the morning and afternoon. 
+
+We update the quanta concentration every second at $t = 1, \dots, T$ (aligned with the frequency of the tracking data). We assume that the quanta concentration at $t=0$ is zero anywhere in the airspace, \ie $N_{s,0} = 0 ~~ \forall s$. In other words, we assume that all quanta from the previous day has been removed from the air before the start of the following clinical day. 
+
 \subsection{Identifying infectious individuals}
+
+
 
 \subsection{Monte-Carlo simulation}
 
 \subsection{Priors for modeling parameters}
 
+Previous studies estimated $q$ for \emph{Mtb} or SARS-CoV-2 using the Wells-Riley model [REFs]. Andrews (2014) [REF] reported an estimate of 0.89 quanta/h (range from 0.44 to 5.69), close to the early estimate provided by Riley (1962) [REF] with 1.25 quanta/h. On the other end, Escombe (2008) [REF] arrived at an estimate of 8.2 quanta/h, which was lower for non-multidrug-resistant (MDR), smear-negative patients and considerably higher for MDR, smear-positive TB patients. Nardell (1991) [REF] also reported a higher estiamte of 13 quanta/h, but only for one index case. The wide range of estimates and the findings by Escombe (2008) suggest that the emitted quanta varies considerably with the infectiousness of \emph{Mtb} patients. Therefore, we model $q$ with a Student-t distribution with 1 degree of freedom $t_1(\mu = 2, \sigma = 2.5)$ that is truncated at 0 (lower) and 200 (upper), as in Banholzer (X) [OUR PLOS GLOBAL]. The Student-t distribution with only 1 degree of freedom considers the possibility of superspreaders that generate large amounts of quanta. The distribution is shown in \Cref{fig:quanta-distribution} along with the estimates from the literature.
 
-We divide the clinical day into a morning (7am to 12am) and afternoon period (12am to 5pm) and estimate the $AER$ separately for each period, allowing it to vary by daytime.
-
-Previous studies estimated $q$ for \emph{Mtb} or SARS-CoV-2 using the Wells-Riley model [REFs]. The range of estimates is large, suggesting that the infectiousness of \emph{Mtb} patients varies considerably. We model $q$ with a Student-t distribution with 1 degree of freedom $t_1(\mu = 2, \sigma = 2.5)$ that is truncated at 0 (lower) and 200 (upper). The distribution is shown in \Cref{fig:quanta-distribution} along with the estimates from the literature.
-
-
-\begin{figure}
+\begin{figure}[!htpb]
     \centering
-    \includegraphics{}
-    \caption{Caption}
+    \includegraphics{illustrations/prior-q.pdf}
+    \caption{Prior distribution function for the quanta generation rate (quanta/h) along with reported estimates in the literature: 0.89 by Andrews (2014) [REF], 1.25 by Riley (1962) [REF], 8.2 by Escombe (2008) [REF], and 13 by Nardell (1991) [REF].}
     \label{fig:quanta-distribution}
 \end{figure}
 
+Face masks will reduce the number of quanta that are exhaled into the air, but the extent of the reduction is subject to uncertainty. A study with multidrug-resistant TB cases estimated a decrease of 56\% (95\%-CrI, 33\% to 70.5\%) when patients used surgical face masks\cite{Dharmadhikari2012AJRCCM}. This estimate was used by a modelling study to estimate the impact of mask wearing on \emph{Mtb} transmission in a primary care clinic. The estimate is also comparable to the reduction in the particle number concentration during mask wearing in school rooms of 69\% (95\%-CrI 42\% to 86\%)\cite{Banholzer2023PLoSMed}. Based on the estimate by Dharmadhikari (2012)\cite{Dharmadhikari2012AJRCCM}, we model the reduction in infectious quanta through mask wearing with a Normal($\mu$ = 0.56, $\sigma$ = 0.11) truncated at 0 and 1. 
 
-A schematic view of the clinic is shown in \Cref{fig:clinic}. We divide the clinic into three airspaces: the waiting room (l x b x h), the corridor (l x b x h), and the TB room (l x b x h). Each room is divided into a grid of cubic cells with a fixed cell length and breath of 0.25m. The volume of the grid cells thus depends on the height of each airspace. 
+The viral inactivation rate for \emph{Mtb} has not been precisely estimated. Loudon (1969) [REF] report a half-life for aerosolized TB bacilli of 6h ($\lambda$ = 0.12). By contrast, Lever (2000) [REF] reported a half-life of just 5min ($\lambda$ = 8.3). The difference may largely be explained by variation in relative humidity, \ie Loudon (1969) studied survival during a relative humidity of about 50\% whereas Lever (2000) studied survival during a relative humidity of about 70\%. Relative humidity in our study is closer to 50\%, thus the estimate by Loudon (1969) seems more representative of the environmental conditions in our study.  Moreover, Gannon (2007) [REF] report a half-life of 1.5 hours ($\lambda$ = 0.46) at relative humidity of over 75\%, yet the estimate is for \emph{Mtb bovis}. In contrast to that, Klein (2014)\cite{Klein2014IJMyco} observe a 80\% reduction within 30min ($\lambda$ = ), which would be closer to Lever (2000). We assume a ... . The distribution is shown in \Cref{fig:lambda-distribution} along with the estimates from the literature.
 
-\begin{figure}
+\begin{figure}[!htpb]
     \centering
-    \includegraphics{}
-    \caption{Caption}
-    \label{fig:clinic}
+    \includegraphics{illustrations/prior-lambda.pdf}
+    \caption{Prior distribution function for the viral inactivation rate along with reported estimates in the literature: ... [REFs]}
+    \label{fig:lambda-distribution}
 \end{figure}
 
-We compute the quanta concentration at $t = 1, \dots, T$, which is in seconds, corresponding to the frequency of the tracking data. We assume that the quanta concentration at $t=0$ is zero anywhere in the airspace, \ie $N_{s,0} = 0 \quad \forall s$. In other words, we assume that all quanta from the previous day has been removed from the air at the start of the following day. 
 
 \clearpage
 
