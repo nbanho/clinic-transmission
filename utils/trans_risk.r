@@ -1,3 +1,17 @@
+#' Reduction in quanta emission rate through surgical mask wearing
+#' 
+#' @param n number of samples
+#' @param x reduction rate
+
+rrmask <- function(n) {
+  LaplacesDemon::rtrunc(n, spec = "norm", a = 0, b = 1, mean = 0.56, sd = 0.11)
+}
+
+drmask <- function(n) {
+  LaplacesDemon::dtrunc(x, spec = "norm", a = 0, b = 1, mean = 0.56, sd = 0.11)
+}
+
+
 #' Quanta emission rate
 #' 
 #' @param n number of samples
@@ -21,15 +35,15 @@ pq <- function(x, disease = "TB") {
 #' @param x viral inactivation rate
 
 rlambda <- function(n, disease = "TB") {
-  rgamma(n, shape = 2.25, rate = 1.5)
+  rlnorm(x, meanlog = log(1), sdlog = 1)
 }
 
 dlambda <- function(x, disease = "TB") {
-  dgamma(x, shape = 2.25, rate = 1.5)
+  dlnorm(x, meanlog = log(1), sdlog = 1)
 }
 
 plambda <- function(x, disease = "TB") {
-  pgamma(x, shape = 0.21, rate = 0.46)
+  plnorm(x, meanlog = log(1), sdlog = 1)
 }
 
 

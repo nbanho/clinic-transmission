@@ -53,15 +53,16 @@ save_plot(q_pl, pdf_file = "../illustrations/prior-q.pdf", w = 12, h = 8)
 
 ```{r}
 plambda <- function(x, disease = "TB") {
-  plnorm(x, meanlog = log(1), sdlog = 1)
+  #LaplacesDemon::ptrunc(x, spec = "st", a = 0, b = 10, mu = 0.5, sigma = 1, nu = 5)
+  plnorm(x, meanlog = log(0.5), sdlog = 1)
 }
 
 lambda_dat <- data.frame(x = seq(0, 10, .01)) %>%
   mutate(y = plambda(x))
 
 prev_est_vir <- data.frame(
-  study = c("Loudon (1969)", "Lever (2000)", "Gannon (2007)", "Klein (2014)"),
-  x = c(log(2)/6, log(2)/(5/60), log(2) / 1.5, log(2) / (0.5/(log(20/100, 0.5))) )
+  study = c("Loudon (1969)", "Lever (2000)", "Gannon (2007)"),
+  x = c(0.12, 8.3, 0.46)
 ) %>%
   mutate(y = plambda(x))
 
@@ -70,14 +71,8 @@ lambda_pl <- ggplot(mapping = aes(x = x, y = y)) +
   geom_segment(data = prev_est_vir, mapping = aes(xend = x, yend = 0, color = study), linetype = "dotted") +
   geom_segment(data = prev_est_vir, mapping = aes(yend = y, xend = 0, color = study), linetype = "dotted") +
   geom_point(data = prev_est_vir, mapping = aes(color = study), shape = 17, size = 2) +
-  geom_text(data = dplyr::filter(prev_est_vir, study == "Lever (2000)"), 
-            mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_y = 0.05) +
-  geom_text(data = dplyr::filter(prev_est_vir, study == "Klein (2014)"), 
-            mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_y = -0.05, nudge_x = 0.1) +
-  geom_text(data = dplyr::filter(prev_est_vir, study == "Gannon (2007)"), 
-                                 mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_x = 0.125) +
-  geom_text(data = dplyr::filter(prev_est_vir, study == "Loudon (1969)"), 
-                                 mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_x = 0.125, nudge_y = 0.025) +
+  geom_text(data = prev_est_vir %>% dplyr::filter(study != "Lever (2000)"), mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_x = log(1.13), nudge_y = .02) +
+  geom_text(data = prev_est_vir %>% dplyr::filter(study == "Lever (2000)"), mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_y = 0.05) +
   scale_x_continuous(expand = expansion(mult = c(0,.025)), breaks = c(0, 0.5, 1, 2, 5, 10), trans = scales::pseudo_log_trans(base = 10)) +
   scale_y_continuous(expand = expansion(mult = c(0,.025)), labels = scales::percent_format(suffix = "")) +
   scale_color_manual(values = wes_palette("Cavalcanti1")) +
