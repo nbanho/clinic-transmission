@@ -246,7 +246,7 @@
 \newcommand{\supp}{SI Appendix}
 
 \title{\LARGE\singlespacing{\textbf{S1 Appendix} \\ \medskip
-Spatiotemporal modeling of \emph{Mtb} transmission in a South African primary care clinic}}
+Spatiotemporal modeling of \emph{Mycobacterium tuberculosis} transmission risks using environmental, clinical, and patient movement data}}
 
 % author list
 \author[1$\ddag$]{Nicolas Banholzer}
@@ -302,7 +302,7 @@ We extend the Wells-Riley model\cite{Riley1978AJE}, which is an established epid
 \end{align}
 where $C$ is the number of disease cases, $S$ is the number of susceptibles, $I$ is the number of infectious individuals in space, $p$ is the breathing rate per person, $q$ is the generation rate of infectious quanta, $t$ is the duration of exposure, and $Q$ is the outdoor air supply rate. 
 
-The unknown parameter $q$ is not the actual number of infectious particles in the air. It rather represents the dose of infectious particles that corresponds to a certain probability of infection with a Poisson relationship, \eg one quantum corresponds to $P = 1 - \exp (1) = 63\%$ risk of infection\cite{Rudnick2003IndoorAir}. It is an attempt to consider the stochastic behavior of airborne transmission, since the number of infectious particles that cause an infection is unknown. Moreover, the risk of transmission depends on the environment, characteristics of the pathogen, and characteristics of the individual. For example, the type of respiratory (\eg breathing, coughing, or sneezing) of the infectious individual influences the size distribution of the generated particles, with smaller particles getting more easily deposited in the lower respiratory tract of the susceptible person\cite{Wang2021Science}, increasing the probability of infection. 
+The unknown parameter $q$ is not the actual number of infectious particles in the air. It rather represents the dose of infectious particles that corresponds to a certain probability of infection with a Poisson relationship, \eg one quantum corresponds to $P = 1 - \exp (1) = 63\%$ risk of infection\cite{Rudnick2003IndoorAir}. It is an attempt to consider the stochastic behavior of airborne transmission, since the number of infectious particles that cause an infection is unknown. Moreover, the risk of transmission depends on the environment, characteristics of the pathogen, and characteristics of the individual. For example, the type of respiratory activity (\eg breathing, coughing, or sneezing) determines the site in the respiratory tract where the exhaled particles are generated, which in turn influences the particle size distribution\cite{Wei2016AMJIC}. Smaller particles reach deeper into the lungs of the susceptible person\cite{Wang2021Science}, which increases the probability of infection. 
 
 While considering the stochastic behaviour of airborne transmission, the Wells-Riley model makes two simplifying assumptions. First, it assumes a well-mixed airspace, which means that the generated quanta disperse immediately and evenly in the indoor airspace. In other words, the exposure to infectious quanta is the same regardless of the locations of the infectious and susceptible individual. Second, the Wells-Riley model assumes steady-state conditions, which means that the quanta concentration and the outdoor air supply rate are constant over time. In other words, the risk of infection for each susceptible depends only on the duration of exposure (the time they spent in the indoor space). 
 
@@ -312,11 +312,11 @@ Rudnick and Milton\cite{Rudnick2003IndoorAir} modified the Wells-Riley model to 
 \end{align}
 where $f = \frac{CO^{\text{I}}-CO^{\text{O}}}{CO^{\text{A}}}$ is the fraction of indoor air that is exhaled breath, which is computed based on the CO$_2$ level in indoor air $CO^{\text{I}}$, outdoor air $CO^{\text{O}}$, and exhaled breath $CO^{\text{A}}$ (in parts per million [ppm]). 
 
-While the extension by Rudnick and Milton resolves the steady-state assumption, it still assumes a well-mixed airspace. Therefore, our aim is to extend the Wells-Riley model further to allow the risk of infection to vary both across time and airspace. We accomplish this by modeling the quanta concentration spatiotemporally. The risk of infection then is the cumulative exposure to infectious quanta over time and space, which depends on the susceptible individual's time-varying positions in the indoor space and quanta concentration at these time points. Formally, we estimate the cumulative risk of infection as 
+While the extension by Rudnick and Milton resolves the steady-state assumption, it still assumes a well-mixed airspace. Therefore, our aim is to extend the Wells-Riley model further to allow the risk of infection to vary both across time and airspace. We accomplish this by modeling the quanta concentration spatiotemporally. The risk of infection then is the cumulative exposure to infectious quanta over time and space, which depends on the susceptible individual's time-varying positions in the indoor space and quanta concentration at these time points. Formally, we estimate the cumulative risk of infection for susceptible individual $a$ as 
 \begin{equation}\label{eq:spattemp-P}
-    P = \sum_s \sum_t N_{s,t} \cdot p,
+    P_a = \sum_s \sum_t N_{s,t} \cdot \mathbb{I}_{s,t}^a \cdot p,
 \end{equation}
-where $N$ is the quanta concentration in unit airspace $s$ at time $t$ (in quanta/$m^3$), and $p$ is the breathing rate per person (in $m^3/s$). The spatial quanta concentration changes over time according to the generation, diffusion and removal of quanta: 
+where $N$ is the quanta concentration in unit airspace $s$ at time $t$ (in quanta/$m^3$), $\mathbb{I}$ is a binary variable indicating whether $a$ was at location $s$ at time $t$, and $p$ is the breathing rate per person (in $m^3/s$). The spatial quanta concentration changes over time according to the generation, diffusion and removal of quanta: 
 \begin{itemize}
     \item[\ref{sec:quanta-generation}] Quanta generation: Infectious individuals generate quanta at their location in the indoor space. 
     \item[\ref{sec:quanta-diffusion}] Quanta diffusion: Over time, the infectious quanta diffuse and we approach a well-mixed airspace. 
@@ -406,7 +406,7 @@ We illustrate our modeling approach with an example. Consider a room with a volu
 
 \section{Estimation of infection risk in the primary care clinic}
 
-\subsection{Building and setup}
+\subsection{Building and setup}\label{prep:building}
 
 A schematic view of the clinic is shown in \Cref{fig:clinic}. Clinical attendees were tracked when entering the clinic, in the waiting room, the corridor, and the TB room. If they moved into one of the care rooms along the corridor or into other parts of the clinic they were only tracked once they came back. We divide the clinic into three spaces: the waiting room (L=10.55m $\times$ B=5.50m $\times$ H=3.00m), the corridor (L=12.45m $\times$ B=2.20m $\times$ H=2.50m), and the TB room (L=4.75m $\times$ B=3.50m $\times$ H=3.00m). We separated the waiting room and the corridor because we observed small differences in the time-varying CO$_2$ levels, but we acknowledge that the two areas could also be evaluated jointly since the doors to the corridor were often most of the time. Moreover, the corridor and waiting room are not completely enclosed, but connected to the entrance, exit, and other parts of the clinic. Thus, we simplify our modeling analysis when we limit quanta diffusion within these rooms and also note that the calculated air change rate is affected by the separation of the waiting room and corridor (\ie the volume and room occupancy would otherwise be different). 
 
@@ -445,7 +445,7 @@ Most clinical attendees could be undiagnosed TB Patients and there is considerab
 
 % spatial spread of quanta generation
 
-An analysis of exhalation activities suggest a propagation distance (\ie the maximum distance from the source to the end of the exhaled air before dispersion) of 0.7m\cite{Tang2013PLoSOne}, but larger distances may be reached depending on the activity. Face masks reduce the propagation distance as most exhaled air (and particles) by locking the formation of the jet and leaking air on the sides of the masks\cite{Tang2009RoyalInt,Hui2012PLoSOne}. Therefore, we assume that mask wearing confined the quanta generation only to the cell where the infectious individual is located. This corresponds to a propagation distance of 0.35m (the diagonal cell length) and an area of 0.25$^2$m$^2$. 
+An analysis of exhalation activities suggest a propagation distance (\ie the maximum distance from the source to the end of the exhaled air before dispersion) of 0.7m\cite{Tang2013PLoSOne}, but larger distances may be reached depending on the activity. Face masks reduce the propagation distance both by blocking (the mask capturing particles) and deflecting particles (leakage of particles on the sides of the mask)\cite{Tang2009RoyalInt,Hui2012PLoSOne,Mansour2013AerosolMed}. Therefore, we assume that mask wearing confined the quanta generation only to the cell where the infectious individual is located. This corresponds to a propagation distance of 0.35m (the diagonal cell length) and an area of 0.25$^2$m$^2$. 
 
 To assess the impact of mask wearing, we also model the scenario without mask wearing. In this scenario, we assume a propagation distance of 0.7m (the diagonal lengths of two cells), in line with the aforementioned prior findings. Since we cannot observe the direction of jet, we assume that all neighbouring cells are affected equally. That is, we divide the generated quanta by 9 (the cell where the individual is located and all first-neighbouring cells) and distribute it equally across the cells. 
 
@@ -459,13 +459,13 @@ Previous studies estimated $q$ for \emph{Mtb} or SARS-CoV-2 using the Wells-Rile
 \begin{figure}[!htpb]
     \centering
     \includegraphics{illustrations/prior-q.pdf}
-    \caption{Prior distribution function for the quanta generation rate (quanta/h) along with reported estimates in the literature: 0.89 by Andrews (2014) [REF], 1.25 by Riley (1962) [REF], 8.2 by Escombe (2008) [REF], and 13 by Nardell (1991) [REF].}
+    \caption{Prior distribution function for the quanta generation rate (quanta/h) along with reported estimates in the literature: 0.89 by Andrews (2014)\cite{Andrews2014JID}, 1.25 by Riley (1962)\cite{Riley1962ARRD}, 8.2 by Escombe (2008)\cite{Escombe2008PLoSMed}, and 13 by Nardell (1991)\cite{Nardell1991ARRD}.}
     \label{fig:quanta-distribution}
 \end{figure}
 
 % face mask reduction
 
-Face masks reduce the number of viral-laden aerosols that are exhaled into the air\cite{Milton2013PLoSPathogens} and thus lower the generation of infectious quanta. The extent of the reduction is subject to uncertainty. A study with multidrug-resistant TB cases estimated a decrease of 56\% (95\%-CrI, 33\% to 70.5\%) when patients used surgical face masks\cite{Dharmadhikari2012AJRCCM}. This estimate was used by a modelling study to estimate the impact of mask wearing on \emph{Mtb} transmission in a primary care clinic. Therefore,, we model the reduction in infectious quanta through mask wearing with a Normal($\mu$ = 0.56, $\sigma$ = 0.11) truncated at 0 and 1. The effective quanta generation rate is thus $q$ times the reduction due to mask wearing. Again, we model what the risk of infection would have been without mask wearing by removing the reduction term from the model. 
+Face masks reduce the number of viral-laden aerosols that are exhaled into the air\cite{Milton2013PLoSPathogens,Leung2020NatMed} and should thus lower the generation of infectious quanta. The extent of the reduction is subject to uncertainty. A study with multidrug-resistant TB cases estimated a decrease of 56\% (95\%-CrI, 33\% to 70.5\%) when patients used surgical face masks\cite{Dharmadhikari2012AJRCCM}. This estimate was used by a modelling study to estimate the impact of mask wearing on \emph{Mtb} transmission in a primary care clinic. Therefore,, we model the reduction in infectious quanta through mask wearing with a Normal($\mu$ = 0.56, $\sigma$ = 0.11) truncated at 0 and 1. The effective quanta generation rate is thus $q$ times the reduction due to mask wearing. Again, we model what the risk of infection would have been without mask wearing by removing the reduction term from the model. 
 
 \subsubsection{Viral inactivation rate}
 
@@ -476,7 +476,7 @@ The viral inactivation rate for \emph{Mtb} has not been precisely estimated. Lou
 \begin{figure}[!htpb]
     \centering
     \includegraphics{illustrations/prior-lambda.pdf}
-    \caption{Prior distribution function for the viral inactivation rate along with reported estimates in the literature: 0.12 by Loudon (1969) [REF], 0.46 by Gannon (2007) [REF], 3.2 by Klein (2014) [REF], and 8.3 by Lever (2000) [REF].}
+    \caption{Prior distribution function for the viral inactivation rate for \emph{Mtb tuberculosis} along with reported estimates in the literature: 0.12 by Loudon (1969)\cite{Loudon1969AMRRD}, 0.46 by Gannon (2007) for \emph{Mtb bovis}\cite{Gannon2007ResVetSci}, 3.2 by Klein (2014)\cite{Klein2014IJMyco}, and 8.3 by Lever (2000)\cite{Lever2000LettersAppliedMicrobio}.}
     \label{fig:lambda-distribution}
 \end{figure}
 
