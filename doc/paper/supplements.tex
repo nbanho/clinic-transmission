@@ -359,7 +359,7 @@ Absent further knowledge on airflow, we assume that aerosols diffuse uniformly i
 \end{align}
 where $\Delta$ is the Laplace operator and $D$ is the diffusion constant (in m$^2$/s). We solve this equation with a standard second-order finite difference model using the Euler method with a 5-point stencil. 
 
-The diffusion constant $D$ is unknown but can be approximated using an empirical relationship between the eddy diffusion coefficient $K$ and the outdoor air exchange rate $AER$ (in air changes/h)
+The diffusion constant $D$ is unknown but can be approximated using an empirical relationship between the eddy diffusion coefficient $K$ and the outdoor air exchange rate $AER$ (in air changes/h)\cite{Cheng2011EnvSciTech}
 \begin{align}
     K = (0.52 \cdot AER + 8.61\cdot10^{-5}) \cdot V^{\frac{2}{3}},
 \end{align}
@@ -404,7 +404,7 @@ We illustrate our modeling approach with an example. Consider a room with a volu
 \clearpage
 
 
-\section{Estimation of infection risk in the primary care clinic}
+\section{Estimation of infection risk in the primary care clinic}\label{sec:estimation}
 
 \subsection{Building and setup}\label{prep:building}
 
@@ -422,9 +422,6 @@ As in our illustrative example (\Cref{sec:example}), we divide each room into a 
 We divide the clinical day into a morning (7am to 12am) and afternoon period (12am to 5pm) and estimate the outdoor air exchange rate separately for each period. Thereby, we allow the $AER$ to vary by daytime, considering potential differences in natural ventilation habits in the morning and afternoon. 
 
 We update the quanta concentration every second at $t = 1, \dots, T$ (aligned with the frequency of the tracking data). We assume that the quanta concentration at $t=0$ is zero anywhere in the airspace, \ie $N_{s,0} = 0 ~~ \forall s$. In other words, we assume that all quanta from the previous day has been removed from the air before the start of the following clinical day. 
-
-\subsection{Data and linkage}
-
 
 
 \subsection{Monte-Carlo simulation}
@@ -465,7 +462,7 @@ Previous studies estimated $q$ for \emph{Mtb} or SARS-CoV-2 using the Wells-Rile
 
 % face mask reduction
 
-Face masks reduce the number of viral-laden aerosols that are exhaled into the air\cite{Milton2013PLoSPathogens,Leung2020NatMed} and should thus lower the generation of infectious quanta. The extent of the reduction is subject to uncertainty. A study with multidrug-resistant TB cases estimated a decrease of 56\% (95\%-CrI, 33\% to 70.5\%) when patients used surgical face masks\cite{Dharmadhikari2012AJRCCM}. This estimate was used by a modelling study to estimate the impact of mask wearing on \emph{Mtb} transmission in a primary care clinic. Therefore,, we model the reduction in infectious quanta through mask wearing with a Normal($\mu$ = 0.56, $\sigma$ = 0.11) truncated at 0 and 1. The effective quanta generation rate is thus $q$ times the reduction due to mask wearing. Again, we model what the risk of infection would have been without mask wearing by removing the reduction term from the model. 
+Face masks reduce the number of viral-laden aerosols that are exhaled into the air\cite{Milton2013PLoSPathogens,Leung2020NatMed} and should thus lower the generation of infectious quanta. The extent of the reduction is subject to uncertainty. A study with multidrug-resistant TB cases estimated a decrease of 56\% (95\%-CrI, 33\% to 70.5\%) when patients used surgical face masks\cite{Dharmadhikari2012AJRCCM}. This estimate was used by a modelling study to estimate the impact of mask wearing on \emph{Mtb} transmission in a primary care clinic. Therefore, we model the reduction in infectious quanta through mask wearing with a Normal($\mu$ = 0.56, $\sigma$ = 0.11) truncated at 0 and 1. The effective quanta generation rate is thus $q$ times the reduction due to mask wearing. Again, we model what the risk of infection would have been without mask wearing by removing the reduction term from the model. 
 
 \subsubsection{Viral inactivation rate}
 
