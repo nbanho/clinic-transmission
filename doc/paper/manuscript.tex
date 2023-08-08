@@ -129,11 +129,9 @@ The primary care clinic offers both TB and HIV services and reproductive health 
 
 \subsection{Data}
 
-Supplementary Table~\zref{tab:data-overview} in \supp provides an overview of the collected data, which is described in the following.
-
 \subsubsection{Environmental data}
 
-Four devices monitored indoor CO$_2$ levels (Digital CO2 Monitor Carbon Dioxide Meter XE-2000, XEAST, Guangdong, China) in the waiting room, corridor, and TB treatment room (Supplementary Figure 1). CO$_2$ concentrations were recorded in parts per million (ppm) at 1-minute intervals (Supplementary Table 1). Missing values were linearly imputed, except for October~13 where the corridor's CO$_2$ levels were almost completely missing. Here we assumed the same levels as in the waiting room because both rooms had also similar CO$_2$ levels on the other days.    
+Four devices monitored indoor CO$_2$ levels (Digital CO$_2$ Monitor Carbon Dioxide Meter XE-2000, XEAST, Guangdong, China) in the waiting room, corridor, and TB treatment room (Supplementary Figure 1). CO$_2$ concentrations were recorded in parts per million (ppm) at 1-minute intervals (Supplementary Table 1). Missing values were linearly imputed, except for October~13 where the corridor's CO$_2$ levels were almost completely missing. Here we assumed the same levels as in the waiting room because both rooms had also similar CO$_2$ levels on the other days.    
 
 \subsubsection{Clinical data}
 
@@ -156,10 +154,10 @@ where $\Delta$ is the Laplace operator (second-order differential operator) and 
 \end{align}
 where $P$ is the probability of infection, $\mathbb{I}$ is a binary variable indicating whether attendee $a$ was at location $s$ at time $t$, and $p = 8$\,l/min is the volumetric breathing rate per person. The general modeling framework together is described together with an example in detail in Text~\zref{sec:spattemp-model} in \supp. 
 
-\begin{figure}
+\begin{figure}[!htpb]
     \centering
-    \includegraphics{}
-    \caption{Flow chart illustrating the spatiotemporal modeling approach from data (blue) to the modeling (yellow).}
+    \includegraphics{doc/paper/flow-chart.pdf}
+    \caption{Flow chart of the spatiotemporal modeling approach illustrating the steps from data (blue) to modeling (yellow).}
     \label{fig:modeling-flow}
 \end{figure}
 
