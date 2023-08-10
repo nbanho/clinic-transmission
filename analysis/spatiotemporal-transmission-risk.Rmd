@@ -559,7 +559,7 @@ qc_pl_abs <- qc_pl +
   theme(plot.title = element_text(face = 2))
 ```
 
-x### Track examples
+### Track examples
 
 ```{r}
 examples <- no_people %>%

@@ -1,0 +1,109 @@
+---
+title: "Tracking Examples"
+author: "Nicolas Banholzer"
+date: "2023-08-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r}
+library(tidyverse)
+library(grid)
+source("../utils/plotting.r")
+```
+
+
+## Data
+
+```{r}
+# building
+clinic_img <- png::readPNG("../data-raw/Massi/building/clinic_clipped.png")
+building <- terra::vect(paste0("../data-raw/", "Massi", "/building/clinic-vector.gpkg"))
+building_sf <- sf::st_as_sf(building, crs = NA)
+st_crs(building_sf) <- NA
+building_df <- fortify(building_sf)
+
+# files
+files <- list.files("../data-clean/Massi/2021/patient-tracking", full.names = T)
+files <- files[grepl("rds", files)]
+
+# load data
+df <- do.call(rbind, lapply(files, function(x) {
+  d <- readRDS(x)
+  if ("date_time" %in% colnames(d) & "time" %in% colnames(d)) {
+    d <- d %>%
+      dplyr::select(-time) %>%
+      dplyr::select(patient_id, obs_id_new, obs_id, tracking_end, match_type, date_time, everything())
+  } else if ("time" %in% colnames(d)) {
+    d <- dplyr::rename(d, date_time = time)
+  }
+  return(d)
+})) %>%
+  mutate(patient_id = factor(patient_id),
+         date = as.Date(date_time))
+
+# subset of tracks
+smpl <- df %>%
+  filter(tracking_end == "Entered + Exited") %>%
+  group_by(patient_id, date) %>%
+  filter(n_distinct(obs_id_new) == 1) %>%
+  summarize(duration = as.numeric(difftime(last(date_time), first(date_time)))) %>%
+  ungroup() %>%
+  filter(duration > 5) %>%
+  mutate(selected = T) %>%
+  filter(patient_id %in% c(8139, 1433, 339, 510, 1003))
+
+df_smpl <- df %>%
+  left_join(smpl) %>%
+  filter(selected)
+
+# start and end times of subset
+df_smpl_se <- df_smpl %>%
+  group_by(patient_id) %>%
+  slice(1, n()) %>%
+  mutate(type = factor(c("Start", "End"), levels=c("Start", "End"))) %>%
+  ungroup()
+```
+
+
+## Plot
+
+```{r}
+building_pl <- ggplot(building_df) +
+  geom_sf(linewidth = .5, alpha = 0, lwd = 0) +
+  scale_fill_discrete(na.translate = F) +
+  scale_x_continuous(breaks = seq(-20000, 20000, 1000)) +
+  scale_y_continuous(breaks = seq(-20000, 20000, 1000)) +
+  guides(fill = "none")
+
+text_descr <- 10
+en_lab <- textGrob(label = "Entrance", x = 0.1, y = 0.165, gp = gpar(size = text_descr / cm(1)), just = c("left"))
+wr_lab <- textGrob(label = "Waiting room", x = 0.05, y = 0.45, gp = gpar(size = text_descr / cm(1)), just = c("left"))
+tb_lab <- textGrob(label = "TB room", x = 0.75, y = 0.4, gp = gpar(size = text_descr / cm(1)), just = c("left"))
+re_lab <- textGrob(label = "Registration", x = 0.44, y = 0.25, gp = gpar(size = text_descr / cm(1)), just = c("left"), rot = 90)
+
+examples_pl <- building_pl +
+  geom_path(data = df_smpl, mapping = aes(x = x, y = y, group = factor(patient_id), color = factor(patient_id)), alpha = .5) +
+  geom_point(data = df_smpl_se, mapping = aes(x = x, y = y, group = factor(patient_id), color = factor(patient_id), shape = type)) +
+  ggpubr::background_image(clinic_img) +
+  #scale_y_continuous(expand = expansion(add=c(2000, 3250))) +
+  #scale_x_continuous(expand = expansion(add=c(800, 0))) +
+  scale_shape_manual(values = c(1,13)) +
+  annotation_custom(en_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  annotation_custom(wr_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  annotation_custom(tb_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  annotation_custom(re_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  theme_classic() +
+  theme(text = element_text(size = text_descr),
+        axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(), legend.key.width = unit(0.3, "cm"), legend.key.height = unit(0.3, "cm"),
+        legend.position = c(0.825,0.075), legend.direction = "horizontal",
+        panel.background = element_rect(fill = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")[1]), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), legend.title = element_blank()) 
+
+examples_pl
+```
