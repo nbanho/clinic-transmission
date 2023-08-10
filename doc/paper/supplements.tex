@@ -292,16 +292,38 @@ Spatiotemporal modeling of \emph{Mycobacterium tuberculosis} transmission risks 
 
 \newpage
 
-\section{Study setting}
+\section{Study setting and data}\label{sec:setting-and-data}
+
+\subsection{Building}
 
 \begin{figure}[!htpb]
     \centering
-    \includegraphics{}
+    \includegraphics{doc/paper/floor_plan_2021.pdf}
     \caption{Floor plan showing the defined areas inside the clinic and the placement of the video sensors and CO$_2$ devices.}
     \label{fig:floor-plan}
 \end{figure}
 
-\section{Preprocessing of tracking data}\label{}
+\subsection{Preprocessing of tracking data}
+
+Tracking data required preprocessing before it could be used for spatiotemporal modeling. The reason is that there were considerably more tracking IDs than what would be expected from the number of registered patients in the clinical database. Clinical attendees most likely contributed multiple tracks for several reasons: 
+\begin{itemize}
+    \item A person moved outside the range of the video sensors and then re-entered. 
+    \item An individual may temporarily not have been recognized as a person by the tracking software, \eg because the person bowed.
+    \item A person may have been temporarily hidden behind another person.
+    \item Moving objects such as opening doors may have been recognized as a person, adding a few noisy tracks into the data.
+\end{itemize}
+We proceeded in two steps to link back together tracking IDs that most likely belonged to the same person. In the first step, we filtered noise (\ie IDs of less than 10s and a total moving distance of less than 2m) and automatically matched IDs that were less than 10s and 3m apart while moving (\ie IDs anywhere in the clinic) or less than 60s and 0.5m apart while sitting (\ie two IDs ending/starting in a seating area of the clinic). In the second step, we build on the automatically matched data and performed an additional manual linkage. The aim was to link IDs that were further apart but still most likely belonged together. Through manual inspection, we could better assess whether a link resulted in a movement that made sense and preclude better alternatives. A Shiny application and a matching manual/wiki (\url{https://github.com/nbanho/clinic-transmission/wiki/Matching-Manual}) was developed to assist the students that performed the manual linkage. 
+
+The Shiny app is shown in \Cref{fig:shiny-app}. In the right panel, a colored floor plan of the clinic is shown with the different areas delineated. Seating areas are marked in purple and exit areas are marked in blue. Tracks are shown as lines with an open circle indicating the start and a crossed circle indicating the end of a track. The currently selected track is shown in black, possible links are shown in colors (here only one possible link shown in red), and alternatives to the selected possible link are shown in light grey. Below the floor plan is a table showing descriptive information about the possible links in relation to the currently selected track: (1)~the patient ID (Pid) of the selected track and observation ID (Oid) of the possible link, (2)~the height difference between the end of the Pid and end of the Oid track, (3)~ the standing height (\ie maximum height of a track) difference, (4)~the duration of the possible link, (5)~the time difference, and (6)~the distance between the end of the selected track and the start of the selected possible link. Possible links are sorted in ascending order by the time difference. 
+
+In the left panel of \Cref{fig:shiny-app}, the Shiny app first shows descriptive information, \ie the name of the loaded file at the top and the path to the file where the updated data is automatically saved at the bottom, the date of the tracking, the initial number of IDs before any linkages and current number of IDs after linkages, and the number of links made. We created labels to denote finished tracks as "Ended" if the ID was continuously tracked throughout the clinic or "Lost" if the ID was somewhere lost in the clinic. The number of labels are shown below the number of IDs. Below the descriptive information are the tools related to performing linkages. First, the currently selected ID (black track) is shown, together with action buttons allowing students to quickly move to the first unfinished ID, the next or previous ID, or the previous or next ID starting at the entrance. Second, students could decide whether they want to match forward or backward in time. Third, the duration and number of links are shown for the current ID, which for example can alert students about IDs spending an unusually long time in the clinic. Fourth, the sliding bars allow students to filter possible links below a certain difference in time, distance, or height. Pre-set filters are added atop to quickly switch between common thresholds. Fifth, there is a drop-down menu to select IDs for which possible alternative links should be shown (light grey tracks). If there is a more plausible alternative, students could select the corresponding ID and check whether it is indeed the better match. Sixth, another drop-down menu below selects the ID which should be linked to the current patient ID (colored tracks) and the action "Link IDs" performs the link and updates the floor plan, table, and all other related information. If the students realized that the link was erroneous, they could unlink the last/first ID. Finally, once no further links could be made, either because the ID left the clinic or was lost, students could finish the track and label it accordingly. Ended tracks are removed from the set of possible links whereas lost tracks remain in the set. 
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{doc/paper/shiny-tool-screenshot.png}
+    \caption{Screenshot of the Shiny app used for manual linking IDs that probably belong together.}
+    \label{fig:shiny-app}
+\end{figure}
 
 \clearpage
 
