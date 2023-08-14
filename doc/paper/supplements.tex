@@ -307,11 +307,11 @@ Spatiotemporal modeling of \emph{Mycobacterium tuberculosis} transmission risks 
 
 \subsection{Tracking data}
 
-\begin{figure}
+\begin{figure}[!htpb]
     \centering
-    \includegraphics{trac}
-    \caption{Caption}
-    \label{fig:enter-label}
+    \includegraphics{illustrations/tracking-examples.pdf}
+    \caption{Sample tracks from our video sensors of this study.}
+    \label{fig:tracking-examples}
 \end{figure}
 
 \clearpage
@@ -534,6 +534,27 @@ In addition to the diagnosed, known TB patients, there may also be some undiagno
 % based on incidence
 
 
+\clearpage
+
+\section{Discussion of factors affecting the risk of airborne infection}\label{sec:depth-discussion}
+
+
+The generation, dispersion, and survival of infectious particles in the air is subject to considerable uncertainty. Therefore, Wells\cite{Wells1955} introduced the concept of a ``quantum'' (infectious dose) to capture the stochastic nature of airborne transmission. A higher concentration of infectious quanta corresponds to a higher probability for an individual to get infected. The probability of infection is modeled with a Poisson relation and the Wells-Riley model considers multiple determinants for the generation and survival of infectious quanta. Nevertheless, transmission events are difficult to predict as the occurrence depends on multiple other factors that can broadly be categorized into (1)~environmental factors, (2)~properties of the specific pathogenic, and the (3)~infectiousness of infected and susceptibility of uninfected TB patients. 
+
+\subsection{Environmental factors}
+
+Environmental factors are somewhat considered by our model using CO$_2$ as a tracer gas to estimate outdoor air supply. The combination of clinical and video sensor data further allows the spatial modeling of quanta generation. This makes our approach unique compared to existing modeling based on the Wells-Riley equation assuming a well-mixed airspace\cite{Riley1978AJE,Rudnick2003IndoorAir}. However, the radial diffusion of quanta assumed by our model may not reflect the actual airflow at the primary care clinic. The spatial dispersion of infectious particles is often simulated with computational fluid dynamics (CFD) models\cite{Vuorinen2020SafSci,Jung2021InfectChemo,Li2021BuildEnv}. CFD models can simulate a variety of diffusion patterns, which help researchers understanding the influence of airflow. For example, considering airflow can identify poorly ventilated indoor spaces where infectious particles circulate inside the room rather than getting replaced with fresh air\cite{Li2021BuildEnv}. However, airflow is rarely considered and it may be difficult to assess in a naturally ventilated space, such as our primary care clinic, where it depends on the outdoor wind direction and which doors and windows are open. 
+
+\subsection{Pathogen-specific factors}
+
+Survival and dispersion of aerosols are also determined by the physicochemical properties of virus-laden aerosols such as particle size, viral load, and other chemical components\cite{Wang2021Science}. Currently, these properties are only indirectly incorporated in our model by modeling the quanta generation rate as a stochastic parameter. It is also challenging to consider these properties because environmental factors, in particular temperature and humidity, can affect particle generation and survival, but the effects are often unclear and depending on the pathogen\cite{Songer1967,Chan2011AdvVir,Fernstrom2013JoP,Cox1995Book,Fernstrom2013JoP,Tang2009Interface}. Survival of bacteria in aerosols decreases with temperatures $>$24$^{\circ}$C, but the effects of humidity are unclear\cite{Tang2009Interface}. On the one hand, a comparison between two studies suggested that a higher survival rate of airborne \emph{Mtb} may be attributed to lower relative humidity\cite{Loudon1969AMRRD,Lever2000LettersAppliedMicrobio}. On the other hand, airborne \emph{Mtb} was more likely to be detected in healthcare facilitates with larger relative humidity\cite{Sornboot2019IJTLD,Matuka2021IJERP}.   
+
+\subsection{Patient-specific factors}
+
+Previous studies show considerable variation in the generation of infectious quanta by TB infected patients\cite{Escombe2008PLoSMed,Andrews2014JID}. We model such variation by using a wide prior distribution for the quanta generation rate. Our model could be easily extended to incorporate prior information on the infectiousness of each individual TB patient. In general, only patients with active pulmonary TB are able to produce infectious droplets\cite{Rieder1999}. Infectiousness could be determined based on the most recent sputum test result. Sputum smear positive patients are more likely to transmit \emph{Mtb} than sputum smear negative patients\cite{Shaw1954ART,Brindle1993AMRRD,Grzybowski1975BIUT}. HIV status could further inform both infectiousness and susceptibility. On one hand, HIV-positive patients are more likely to have a negative sputum smear microscopy result than HIV-negative patients, due to the reduced lung cavitation and the fewer \emph{Mtb} bacilli in their sputum\cite{Brindle1993AMRRD,Telzak1997CID}. On the other hand, HIV-positive patients are less prone to control the \emph{Mtb} infection than HIV-negative patients, due to their reduced immune status\cite{Forte1992AIDS,Kwan2011CMR,Shen1988CEI}, and therefore TB disease progresses faster and is often more severe in HIV-positive TB patients compared to HIV-negative patients. 
+
+% data and other limitations
+While we combined multiple data sources to allow spatiotemporal modeling of the generation, spread, and removal of infectious quanta, our data has also limitations. First, clinical attendees could not always be tracked perfectly throughout the clinic using our video sensors. We invested considerable effort to manually link individual tracking IDs probably belonging to the same attendee back together (Supplementary Text~\zref{sec:setting-and-data} in \supp), but some measurement error remains. Second, we linked video tracking and clinical patient data using the times clinical attendees were at the registration and the entry times in the clinical database. False linkages could result when a tracking ID only passed by the registration (without registering) or when multiple IDs were at the registration closely before a clinical entry. Third, to facilitate modeling, we considered the waiting room and corridor as separate, although the door between both rooms was usually open (Supplementary Text~\zref{sec:estimation} in \supp). Fifth, our video sensors could not cover the whole area of the entrance and we did not collect data in the care rooms and other places of the clinic. As a result, the time spent in the clinic and the exposure to infectious quanta may be underestimated for some clinical attendees, although we expect the largest exposure to be in the waiting room, which was fully covered.   
 
 
 \clearpage
