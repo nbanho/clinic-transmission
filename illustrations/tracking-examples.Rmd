@@ -75,7 +75,7 @@ df_smpl_se <- df_smpl %>%
 
 ```{r}
 building_pl <- ggplot(building_df) +
-  geom_sf(linewidth = .5, alpha = 0, lwd = 0) +
+  geom_sf(linewidth = .5, alpha = 0, color = NA) +
   scale_fill_discrete(na.translate = F) +
   scale_x_continuous(breaks = seq(-20000, 20000, 1000)) +
   scale_y_continuous(breaks = seq(-20000, 20000, 1000)) +
@@ -106,4 +106,5 @@ examples_pl <- building_pl +
         panel.grid.minor = element_blank(), legend.title = element_blank()) 
 
 examples_pl
+save_plot(examples_pl, pdf_file = "tracking-examples.pdf", w = 16, h = 12)
 ```
