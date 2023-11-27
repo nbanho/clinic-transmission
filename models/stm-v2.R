@@ -63,7 +63,7 @@ stm <- function(c0,
         yt <- max(1,inf_t$y[i]-pd) # y direction is rows
         yb <- min(nr,inf_t$y[i]+pd)
         
-        # distribute quanta uniformely
+        # distribute quanta uniformly
         quanta_per_sec <- q / 3600
         n_cells <- prod(dim(ct[[t+1]][yt:yb,xl:xr]))
         ct[[t+1]][yt:yb,xl:xr] <- ct[[t+1]][yt:yb,xl:xr] + quanta_per_sec * dt[t] / n_cells
