@@ -1,0 +1,249 @@
+---
+title: "Patient movements"
+author: "Nicolas Banholzer"
+date: "2023-11-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(parallel)
+library(reshape2)
+
+source("../utils/plotting.r")
+source("../utils/spatial.r")
+
+text_descr <- 8
+```
+
+
+## Data
+
+### Tracking
+
+```{r}
+df <- readRDS("../data-clean/patient-tracking/augmented-and-combined-data.rds")
+```
+
+### Building
+
+```{r}
+source("../helper/building.R")
+```
+
+
+## Descriptives
+
+### Tracking quality
+
+```{r}
+df %>%
+  group_by(date, patient_id) %>%
+  slice(1) %>%
+  ungroup() %>%
+  dplyr::select(tracking_end) %>%
+  unlist() %>%
+  table() 
+
+df %>%
+  filter(tracking_end != "Possible HCW") %>%
+  group_by(date, patient_id) %>%
+  slice(1) %>%
+  ungroup() %>%
+  group_by(tracking_end) %>%
+  summarize(n = n()) %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n) * 100))
+```
+
+### Time in clinic
+
+```{r}
+time_in_clin <- df %>%
+  group_by(date, patient_id) %>%
+  summarize(tracking_end = first(tracking_end),
+            `Clinic` = n(),
+            `Waiting room` = sum(is_waitingroom),
+            `TB room` = sum(is_tbroom),
+            `Corridor` = sum(is_passage)) %>%
+  ungroup() %>%
+  mutate(across(c(`Clinic`, `Waiting room`, `TB room`, `Corridor`), ~ .x / 60))
+
+time_in_clin %>%
+  ggplot(aes(x = tracking_end, y = total_duration)) +
+  geom_boxplot()
+
+time_in_clin %>%
+  filter(tracking_end != "Possible HCW") %>%
+  dplyr::select(-tracking_end) %>%
+  melt(c("date", "patient_id")) %>%
+  mutate(variable = factor(variable, levels = c("Clinic", "Waiting room", "TB room", "Corridor"))) %>%
+  ggplot(aes(x = variable, fill = variable, y = value)) +
+  geom_boxplot() +
+  scale_y_sqrt()
+```
+
+
+### Close contacts
+
+```{r}
+# number of close contacts <1m for >1min
+no_close_contacts <- df %>%
+  unnest(cols = closeContacts) %>%
+  group_by(date, patient_id, closeContacts, tracking_end) %>%
+  summarise(n_time = n(),
+            tracking_end = first(tracking_end)) %>%
+  ungroup() %>%
+  group_by(date, patient_id) %>%
+  summarize(n_cc = sum(n_time > 60),
+            tracking_end = first(tracking_end)) %>%
+  ungroup() 
+
+time_close_contacts <- df %>%
+  mutate(has_closeContact = ifelse(sapply(closeContacts, length) >= 1, T, F)) %>%
+  group_by(date, patient_id) %>%
+  summarize(cc_time = sum(has_closeContact) / 60,
+            tracking_end = first(tracking_end)) %>%
+  ungroup()
+
+close_contact <- no_close_contacts %>%
+  left_join(time_close_contacts) %>%
+  left_join(time_in_clin)
+
+close_contact %>%
+  filter(tracking_end != "Possible HCW") %>%
+  ggplot(aes(x = Clinic, y = n_cc)) +
+  geom_point() 
+
+close_contact %>%
+  filter(tracking_end != "Possible HCW") %>%
+  ggplot(aes(x = 1, y = cc_time / Clinic)) +
+  geom_boxplot() 
+```
+
+
+### Temporal hotspots
+
+```{r}
+clinic_occupancy <- df %>%
+  group_by(date, time) %>%
+  summarize(
+    `Clinic` = n(),
+    `Waiting room` = sum(is_waitingroom),
+    `TB room` = sum(is_tbroom),
+    `Corridor` = sum(is_passage)) %>%
+  ungroup() %>%
+  melt(c("date", "time")) %>%
+  mutate(variable = factor(variable, levels = c("Clinic", "Waiting room", "TB room", "Corridor")),
+         date = format(date, "%b %d"),
+         time = as.POSIXct(format(time, format = "%H:%M:%S"), format = "%H:%M:%S")) %>%
+  filter(between(hour(time), 7, 16)) 
+
+
+clinic_occupancy %>%
+  ggplot(aes(x = time, y = value, color = date)) +
+  geom_step() +
+  facet_wrap(~ variable) +
+  coord_cartesian(expand = F) +
+  scale_x_datetime(date_breaks = "1 hour", date_labels = "%H:%M") +
+  scale_color_manual(values = wes_palette("Moonrise3")) +
+  labs(y = "Number of people in waiting room") +
+  theme_custom() +
+  theme(axis.title.x = element_blank(),
+        legend.title = element_blank())
+```
+
+
+### Spatial hotspots
+
+```{r}
+col <- RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")
+
+plot_spatial <- function(pl) {
+  pl +
+  ggpubr::background_image(clinic_img) +
+  scale_y_continuous(expand = expansion(add=c(1700, 3000)), limits = c(-6500, 2000)) +
+  scale_x_continuous(expand = expansion(add=c(400, 500)), limits = c(-16000, 7500)) +
+  annotation_custom(entrance_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  annotation_custom(wr_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  annotation_custom(tb_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  annotation_custom(re_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+  theme_custom() +
+  theme(text = element_text(size = text_descr),
+        axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(),
+        legend.position = c(0.825,0.05), legend.direction = "horizontal", 
+        legend.key.width = unit(0.3, "cm"), legend.key.height = unit(0.2, "cm"),
+        panel.background = element_rect(fill = col[1]), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  guides(fill = guide_legend(title.position = "top"))
+}
+
+plot_spatial(
+  ggplot(data = df, mapping = aes(x = x, y = y)) +
+    geom_bin2d(binwidth = 200) ) +
+  labs(fill = "Number of tracks") +
+  scale_fill_stepsn(colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"), trans = "log10", 
+                    breaks = c(1, 10, 100, 1000, 10000)) 
+```
+
+
+### Example tracks
+
+```{r}
+# unique id
+df$day_pid <- paste(df$date, df$patient_id)
+
+# random sample tracks
+ex_pid <- df %>%
+  filter(tracking_end != "Possible HCW") %>%
+  group_by(day_pid) %>%
+  slice(1) %>%
+  ungroup() %>%
+  group_by(tracking_end) %>%
+  sample_n(3) %>%
+  ungroup() %>%
+  dplyr::select(day_pid) %>%
+  unlist()
+ex_df <- df %>% filter(day_pid %in% ex_pid)
+ex_df_se <- ex_df %>%
+  group_by(day_pid) %>%
+  slice(1, n()) %>%
+  mutate(type = factor(c("Start", "End"), levels=c("Start", "End"))) %>%
+  ungroup()
+
+# manual sample of tracks
+ex_pid_man <- c(
+  "2021-10-25 4649", # Entered + Exited, including TB room stay
+  "2021-10-13 6297", # Lost Exit, only waiting room
+  "2021-11-04 12860", # (Entered) + Exited, waiting room and corridor
+  "2021-10-13 9346", # Entered + Exited, including TB room
+  "2021-11-05 16625", # Entered + (Exited), only waiting room
+  "2021-10-25 9526", # Lost Exit, waiting room and corridor
+  "2021-11-04 9841", # Entered = (Exited), waiting room and corridor
+  "2021-10-15 8644", # Entered + Exited, including TB room
+  "2021-10-15 9419" # Lost Enter
+)
+ex_df_man <- df %>% filter(day_pid %in% ex_pid_man)
+ex_df_man_se <- ex_df_man %>%
+  group_by(day_pid) %>%
+  slice(1, n()) %>%
+  mutate(type = factor(c("Start", "End"), levels=c("Start", "End"))) %>%
+  ungroup()
+
+# plot
+plot_spatial(
+  ggplot() +
+    geom_path(data = ex_df_man, mapping = aes(x = x, y = y), color = "darkred") +
+    geom_point(data = ex_df_man_se, mapping = aes(x = x, y = y, shape = type), size = 2) +
+    facet_wrap(~ day_pid) +
+    scale_shape_manual(values = c(1,13)) 
+) +
+  theme(legend.position = "none")
+```

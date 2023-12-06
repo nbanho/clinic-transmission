@@ -1,0 +1,84 @@
+---
+title: "Environmental data"
+author: "Nicolas Banholzer"
+date: "2023-12-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r}
+library(tidyverse)
+library(lubridate)
+
+source("../utils/plotting.r")
+```
+
+
+## Data
+
+```{r}
+dates <- sort(unique(cont_df$date))
+abbr_dates <- paste(month(dates, label = T, abbr = T), day(dates))
+cont_df <- readRDS("../data-clean/environmental/continuous-iaq-data.rds") %>%
+  mutate(time = as.POSIXct(format(date_time, format = "%H:%M:%S"), format = "%H:%M:%S"),
+         date = factor(date, levels = dates))
+aer <- readRDS("../data-clean/environmental/air-change-rate.rds") %>%
+  mutate(mth = month(date, label = T, abbr= T),
+         dy = day(date),
+         mthdy = paste(mth, dy),
+         mthdy = factor(as.character(mthdy), levels = abbr_dates),
+         daytime = factor(daytime, levels = c("Morning", "Afternoon")))
+```
+
+
+## Descriptives
+
+### Summaries
+
+```{r}
+cont_df %>%
+  group_by(date) %>%
+  summarize(across(c(co2, temperature, humidity), .fns = list(mean, sd)))
+
+cont_df %>%
+  group_by(date, room) %>%
+  summarize(across(c(co2), .fns = list(mean, sd))) %>%
+  mutate_if(is.numeric, round) %>%
+  ungroup() %>%
+  arrange(room)
+```
+
+### CO2 over time
+
+```{r}
+cont_df %>%
+  ggplot(aes(x = time, y = co2, color = date)) +
+  geom_step() +
+  facet_wrap(~ room) +
+  coord_cartesian(expand = F) +
+  scale_x_datetime(date_breaks = "1 hour", date_labels = "%H:%M") +
+  scale_color_manual(values = wes_palette("Moonrise3")) +
+  labs(y = "Number of people in waiting room") +
+  theme_custom() +
+  theme(axis.title.x = element_blank(),
+        legend.title = element_blank())
+```
+
+
+### Air change rate
+
+```{r}
+aer %>%
+  ggplot(aes(x = mthdy, fill = daytime, y = aer)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 1, preserve = "single"), width = .66) +
+  facet_wrap(~ room) +
+  scale_fill_brewer(palette = 9) +
+  scale_y_continuous(expand = expansion(mult = c(0, .05))) +
+  theme_custom()
+```
+

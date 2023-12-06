@@ -33,8 +33,10 @@ ct <- stm(c0 = c0, aer = aer, inf = inf, roomDim = roomDim, cellLength = gridCel
 # plot results
 ctDF <- do.call(rbind, lapply(seq_along(ct), function(t) reshape2::melt(ct[[t]]) %>% mutate(t = t) ))
 
-t_names <- c("08:00:00am", "08:01:00am", "08:10:00am", "08:30:00am", "09:00:00", "09:00:10", "09:00:30", "09:01:00", "09:05:00", "09:10:00", "10:00:00", "12:00:00")
-t_sel <- c(1, 60, 600, 1800, 3600, 3610, 3630, 3660, 3900, 4200, 7200, 14401)
+# t_names <- c("08:00:00am", "08:01:00am", "08:10:00am", "08:30:00am", "09:00:00", "09:00:10", "09:00:30", "09:01:00", "09:05:00", "09:10:00", "10:00:00")
+# t_sel <- c(1, 60, 600, 1800, 3600, 3610, 3630, 3660, 3900, 4200, 7200, 14401)
+t_names <- c("08:01:00", "08:30:00", "09:00:00", "09:01:00", "09:05:00", "10:00:00")
+t_sel <- c(60, 1800, 3600, 3660, 3900, 7200)
 names(t_names) <- t_sel
 
 quanta_concn_pl <- ctDF %>%
@@ -42,16 +44,25 @@ quanta_concn_pl <- ctDF %>%
   mutate(t = dplyr::recode(t, !!! t_names),
          value = value * (1 / (gridCellLength^2*3))) %>%
   ggplot(aes(x = Var2, y = Var1, fill = value)) +
-  facet_wrap(~ t) +
+  facet_wrap(~ t, ncol = 3) +
   geom_tile() +
-  labs(fill = expression("Concentration (10"^-2*" quanta/m"^3*")")) +
-  scale_fill_viridis_c(limits = c(0, NA), labels = function(x) x * 100) +
-  scale_x_continuous(expand = c(0,0), limits = c(0,40), labels = function(x) x * 0.25, breaks = seq(0,40,20)) +
-  scale_y_continuous(expand = c(0,0), limits = c(0,20), labels = function(x) x * 0.25, breaks = seq(0,20,10)) +
-  theme_bw2() +
-  theme(legend.position = "bottom", legend.key.width = unit(2, "cm"),
-        axis.title = element_blank(), panel.spacing = unit(0.5, "cm"),
-        plot.margin = margin(r = 10))
+  labs(fill = expression("Density (10"^-3*" quanta/m"^3*")"), x = "x length in m", y = "y width in m") +
+  scale_fill_viridis_c(limits = c(0, NA), labels = function(x) x * 1000) +
+  scale_x_continuous(expand = c(0,0), limits = c(0,40), labels = function(x) x * 0.25, breaks = seq(0,40,8)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,20), labels = function(x) x * 0.25, breaks = seq(0,20,4)) +
+  theme_custom() +
+  theme(legend.position = "bottom", legend.key.width = unit(1.1, "cm"), legend.key.height = unit(0.5, "cm"), legend.title = element_text(margin = margin(t = -15)),
+        panel.spacing = unit(0.5, "cm"),
+        #panel.grid.major = element_line(linewidth = 1, color = "black"),
+        #panel.grid.minor = element_line(linewidth = .5, color = "black"),
+        #plot.margin = margin(r = 10),
+        text = element_text(size = 12),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 10),
+        strip.text = element_text(size = 12, margin = margin(b = 10)))
 
 quanta_concn_pl
-save_plot(quanta_concn_pl, pdf_file = "tests/stm_v2-toy_example.pdf", w = 16, h = 10)
+save_plot(quanta_concn_pl, 
+          pdf_file = "tests/stm_v2-toy_example.pdf", 
+          eps_file = "tests/stm_v2-toy_example.eps",
+          w = 12, h = 9)

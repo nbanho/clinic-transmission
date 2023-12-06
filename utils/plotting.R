@@ -2,9 +2,14 @@ require(patchwork)
 require(ggpattern)
 require(gridExtra)
 require(GGally)
+require(grid)
 require(Cairo)
 require(gg.layers)
+require(kunstomverse)
 require(wesanderson) # https://github.com/karthik/wesanderson
+
+# default colors
+bluegrey <- c(wes_palette("Royal1")[1], wes_palette("Darjeeling1")[5])
 
 # ggplot theme for Nature style
 text_size = 8

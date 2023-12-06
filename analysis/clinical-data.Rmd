@@ -1,0 +1,77 @@
+---
+title: "Clinical Data"
+author: "Nicolas Banholzer"
+date: "2023-11-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r}
+library(tidyverse)
+
+source("../utils/plotting.r")
+```
+
+
+## Data
+
+```{r}
+df <- readRDS("../data-clean/clinical/clinical-data.rds") %>%
+  filter(between(month(date), 10, 11))
+
+modeled_days <- list.files("../data-clean/patient-tracking/linked-and-imputed")
+modeled_days <- gsub("[[:punct:]]rds", "", modeled_days)
+modeled_days <- as.Date(modeled_days)
+```
+
+
+## Descriptives
+
+### Diagnosed TB over time
+
+```{r}
+diag_tb <- df %>%
+  mutate(`Date modeled` = ifelse(date %in% modeled_days, "Yes", "No")) %>%
+  group_by(date, `Date modeled`) %>%
+  summarize(n_infectious = sum(is_infectious)) %>%
+  ungroup() 
+
+diag_tb %>%
+  ggplot(aes(x = date, y = n_infectious, fill = `Date modeled`)) +
+  geom_bar(stat = "identity") +
+  scale_x_date(date_labels = "%b %d", breaks = modeled_days) +
+  scale_y_continuous(expand = c(0,0)) +
+  theme_custom() +
+  theme(legend.position = "top")
+```
+
+```{r}
+diag_tb %>%
+  ggplot(aes(x = n_infectious)) +
+  geom_histogram()
+
+#' Assumption:
+#' Number of diagnosed ~ number of diagnosed TB
+#' --> Assume a Dirichlet prior with support according to the counts in the range (1,5).
+```
+
+### Suspected TB over time
+
+```{r}
+df %>%
+  mutate(`Date modeled` = ifelse(date %in% modeled_days, "Yes", "No")) %>%
+  group_by(date, `Date modeled`) %>%
+  summarize(n_infectious = sum(was_suspected & !is_infectious)) %>%
+  ungroup() %>%
+  ggplot(aes(x = date, y = n_infectious, fill = `Date modeled`)) +
+  geom_bar(stat = "identity") +
+  scale_x_date(date_labels = "%b %d", breaks = modeled_days) +
+  scale_y_continuous(expand = c(0,0)) +
+  theme_custom() +
+  theme(legend.position = "top")
+```
