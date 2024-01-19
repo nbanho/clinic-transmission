@@ -24,19 +24,22 @@ theme_nature <- function () {
     )
 }
 
-theme_custom <- function() {
+theme_custom <- function(text_size = 8) {
   theme_minimal() %+replace% 
     theme(text = element_text(size = text_size),
           axis.text = element_text(size = text_size),
           axis.title = element_text(size = text_size),
-          plot.title = element_text(size = text_size + 2, face = "bold", hjust = 0, margin = ggplot2::margin(0, 0, 5, 0)),
-          strip.text = element_text(size = text_size),
+          plot.title = element_text(size = text_size + 2, face = "bold", hjust = 0, margin = ggplot2::margin(0, 0, 10, 0)),
+          strip.text = element_text(size = text_size, face = 2, margin = margin(b = 11)),
           panel.grid.major = element_blank(),
           panel.border = element_blank(),
           axis.line.x = element_line(),
           axis.line.y = element_line(),
           axis.ticks =  element_line(),
-          legend.text = element_text(size = 8))
+          legend.text = element_text(size = text_size),
+          legend.title = element_text(size = text_size),
+          panel.spacing = unit(1, "cm"),
+          plot.title.position = "plot")
 }
 
 theme_bw2 <- function () { 

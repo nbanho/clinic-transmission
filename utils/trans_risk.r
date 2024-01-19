@@ -1,3 +1,46 @@
+#' Number of undiagnosed TB patients
+#' 
+#' @param n number of samples 
+#' @param empirical sample based on empirical counts (default `True`) or population-level prevalence
+#' @param counts number of counts of TB patients (0, 1, 2, ...) vising the clinic  
+#' @param prev_est prevalence estimates in %, either a vector with mean and sd, or a ISO-3 char for the country (if estimates are available)
+#' 
+#' @details 
+#' Distribution parametrized empirically based on the counts of occurrences of the
+#' daily number of diagnosed TB patients visiting the clinic,
+#' using a multinomial distribution, and
+#' assuming that the number of undiagnosed TB patients is similar in number.
+#' 
+#' Population-level prevalence for South Africa taken from Moyo. 
+#' 
+#' @return if empirical, number of undiagnosed TB patients, otherwise proportion of undiagnosed TB patients
+#' 
+#' @references 
+#' - Moyo: Moyo et al. (2022) in Lancet Infect Dis (doi.org/10.1016/S1473-3099(22)00149-9)
+
+rundiag <- function(n, empirical = T, counts = c(6, 6, 7, 4, 5, 1), prev_est = "RSA") {
+  if (empirical) {
+    BM <- rmultinom(n, size = 1, prob = counts) 
+    n_undiag <- apply(BM, 2, function(col) which(col == 1)) - 1
+    return(n_undiag)
+  } else {
+    if (is.character(prev_est)) {
+      if (prev_est == "RSA") {
+        prev_mean <- 852 / 100000
+        prev_sd <- (1026 - 679) / 100000 / (qnorm(.975) * 2)
+      } else {
+        stop("No prevalence estimates currently included for this country.")
+      }
+    } else {
+      prev_mean <- prev_est[1]
+      prev_sd <- prev_est[2]
+    }
+    p_undiag <- LaplacesDemon::rtrunc(n, "norm", a = 0, b = 1, mean = prev_mean, sd = prev_sd)
+    return(p_undiag)
+  }
+}
+
+
 #' Reduction in quanta emission rate through surgical mask wearing
 #' 
 #' @param n number of samples
@@ -12,6 +55,33 @@
 
 rrmask <- function(n) {
   LaplacesDemon::rtrunc(n, spec = "norm", a = 0, b = 1, mean = 0.56, sd = 0.11)
+}
+
+
+#' Inhalation rate
+#' 
+#' @param activity one of `c("resting", "sitting", "standing", "walking")`
+#' @param sex one of `c("male", "female")`
+#' 
+#' @return inhalation rate in m3 per h
+#' 
+#' @details 
+#' Walking corresponds to walking slowly at 2.5 mph (light activity).
+#' 
+#' @references 
+#' - Adams: Adams (1993) [Report] Measurement of Breathing Rate and Volume in Routinely Performed Daily Activities.
+#' 
+
+IR <- function(activity, sex) {
+  IR <- matrix(c(7.12, 8.98, 
+                 7.72, 9.30,
+                 8.36, 10.65,
+                 20.32, 24.13),
+               ncol = 2, byrow = T,
+               dimnames = list(c("resting", "sitting", "standing", "walking"), 
+                               c("male", "female")))
+  IR <- IR / 2 / 1000 * 60
+  return(IR[activity,sex])
 }
 
 

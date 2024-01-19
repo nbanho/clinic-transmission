@@ -54,6 +54,27 @@ create_coord_df <- function(spat_poly_df) {
   return(cellCoords)
 }
 
+#' Create matrix from rectangular spatial polygon
+#' 
+#' @param sP spatialPolygons object
+
+sP_to_matrix <- function(sP) {
+  # Assuming you have the spatial_poly as defined in the previous examples
+  coords <- coordinates(sP)
+  
+  # Extract x and y coordinates
+  x_coords <- coords[, 1]
+  y_coords <- coords[, 2]
+  
+  # Determine the number of rows and columns
+  num_rows <- length(unique(y_coords))
+  num_cols <- length(unique(x_coords))
+  
+  # Create a matrix with zeros
+  matrix_from_polygon <- matrix(0, nrow = num_rows, ncol = num_cols, dimnames = list(sort(unique(y_coords), decreasing = T), sort(unique(x_coords))))
+  
+  return(matrix_from_polygon)
+}
 
 #' Compute volume from spatial polygon data frame 
 #' 
@@ -86,7 +107,6 @@ find_raster <- function(x, y, cellCoordsXY) {
   }
   return(closest_id)
 }
-
 
 #' Rotate x and y date by a specific angle
 #' 

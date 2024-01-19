@@ -22,16 +22,13 @@ source("../utils/plotting.r")
 ## Data
 
 ```{r}
-dates <- sort(unique(cont_df$date))
-abbr_dates <- paste(month(dates, label = T, abbr = T), day(dates))
+dates <- as.Date(c("2021-10-13", "2021-10-15", "2021-10-25", "2021-11-04", "2021-11-05"))
+abbr_dates <- format(dates, format = "%b %d")
 cont_df <- readRDS("../data-clean/environmental/continuous-iaq-data.rds") %>%
   mutate(time = as.POSIXct(format(date_time, format = "%H:%M:%S"), format = "%H:%M:%S"),
-         date = factor(date, levels = dates))
+         mthdy = factor(as.character(format(date, format = "%b %d")), levels = abbr_dates))
 aer <- readRDS("../data-clean/environmental/air-change-rate.rds") %>%
-  mutate(mth = month(date, label = T, abbr= T),
-         dy = day(date),
-         mthdy = paste(mth, dy),
-         mthdy = factor(as.character(mthdy), levels = abbr_dates),
+  mutate(mthdy = factor(as.character(format(date, format = "%b %d")), levels = abbr_dates),
          daytime = factor(daytime, levels = c("Morning", "Afternoon")))
 ```
 
@@ -56,29 +53,43 @@ cont_df %>%
 ### CO2 over time
 
 ```{r}
-cont_df %>%
-  ggplot(aes(x = time, y = co2, color = date)) +
+co2_pl <- cont_df %>%
+  ggplot(aes(x = time, y = co2, color = mthdy)) +
   geom_step() +
   facet_wrap(~ room) +
   coord_cartesian(expand = F) +
-  scale_x_datetime(date_breaks = "1 hour", date_labels = "%H:%M") +
+  scale_x_datetime(date_breaks = "3 hours", date_labels = "%H:%M") +
   scale_color_manual(values = wes_palette("Moonrise3")) +
-  labs(y = "Number of people in waiting room") +
-  theme_custom() +
+  labs(y = expression("CO"[2]*" (parts per million, ppm)"),
+       title = "Carbon dioxide measurements",
+       subtitle = expression("CO"[2]*" levels over time per room")) +
+  theme_custom(14) +
   theme(axis.title.x = element_blank(),
-        legend.title = element_blank())
+        legend.title = element_blank(),
+        legend.position = "bottom")
+
+save_plot(co2_pl, pdf_file = "../results/data/co2-levels-over-time.pdf", w = 18, h = 12)
 ```
 
 
 ### Air change rate
 
 ```{r}
-aer %>%
-  ggplot(aes(x = mthdy, fill = daytime, y = aer)) +
-  geom_bar(stat = "identity", position = position_dodge(width = 1, preserve = "single"), width = .66) +
-  facet_wrap(~ room) +
+aer_pl <- aer %>%
+  ggplot(aes(x = room, fill = daytime, y = aer)) +
+  geom_boxplot(position = position_dodge(width = .85)) +
+  #geom_bar(stat = "identity", position = position_dodge(width = 1, preserve = "single"), width = .66) +
+  #facet_wrap(~ room) +
   scale_fill_brewer(palette = 9) +
-  scale_y_continuous(expand = expansion(mult = c(0, .05))) +
-  theme_custom()
+  scale_y_continuous(expand = expansion(mult = c(0, .05)), limits = c(0, NA)) +
+  labs(y = "Air change rate (changes per hour)",
+       title = "Ventilation conditions in the clinic",
+       subtitle = expression("Air exchange rate as computed from CO"[2])) +
+  theme_custom(14) +
+  theme(axis.title.x = element_blank(),
+        legend.title = element_blank(),
+        legend.position = c(0.8, 0.9))
+
+save_plot(aer_pl, pdf_file = "../results/data/air-changes-per-hour.pdf", w = 11, h = 12)
 ```
 
