@@ -251,7 +251,7 @@ for (sim in cont_n:term_n) {
       dplyr::select(time, cell_x, cell_y, activity) %>%
       rename(x = cell_x, y = cell_y) %>%
       mutate(q = ifelse(activity == 1, sim_param$q_wait[sim_param$sim == sim], sim_param$q_walk[sim_param$sim == sim]),
-             q = ifelse(is_masking == 1, q * sim_param$mask_red[sim_param$sim == sim]),
+             q = ifelse(is_masking == 1, q * sim_param$mask_red[sim_param$sim == sim], q),
              q = q / 3600)
     
     # quanta conc in the morning
@@ -265,7 +265,7 @@ for (sim in cont_n:term_n) {
                      c0 = c0, 
                      inf = dplyr::select(track_tb_morn, -time, -activity),
                      cellLength = convert_dist(cellSize),
-                     pd = 0,
+                     pd = ifelse(is_masking == 1, 0, 1),
                      vol = prod(roomDim),
                      aer = aer_df$aer[aer_df$room==room & aer_df$daytime=="Morning"] / 3600,
                      lambda = sim_param$viral_inact[sim_param$sim == sim] / 3600,
@@ -302,7 +302,7 @@ for (sim in cont_n:term_n) {
                      c0 = c0_noon, 
                      inf = dplyr::select(track_tb_noon, -time, -activity),
                      cellLength = convert_dist(cellSize),
-                     pd = 0,
+                     pd = ifelse(is_masking == 1, 0, 1),
                      vol = prod(roomDim),
                      aer = aer_df$aer[aer_df$room==room & aer_df$daytime=="Afternoon"] / 3600,
                      lambda = sim_param$viral_inact[sim_param$sim == sim] / 3600,
@@ -325,11 +325,18 @@ for (sim in cont_n:term_n) {
     
     # compute quanta conc exposure by susc
     ct <- abind::abind(ct_morn, ct_noon, along = 3)
-    track_susc$quanta <- mapply(function(t, x, y) {if (t == 0) 0 else {ct[y,x,t]}}, 
-                                t=track_susc$t, x=as.character(track_susc$cell_x), y=as.character(track_susc$cell_y))
-    track_susc <- track_susc %>%
-      mutate(quanta_conc = inhal_rate * quanta / (convert_dist(cellSize) ^ 2 * convert_dist(cell_height))) %>%
-      dplyr::select(patient_id, quanta_conc)
+    if (nrow(track_susc) > 0) {
+      track_susc$quanta <- mapply(function(t, x, y) {if (t == 0) 0 else {ct[y,x,t]}}, 
+                                  t=track_susc$t, x=as.character(track_susc$cell_x), y=as.character(track_susc$cell_y))
+      track_susc <- track_susc %>%
+        mutate(quanta_conc = inhal_rate * quanta / (convert_dist(cellSize) ^ 2 * convert_dist(cell_height))) %>%
+        dplyr::select(patient_id, quanta_conc)
+    } else {
+      track_susc <- track_susc %>%
+        mutate(quanta_conc = numeric()) %>%
+        dplyr::select(patient_id, quanta_conc)
+    }
+   
     susc_quanta_exp[[room]] <- track_susc
   }
   

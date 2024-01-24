@@ -54,11 +54,11 @@ quanta_concn_pl <- ctDF %>%
   ggplot(aes(x = y, y = x, fill = value)) +
   facet_wrap(~ time, ncol = 3) +
   geom_tile() +
-  labs(fill = expression("Quanta/m"^3), x = "x length in m", y = "y width in m",
+  labs(fill = expression("Quanta/m"^3*" x 10e"^-3), x = "x length in m", y = "y width in m",
        title = "Example: Spatiotemporal model",
        subtitle = "Spatiotemporal quanta concentration with 1 infectious individual (centered, 8-9am)",
-       caption = expression("Assumptions: 150m"^3*" room with q = 10 quanta/h and AER = 10 air changes/h")) +
-  scale_fill_gradient(low = "red", high = "yellow", limits = c(0, NA), labels = function(x) round(x / (gridCellLength^2*dz), 2)) +
+       caption = expression("Assumptions: 150m"^3*" room with q = 10 quanta/h and AER = 3 air changes/h")) +
+  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"), labels = function(x) round(1e3 * x / (gridCellLength^2*dz), 1)) +
   scale_x_continuous(expand = c(0,0), limits = c(0,40), breaks = seq(0,40,8), labels = function(x) x * .25) +
   scale_y_continuous(expand = c(0,0), limits = c(0,20), breaks = seq(0,20,4), labels = function(x) x * .25) +
   theme_custom() +

@@ -1,0 +1,374 @@
+---
+title: "Quanta concentration and Transmission risk"
+author: "Nicolas Banholzer"
+date: "2023-12-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r}
+library(tidyverse)
+library(reshape2)
+library(rstanarm)
+library(tidybayes)
+library(gganimate)
+
+source("../utils/plotting.r")
+source("../utils/tex.r")
+source("../models/stm-v2.R")
+
+# building
+cellSize = 250
+source("../preprocessing/prep_building-rasterize.R")
+```
+
+## Illustration
+
+```{r}
+# data
+mth = 10
+dy = 25
+sim = 1
+param_1025 <- readRDS(paste0("../simulations/", "/", "sim-param-", 2021, "-", mth, "-", dy, ".rds"))
+track_1025 <- readRDS(paste0("../simulations/", "/", "tracking-df-", 250, "px-", 2021, "-", mth, "-", dy, ".rds"))
+track_undiag <- track_1025 %>%
+  dplyr::filter(tracking_end != "Possible HCW") # always consider HCW as non-infectious
+track_diag <- dplyr::filter(track_1025, is_infectious)
+track_undiag <- dplyr::filter(track_undiag, !is_infectious | is.na(is_infectious))
+track_tb_all <- rbind(
+  track_diag,
+  filter(track_undiag, patient_id %in% param_1025[[paste0("undiagTB","_", "du")]][[sim]])
+)
+aer_df <- readRDS("../data-clean/environmental/air-change-rate.rds") %>%
+  filter(month(date) == as.numeric(mth),
+         day(date) == as.numeric(dy)) 
+
+# time
+date <- paste0("2021-",mth, "-", dy)
+t_start <- as.POSIXct(paste(date, "08:00:00"))
+midday <- as.POSIXct(paste(date, "12:00:00"))
+t_end <- as.POSIXct(paste(date, "16:00:00"))
+tt <- seq.POSIXt(t_start, t_end, by = "1 sec")
+tt_morn <- seq.POSIXt(t_start, midday, by = "1 sec")
+tt_noon <- seq.POSIXt(midday + 1, t_end, by = "1 sec")
+midday_idx <- which(tt == midday)
+  
+
+# simulation
+ct_by_room <- list()
+for (room in c("Waiting room", "Corridor", "TB room")) {
+    
+    print(paste0("- ", room))
+    
+    # room setup
+    if (room == "Waiting room") {
+      
+      # initial quanta concentration matrix
+      c0 <- sP_to_matrix(waiting_room)
+      
+      # (no) TB patients in room
+      track_tb <- filter(track_tb_all, is_waitingroom)
+      
+      # room dimension
+      roomDim <- dimWR
+      
+    } else if (room == "Corridor") {
+      
+      # initial quanta concentration matrix
+      c0 <- sP_to_matrix(corridor)
+      
+      # TB patients in room
+      track_tb <- filter(track_tb_all, is_passage)
+      
+      # room dimension
+      roomDim <- dimCD
+      
+    } else if (room == "TB room") {
+      
+      # initial quanta concentration matrix
+      c0 <- sP_to_matrix(tb_room)
+      
+      # TB patients in room
+      track_tb <- filter(track_tb_all, is_tbroom)
+      
+      # room dimension
+      roomDim <- dimTB
+      
+    } else {
+      stop("Error: Room invalid.")
+    }
+    
+    # add quanta generation rate per second by activity level
+    track_tb <- track_tb %>%
+      dplyr::select(time, cell_x, cell_y, activity) %>%
+      rename(x = cell_x, y = cell_y) %>%
+      mutate(q = ifelse(activity == 1, param_1025$q_wait[param_1025$sim == sim], param_1025$q_walk[param_1025$sim == sim]),
+             q = q * param_1025$mask_red[param_1025$sim == sim],
+             q = q / 3600)
+    
+    # quanta conc in the morning
+    print("-- morning")
+    track_tb_morn <- filter(track_tb, time <= midday)
+    track_tb_morn$t <- as.numeric(difftime(track_tb_morn$time, t_start, units = "sec")) 
+    
+    ct_by_room[[room]] <- stm(time = tt_morn,
+                     c0 = c0, 
+                     inf = dplyr::select(track_tb_morn, -time, -activity),
+                     cellLength = convert_dist(cellSize),
+                     pd = 0,
+                     vol = prod(roomDim),
+                     aer = aer_df$aer[aer_df$room==room & aer_df$daytime=="Morning"] / 3600,
+                     lambda = param_1025$viral_inact[param_1025$sim == sim] / 3600,
+                     deposit = 0)
+}
+
+# get subset
+subset_qc <- function(t) {
+  
+  # quanta conc
+  qc_wr <- melt(ct_by_room[["Waiting room"]][,,t]) %>%
+    rename(y = Var1, x = Var2) %>%
+    mutate(room = "Waiting room", across(c(x, y), as.numeric))
+  qc_cr <- melt(ct_by_room[["Corridor"]][,,t]) %>%
+    rename(y = Var1, x = Var2) %>%
+    mutate(room = "Corridor", across(c(x, y), as.numeric))
+  qc_tb <- melt(ct_by_room[["TB room"]][,,t]) %>%
+    rename(y = Var1, x = Var2) %>%
+    mutate(room = "TB room", across(c(x, y), as.numeric))
+  
+  # link to building
+  qc <- rbind(qc_wr, qc_cr, qc_tb) 
+  qc <- left_join(roomCoord, qc, by = c("x", "y", "room")) %>%
+    mutate(id = paste0("ID", id),
+           t = t)
+
+  return(qc)
+}
+
+track_tb_all %>%
+  filter(between(time, as.POSIXct(paste(date, "09:41:00")), as.POSIXct(paste(date, "09:45:00")))) %>%
+  ggplot(aes(x = x, y = y, color = factor(patient_id))) +
+  geom_path()
+
+tt_selected <- seq.POSIXt(as.POSIXct(paste(date, "09:41:00")), as.POSIXct(paste(date, "09:45:00")), by = "1 sec")
+tt_selected_idx <- as.numeric(tt_selected - t_start, unit = "secs")
+names(tt_selected) <- tt_selected_idx
+
+qc_sub <- do.call(rbind, parallel::mclapply(tt_selected_idx, subset_qc, mc.cores = 4)) %>%
+  mutate(t = t - min(tt_selected_idx))
+
+# animated plot
+qc_anim_pl <- ggplot(data = left_join(fortify(waiting_room), filter(qc_sub, room == "Waiting room"), by = c("id")),
+         mapping = aes(x = long, y = lat, group = group, fill = value)) +
+  geom_polygon() +
+  coord_cartesian(expand = F) +
+  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"), labels = function(x) round(1e3 * x / (0.25^2 * 3), 1)) +
+  theme_custom(14) +
+  theme(axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(), legend.position = "bottom",
+        panel.background = element_rect(fill = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")[1]), panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  transition_time(t) +
+  labs(subtitle = "Time (secs): {frame_time}", title = "Quanta concentration in the waiting room on Oct 25 between 9:41 and 09:45am",
+       fill = expression("Quanta/m"^3*" x 10e"^-3))
+
+animate(qc_anim_pl, duration = 30, width = 1.850877 * 600, height = 600, renderer = gifski_renderer(), nframes = length(tt_selected_idx))
+anim_save("../results/modeling/illustrated-quanta-conc-over-time.gif")
+```
+
+## Main
+
+```{r}
+main_files <- c(
+  list.files("../simulations/main/10-13/", full.names = T),
+  list.files("../simulations/main/10-15/", full.names = T),
+  list.files("../simulations/main/10-25/", full.names = T),
+  list.files("../simulations/main/11-04/", full.names = T),
+  list.files("../simulations/main/11-05/", full.names = T))
+```
+
+### Quanta conc
+
+```{r}
+main_qc_files <- main_files[grepl("quanta", main_files)]
+
+mean_qc <- function(files, room, daytime) {
+  room_files <- files[grepl(room, files)]
+  room_dt_files <- room_files[grepl(daytime, room_files)]
+  qc <- simplify2array(lapply(room_dt_files, readRDS))
+  mqc <- apply(qc, c(1,2), mean)
+  mqc_df <- melt(mqc) %>%
+    rename(y = Var1,
+           x = Var2) %>%
+    mutate(room = room,
+           daytime = daytime,
+           across(c(x, y), as.numeric))
+}
+
+# total quanta concentration by daytime averaged across simulations 
+main_qc_wr_mo <- mean_qc(main_qc_files, "Waiting room", "morning")
+main_qc_wr_af <- mean_qc(main_qc_files, "Waiting room", "afternoon")
+main_qc_cr_mo <- mean_qc(main_qc_files, "Corridor", "morning")
+main_qc_cr_af <- mean_qc(main_qc_files, "Corridor", "afternoon")
+main_qc_tb_mo <- mean_qc(main_qc_files, "TB room", "morning")
+main_qc_tb_af <- mean_qc(main_qc_files, "TB room", "afternoon")
+
+# link to building
+main_qc <- rbind(main_qc_wr_mo, main_qc_wr_af, 
+                 main_qc_cr_mo, main_qc_cr_af,
+                 main_qc_tb_mo, main_qc_tb_af) 
+main_qc <- left_join(roomCoord, 
+                     main_qc, 
+                     by = c("x", "y", "room")) %>%
+  mutate(id = paste0("ID", id),
+         daytime = factor(ifelse(daytime == "morning", "Morning", "Afternoon"), levels = c("Morning", "Afternoon")))
+
+# plot
+
+mean_quanta_pl <- plot_spatial(
+  ggplot(mapping = aes(x = long, y = lat, group = group, fill = value)) +
+    facet_wrap(~ daytime) +
+    geom_polygon(data = left_join(fortify(waiting_room), filter(main_qc, room == "Waiting room"), by = c("id"))) +
+    geom_polygon(data = left_join(fortify(corridor), filter(main_qc, room == "Corridor"), by = c("id"))) +
+    geom_polygon(data = left_join(fortify(tb_room), filter(main_qc, room == "TB room"), by = c("id"))) +
+    labs(fill = expression("Quanta/m"^3*" x 10e"^-3), title = "Spatial quanta concentration by daytime", subtitle = "Mean concentration in the morning and afternoon") +
+    scale_fill_gradientn(colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"), labels = function(x) round(1e3 * x / (0.25^2 * 3), 1)),
+  14
+  ) +
+  theme(legend.position = c(0.915,0.095), legend.direction = "horizontal",
+        legend.key.height = unit(0.2, "cm"), legend.key.width = unit(.8, "cm")) +
+  guides(fill = guide_colorbar(title.position = "top"))
+
+save_plot(mean_quanta_pl, pdf_file = "../results/modeling/quanta-concentration.pdf", w = 26, h = 12)
+```
+
+### Trans risk
+
+```{r}
+# files
+main_tr_files <- main_files[grepl("risk", main_files)]
+
+# data
+main_tr <- do.call(rbind, lapply(main_tr_files, function(f) readRDS(f) %>% mutate(mthdy = stringi::stri_extract(f, regex = "\\d{2}-\\d{2}"), 
+                                                                                  sim = stringi::stri_extract(f, regex = "\\d{1,6}"))))
+
+mean_main_tr <- main_tr %>%
+  mutate(patient_id = paste(mthdy, patient_id, sep = "-")) %>%
+  group_by(patient_id) %>%
+  summarize(P_mean = mean(P),
+            P_med = median(P)) %>%
+  ungroup() %>% 
+  reshape2::melt("patient_id") %>%
+  mutate(val_col = ifelse(value < .05, "Low", ifelse(value < .1, "Median", "High")),
+         val_col = factor(val_col, levels = c("Low", "Median", "High")),
+         variable = ifelse(grepl("mean", variable), "Mean risk", "Median risk"),
+         variable = factor(variable, levels = c("Mean risk", "Median risk")))
+
+roi_annon <- mean_main_tr %>%
+  group_by(variable) %>%
+  summarize(mean_P = mean(value),
+            lower_P = quantile(value, .025),
+            upper_P = quantile(value, .975)) %>%
+  ungroup() %>%
+  mutate(across(c(mean_P, lower_P, upper_P), ~ round_k(100 * .x, 1)),
+         lab = paste0("Mean ", mean_P, "%", " (95%-CrI ", lower_P, "% – ", upper_P, "%)"),
+         value = .25, 
+         y = 1350)
+
+roi_pl <- ggplot(mean_main_tr, aes(x = value)) +
+  geom_histogram(mapping = aes(fill = val_col), breaks = seq(.0, .5, .05)) +
+  geom_text(data = roi_annon, mapping = aes(x = value, y = y, label = lab), size = 12 / cm(1)) +
+  facet_wrap(~ variable) +
+  scale_fill_manual(values = wes_palette("Darjeeling1")[c(2,3,1)]) +
+  coord_cartesian(expand = F) +
+  scale_x_continuous(breaks = c(0, .05, 0.1, seq(0.2, .5, .1)), labels = function(x) x * 100) +
+  scale_y_continuous(labels = scales::comma, breaks = seq(0, 1500, 250)) +
+  labs(x = "Risk of infection (%)", y = "Number of patients",
+       title = "Risk of infection",
+       subtitle = "Mean and median individual risk of infection in clinic") +
+  theme_custom(14) +
+  theme(legend.position = "bottom",
+        legend.title = element_blank(),
+        panel.spacing = unit(2, "cm"))
+
+save_plot(roi_pl, pdf_file = "../results/modeling/risk-of-infection.pdf", w = 26, h = 12)
+```
+
+### Association
+
+```{r}
+# load tracking and environmental data
+track <- readRDS("../data-clean/patient-tracking/augmented-and-combined-data.rds")
+aer <- readRDS("../data-clean/environmental/air-change-rate.rds") %>%
+  mutate(daytime = factor(daytime, levels = c("Morning", "Afternoon")))
+
+# process tracking data
+track_daytime <- track %>%
+  mutate(h = lubridate::hour(time)) %>%
+  group_by(date, patient_id) %>%
+  summarize(dur_morning = sum(h < 12),
+            dur_afternoon = sum(h >= 12),
+            tracking_end = tracking_end[1]) %>%
+  ungroup() %>%
+  mutate(daytime = ifelse(dur_morning > dur_afternoon, "Morning", "Afternoon"))
+
+time_in_clin <- track %>%
+  group_by(date, patient_id) %>%
+  summarize(`Clinic` = n(),
+            `Waiting room` = sum(is_waitingroom),
+            `TB room` = sum(is_tbroom),
+            `Corridor` = sum(is_passage)) %>%
+  ungroup() %>%
+  mutate(across(c(`Clinic`, `Waiting room`, `TB room`, `Corridor`), ~ .x / 60))
+
+no_close_contacts <- track %>%
+  unnest(cols = closeContacts) %>%
+  group_by(date, patient_id, closeContacts, tracking_end) %>%
+  summarise(n_time = n()) %>%
+  ungroup() %>%
+  group_by(date, patient_id) %>%
+  summarize(n_cc = sum(n_time > 60)) %>%
+  ungroup() 
+
+time_close_contacts <- track %>%
+  mutate(has_closeContact = ifelse(sapply(closeContacts, length) >= 1, T, F)) %>%
+  group_by(date, patient_id) %>%
+  summarize(cc_time = sum(has_closeContact) / 60) %>%
+  ungroup()
+
+# merge data
+track_ft <- left_join(track_daytime, left_join(left_join(time_in_clin, no_close_contacts), time_close_contacts)) %>%
+  mutate(n_cc = ifelse(is.na(n_cc), 0, n_cc)) %>%
+  rename(time_in_clinic = `Clinic`) %>%
+  dplyr::select(date, patient_id, tracking_end, daytime, time_in_clinic, n_cc, cc_time)
+assoc_df <- track_ft %>%
+  left_join(aer %>% filter(room == "Waiting room") %>% dplyr::select(date, daytime, aer)) %>%
+  mutate(patient_id = paste(lubridate::month(date), lubridate::day(date), patient_id, sep = "-")) %>%
+  left_join(reshape2::dcast(mean_main_tr, patient_id ~ variable) %>% dplyr::select(patient_id, `Mean risk`) %>% rename(mean_risk = `Mean risk`))
+
+# model
+amod <- stan_betareg(mean_risk ~ aer + time_in_clinic + n_cc + cc_time, 
+                     data = assoc_df %>% mutate(n_cc = n_cc + 1, cc_time = cc_time + 1/60,
+                                                across(c(aer, time_in_clinic, n_cc, cc_time), log2)), 
+                     seed = 12345, cores = 4)
+
+amod_est <- spread_draws(amod, aer, time_in_clinic, n_cc, cc_time) %>%
+  reshape2::melt(c(".chain", ".iteration", ".draw")) %>%
+  mutate(value = exp(value)) 
+
+amod_est_pl <- ggplot(amod_est, aes(y = variable, x = value)) +
+  geom_vline(aes(xintercept = 1), linetype = "dotted", color = "red") +
+  stat_pointinterval() +
+  labs(x = "Odds ratio associated with a doubling of the predictor",
+       title = "Predictors of infection risk",
+       subtitle = "Association of close contact, time in clinic, and air change rate with mean risk of infection",
+       caption = "Note: Median as dots, 66%- and 95%-CrI as thick and thin lines.") +
+  scale_y_discrete(labels = c("Air change rate", "Time in clinic", "Number of close contacts", "Time in clocse contact")) +
+  theme_custom(14) +
+  theme(axis.title.y = element_blank())
+
+save_plot(amod_est_pl, pdf_file = "../results/modeling/association-predictors.pdf", w = 20, h = 12)
+```

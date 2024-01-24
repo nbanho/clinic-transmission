@@ -63,7 +63,7 @@ plot_spatial <- function(pl, text_descr = 10) {
   re_lab <- textGrob(label = "Registration", x = 0.44, y = 0.25, gp = gpar(fontsize = text_descr), just = c("left"), rot = 90)
   col <- RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")
   
-  pl +
+ pl +
     ggpubr::background_image(clinic_img) +
     scale_y_continuous(expand = expansion(add=c(1700, 3000)), limits = c(-6500, 2000)) +
     scale_x_continuous(expand = expansion(add=c(400, 500)), limits = c(-16000, 7500)) +
@@ -74,11 +74,8 @@ plot_spatial <- function(pl, text_descr = 10) {
     theme_custom(text_descr) +
     theme(text = element_text(size = text_descr),
           axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(),
-          legend.position = c(0.825,0.05), legend.direction = "horizontal", 
-          legend.key.width = unit(0.3, "cm"), legend.key.height = unit(0.2, "cm"),
           panel.background = element_rect(fill = col[1]), panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank()) +
-    guides(fill = guide_legend(title.position = "top"))
+          panel.grid.minor = element_blank()) 
 }
 
 # room data frames
