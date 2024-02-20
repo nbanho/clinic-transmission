@@ -3,6 +3,11 @@
 /data-clean/**
 doc/*
 results/*
+*.png
+*.eps
+*.pdf
+data-checks/*
+simulations/*
 !.gitkeep
 
 # History files
