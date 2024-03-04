@@ -14,17 +14,17 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 
-source("../utils/plotting.r")
+source("utils/plotting.r")
 ```
 
 
 ## Data
 
 ```{r}
-df <- readRDS("../data-clean/clinical/clinical-data.rds") %>%
+df <- readRDS("data-clean/clinical/clinical-data.rds") %>%
   filter(between(month(date), 10, 11))
 
-modeled_days <- list.files("../data-clean/patient-tracking/linked-and-imputed")
+modeled_days <- list.files("data-clean/patient-tracking/linked-and-imputed")
 modeled_days <- gsub("[[:punct:]]rds", "", modeled_days)
 modeled_days <- as.Date(modeled_days)
 modeled_days_abbrv <- format(modeled_days, format = "%b %d")
@@ -37,77 +37,106 @@ modeled_days_abbrv <- format(modeled_days, format = "%b %d")
 
 ```{r}
 diag_tb <- df %>%
-  mutate(date_in_model = format(as.Date(date), format = "%b %d"),
-         date_in_model = ifelse(date_in_model %in% modeled_days_abbrv, date_in_model, "Not modeled"),
-         date_in_model = factor(date_in_model, levels = c(modeled_days_abbrv, "Not modeled"))) %>%
+  mutate(
+    date_in_model = format(as.Date(date), format = "%b %d"),
+    date_in_model = ifelse(
+      date_in_model %in% modeled_days_abbrv, date_in_model,
+      "Not modeled"
+    ),
+    date_in_model = factor(
+      date_in_model,
+      levels = c(modeled_days_abbrv, "Not modeled")
+    )
+  ) %>%
   group_by(date, date_in_model) %>%
-  summarize(n_infectious = sum(is_infectious),
-            n_suspected = sum(was_suspected & !is_infectious)) %>%
+  summarize(
+    n_infectious = sum(is_infectious),
+    n_suspected = sum(was_suspected & !is_infectious)
+  ) %>%
   ungroup() %>%
   reshape2::melt(c("date", "date_in_model")) %>%
-  mutate(variable = ifelse(grepl("infectious", variable), "Diagnosed", "Suspected"),
-         variable = factor(variable, levels = c("Suspected", "Diagnosed")))
-
-mean_diag <- round(median(diag_tb$value[diag_tb$variable=="Diagnosed"]), 2)
-lower_diag <- round(quantile(diag_tb$value[diag_tb$variable=="Diagnosed"], .25), 2)
-upper_diag <- round(quantile(diag_tb$value[diag_tb$variable=="Diagnosed"], .75), 2)
-annon_diag <- paste0("Median diagnosed = ", mean_diag, " (IQR ", lower_diag, " – ", upper_diag, ")")
+  mutate(
+    variable = ifelse(grepl("infectious", variable), "Diagnosed", "Suspected"),
+    variable = factor(variable, levels = c("Suspected", "Diagnosed"))
+  )
 
 diag_tb_pl <- diag_tb %>%
   ggplot(aes(x = date, y = value, fill = date_in_model, alpha = variable)) +
   geom_bar(position = position_stack(), stat = "identity") +
-  annotate("text", x = as.Date("2021-11-04"), y = 12, label = annon_diag, size = 14/cm(1)) +
   scale_x_date(date_labels = "%b %d", breaks = modeled_days) +
-  scale_y_continuous(expand = c(0,0)) +
+  scale_y_continuous(expand = c(0, 0)) +
   scale_fill_manual(values = c(wes_palette("Moonrise3"), "grey")) +
-  scale_alpha_discrete(breaks = c("Diagnosed", "Suspected"), range = c(.33, 1)) +
-  labs(y = "Number of patients",
-       title = "Daily number of TB patients attending the clinic",
-       subtitle = "Diagnosed and suspected (tested) patients in October and November") +
-  theme_custom(14) +
-  theme(legend.position = "bottom",
-        legend.title = element_blank(),
-        legend.direction = "vertical", 
-        legend.box = "vertical",
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank()) +
-  guides(fill = guide_legend(nrow = 1, order = 2),
-         alpha = guide_legend(nrow = 1, order = 1))
+  scale_alpha_discrete(
+    breaks = c("Diagnosed", "Suspected"),
+    range = c(.33, 1)
+  ) +
+  labs(
+    y = "Number of TB patients attending the clinic"
+  ) +
+  theme_custom(8) +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.direction = "vertical",
+    legend.box = "vertical",
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    legend.key.width = unit(.2, "cm"),
+    legend.key.height = unit(.3, "cm")
+  ) +
+  guides(
+    fill = guide_legend(nrow = 1, order = 2),
+    alpha = guide_legend(nrow = 1, order = 1)
+  )
 
-save_plot(diag_tb_pl, pdf_file = "../results/data/diagnosed-tb-patients.pdf", w = 18, h = 12)
+save_plot(
+  diag_tb_pl,
+  pdf_file = "results/data/diagnosed-tb-patients.png",
+  w = 16, h = 12
+)
 ```
 
 ```{r}
 diag_tb %>%
-  ggplot(aes(x = n_infectious)) +
+  filter(variable == "Diagnosed") %>%
+  ggplot(aes(x = value)) +
   geom_histogram()
+
+table(diag_tb$value[diag_tb$variable == "Diagnosed"])
 
 #' Assumption:
 #' Number of diagnosed ~ number of diagnosed TB
 #' --> Assume a Dirichlet prior with support according to the counts in the range (1,5).
 
-table(diag_tb$n_infectious)
-
-source("../utils/trans_risk.r")
+source("utils/trans_risk.r")
 
 undiag_tb_pl <- data.frame(x = rundiag(1e5)) %>%
   group_by(x) %>%
   summarize(n = n()) %>%
   ungroup() %>%
-  mutate(p = 100 * n / sum(n),
-         p = round(p)) %>%
+  mutate(
+    p = 100 * n / sum(n),
+    p = round(p)
+  ) %>%
   ggplot(aes(x = factor(x), y = p)) +
-  geom_bar(stat = "identity", color = wes_palette("GrandBudapest1")[3], fill = wes_palette("GrandBudapest1")[4], alpha = .5) +
-  labs(x = "Number of undiagnosed TB patients", y = "Probability (%)",
-       title = "Undiagnosed TB patients among clinical attendees",
-       subtitle = "Assuming that no. undiagnosed similar to no. diagnosed",
-       caption = "Note: Distribution derived from empirical clinical data") +
+  geom_bar(
+    stat = "identity",
+    color = wes_palette("GrandBudapest1")[3],
+    fill = wes_palette("GrandBudapest1")[4],
+    alpha = .5
+  ) +
+  labs(
+    x = "Number of undiagnosed TB patients", y = "Probability (%)"
+  ) +
   coord_cartesian(expand = F) +
-  scale_y_continuous(limits = c(0,NA)) +
-  theme_custom(14) +
+  scale_y_continuous(limits = c(0, NA)) +
+  theme_custom(8) +
   theme(plot.caption = element_text(size = 10))
 
-undiag_tb_pl
-save_plot(undiag_tb_pl, pdf_file = "../results/data/undiagnosed-tb-patients.pdf", w = 14, h = 12)
+save_plot(
+  undiag_tb_pl,
+  pdf_file = "results/inputs/undiagnosed-tb-patients.png",
+  w = 8, h = 6
+)
 ```
 

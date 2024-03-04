@@ -2,13 +2,11 @@
 /data-raw/**
 /data-clean/**
 doc/*
-results/*
-*.png
-*.eps
-*.pdf
+analysis/*.png
 data-checks/*
 simulations/*
 !.gitkeep
+**/_old/*
 
 # History files
 .Rhistory

@@ -14,77 +14,160 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tidyverse)
 library(LaplacesDemon)
-source("../utils/trans_risk.r")
-source("../utils/plotting.r")
+source("utils/trans_risk.r")
+source("utils/plotting.r")
 ```
 
 
-## Quanta
+## Generation rate
 
 ```{r}
-q_dat <- data.frame(x = seq(0, 200, 0.1)) %>%
-  mutate(y = pq(x))
+set.seed(12345)
+
+q_dat <- rbind(
+  data.frame(
+    x = rq(bact_load.mtb(1e6), activity = "waiting"),
+    activity = "Waiting"
+  ),
+  data.frame(
+    x = rq(bact_load.mtb(1e6), activity = "walking"),
+    activity = "Walking"
+  )
+)
+
+q_dat %>%
+  group_by(activity) %>%
+  tidybayes::median_qi(x, .width = .5)
+
+q_dat_dens <- q_dat %>%
+  group_by(activity) %>%
+  summarize(dens = list(density(x, adjust = 2)))
 
 prev_est <- data.frame(
-  study = c("Andrews (2014)", "Escombe (2008)", "Nardell (1991)", "Riley (1962)"),
-  x = c(0.89, 8.2, 12.5, 1.25)
+  study = c(
+    "Andrews (2014)",
+    "Escombe (2008)",
+    "Nardell (1991)",
+    "Riley (1962)"
+  ),
+  x = c(0.89, 8.2, 12.5, 1.25),
+  y = c(1, 7, 9, 3) / 1e2
 ) %>%
-  mutate(y = pq(x))
+  mutate(lab = paste0(study, ": ", round(x, 2)))
 
-q_pl <- ggplot(mapping = aes(x = x, y = y)) +
-  geom_line(data = q_dat, direction = "vh") +
-  geom_segment(data = prev_est, mapping = aes(xend = x, yend = 0, color = study), linetype = "dotted") +
-  geom_segment(data = prev_est, mapping = aes(yend = y, xend = 0, color = study), linetype = "dotted") +
-  geom_point(data = prev_est, mapping = aes(color = study), shape = 17, size = 2) +
-  geom_text(data = prev_est, mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_x = log(1.35)) +
-  scale_x_continuous(expand = expansion(mult = c(0,.025)), breaks = c(0, 1, 10, 100, 200), trans = scales::pseudo_log_trans(base = 10)) +
-  scale_y_continuous(expand = c(0,0), labels = scales::percent_format(suffix = "")) +
+q_pl <- ggplot() +
+  geom_density(
+    data = q_dat,
+    mapping = aes(x = x, linetype = activity),
+    adjust = 2
+  ) +
+  geom_segment(
+    data = prev_est,
+    mapping = aes(x = x, xend = x, y = 0, yend = y, color = study),
+    linetype = "dotted"
+  ) +
+  geom_point(
+    data = prev_est,
+    mapping = aes(x = x, color = study, y = y),
+    shape = 17, size = 2
+  ) +
+  geom_text(
+    data = prev_est,
+    mapping = aes(x = x, label = lab, color = study, y = y),
+    size = 8 / cm(1), vjust = -2, hjust = 1
+  ) +
+  scale_x_log10(
+    expand = expansion(mult = c(0, .025)),
+    breaks = c(1e-4, 1e-5, 1e-3, 1e-2, 1e-1, 1e0, 1e1, 1e2, 1e3, 1e4, 1e5)
+  ) +
+  scale_y_continuous(
+    expand = c(0, 0),
+    labels = scales::percent_format(suffix = "")
+  ) +
   scale_color_manual(values = wes_palette("Cavalcanti1")) +
-  labs(x = "Quanta generation rate (quanta/h)", y = "Cumulative probability (%)") +
+  labs(
+    x = "Quanta generation rate (quanta/h)",
+    y = "Density"
+  ) +
   theme_custom() +
   theme(legend.position = "none")
 
-q_pl
-save_plot(q_pl, pdf_file = "../illustrations/prior-q.pdf", w = 12, h = 8)
+save_plot(
+  q_pl,
+  pdf_file = "results/inputs/quanta-generation-rate.png",
+  w = 16, h = 12
+)
 ```
 
 
-## Viral inactivation rate
+## Inactivation rate
 
 ```{r}
-plambda <- function(x, disease = "TB") {
-  plnorm(x, meanlog = log(1), sdlog = 1)
-}
+set.seed(12345)
 
-lambda_dat <- data.frame(x = seq(0, 10, .01)) %>%
-  mutate(y = plambda(x))
+lambda_dat <- data.frame(x = rlambda(1e6))
+
+lambda_dat %>%
+  tidybayes::median_qi(x, .width = .5)
 
 prev_est_vir <- data.frame(
-  study = c("Loudon (1969)", "Lever (2000)", "Gannon (2007)", "Klein (2014)"),
-  x = c(log(2)/6, log(2)/(5/60), log(2) / 1.5, log(2) / (0.5/(log(20/100, 0.5))) )
+  study = c(
+    "Loudon (1969)",
+    "Lever (2000)",
+    "Gannon (2007)",
+    "Klein (2014)"
+  ),
+  x = c(
+    log(2) / 6,
+    log(2) / (5 / 60),
+    log(2) / 1.5,
+    log(2) / (0.5 / (log(20 / 100, 0.5)))
+  ),
+  y = c(15, 5, 10, 20) / 1e2
 ) %>%
-  mutate(y = plambda(x))
+  mutate(lab = paste0(study, ": ", round(x, 2)))
 
-lambda_pl <- ggplot(mapping = aes(x = x, y = y)) +
-  geom_line(data = lambda_dat, direction = "vh") +
-  geom_segment(data = prev_est_vir, mapping = aes(xend = x, yend = 0, color = study), linetype = "dotted") +
-  geom_segment(data = prev_est_vir, mapping = aes(yend = y, xend = 0, color = study), linetype = "dotted") +
-  geom_point(data = prev_est_vir, mapping = aes(color = study), shape = 17, size = 2) +
-  geom_text(data = dplyr::filter(prev_est_vir, study == "Lever (2000)"), 
-            mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_y = 0.05) +
-  geom_text(data = dplyr::filter(prev_est_vir, study == "Klein (2014)"), 
-            mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_y = -0.05, nudge_x = 0.1) +
-  geom_text(data = dplyr::filter(prev_est_vir, study == "Gannon (2007)"), 
-                                 mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_x = 0.125) +
-  geom_text(data = dplyr::filter(prev_est_vir, study == "Loudon (1969)"), 
-                                 mapping = aes(label = study, color = study), size = 8 / cm(1), nudge_x = 0.125, nudge_y = 0.025) +
-  scale_x_continuous(expand = expansion(mult = c(0,.025)), breaks = c(0, 0.5, 1, 2, 5, 10), trans = scales::pseudo_log_trans(base = 10)) +
-  scale_y_continuous(expand = expansion(mult = c(0,.025)), labels = scales::percent_format(suffix = "")) +
+lambda_pl <- ggplot() +
+  geom_density(
+    data = lambda_dat,
+    mapping = aes(x = x),
+    adjust = 2
+  ) +
+  geom_segment(
+    data = prev_est_vir,
+    mapping = aes(x = x, xend = x, y = 0, yend = y, color = study),
+    linetype = "dotted"
+  ) +
+  geom_point(
+    data = prev_est_vir,
+    mapping = aes(x = x, color = study, y = y),
+    shape = 17, size = 2
+  ) +
+  geom_text(
+    data = prev_est_vir,
+    mapping = aes(x = x, label = lab, color = study, y = y),
+    size = 8 / cm(1), vjust = -2
+  ) +
+  scale_x_log10(
+    expand = expansion(mult = c(0, .025)),
+    breaks = c(1e-4, 1e-5, 1e-3, 1e-2, 1e-1, 1e0, 1e1, 1e2, 1e3, 1e4, 1e5)
+  ) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, .05)),
+    labels = scales::percent_format(suffix = "")
+  ) +
   scale_color_manual(values = wes_palette("Cavalcanti1")) +
-  labs(x = "Viral inactivation rate", y = "Cumulative probability (%)") +
+  labs(
+    x = "Bacterial inactivation rate (quanta/h)",
+    y = "Density"
+  ) +
   theme_custom() +
   theme(legend.position = "none")
 
-lambda_pl
-save_plot(lambda_pl, pdf_file = "../illustrations/prior-lambda.pdf", w = 12, h = 8)
+
+save_plot(
+  lambda_pl,
+  pdf_file = "results/inputs/bacterial-inactivation-rate.png",
+  w = 16, h = 12
+)
 ```

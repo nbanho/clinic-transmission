@@ -15,21 +15,40 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
 
-source("../utils/plotting.r")
+source("utils/plotting.r")
 ```
 
 
 ## Data
 
 ```{r}
-dates <- as.Date(c("2021-10-13", "2021-10-15", "2021-10-25", "2021-11-04", "2021-11-05"))
+dates <- as.Date(c(
+  "2021-10-13",
+  "2021-10-15",
+  "2021-10-25",
+  "2021-11-04",
+  "2021-11-05"
+))
 abbr_dates <- format(dates, format = "%b %d")
-cont_df <- readRDS("../data-clean/environmental/continuous-iaq-data.rds") %>%
-  mutate(time = as.POSIXct(format(date_time, format = "%H:%M:%S"), format = "%H:%M:%S"),
-         mthdy = factor(as.character(format(date, format = "%b %d")), levels = abbr_dates))
-aer <- readRDS("../data-clean/environmental/air-change-rate.rds") %>%
-  mutate(mthdy = factor(as.character(format(date, format = "%b %d")), levels = abbr_dates),
-         daytime = factor(daytime, levels = c("Morning", "Afternoon")))
+cont_df <- readRDS("data-clean/environmental/continuous-iaq-data.rds") %>%
+  mutate(
+    time = as.POSIXct(
+      format(date_time, format = "%H:%M:%S"),
+      format = "%H:%M:%S"
+    ),
+    mthdy = factor(
+      as.character(format(date, format = "%b %d")),
+      levels = abbr_dates
+    )
+  )
+aer <- readRDS("data-clean/environmental/air-change-rate.rds") %>%
+  mutate(
+    mthdy = factor(
+      as.character(format(date, format = "%b %d")),
+      levels = abbr_dates
+    ),
+    daytime = factor(daytime, levels = c("Morning", "Afternoon"))
+  )
 ```
 
 
@@ -54,21 +73,39 @@ cont_df %>%
 
 ```{r}
 co2_pl <- cont_df %>%
+  mutate(time = floor_date(time, "10 minutes")) %>%
+  group_by(mthdy, time, room) %>%
+  summarize(co2 = mean(co2)) %>%
+  ungroup() %>%
+  mutate(room = factor(
+    room,
+    levels = c("Waiting room", "Corridor", "TB room")
+  )) %>%
   ggplot(aes(x = time, y = co2, color = mthdy)) +
   geom_step() +
-  facet_wrap(~ room) +
-  coord_cartesian(expand = F) +
-  scale_x_datetime(date_breaks = "3 hours", date_labels = "%H:%M") +
+  facet_wrap(~room) +
+  coord_cartesian(expand = FALSE) +
+  scale_x_datetime(date_breaks = "4 hours", date_labels = "%H:%M") +
   scale_color_manual(values = wes_palette("Moonrise3")) +
-  labs(y = expression("CO"[2]*" (parts per million, ppm)"),
-       title = "Carbon dioxide measurements",
-       subtitle = expression("CO"[2]*" levels over time per room")) +
-  theme_custom(14) +
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank(),
-        legend.position = "bottom")
+  labs(
+    y = expression("CO"[2] * " (parts per million, ppm)"),
+    title = "a"
+  ) +
+  theme_custom(8) +
+  theme(
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    panel.spacing = unit(1, "lines"),
+    legend.key.width = unit(0.275, "cm"),
+    legend.key.height = unit(0.2, "cm")
+  )
 
-save_plot(co2_pl, pdf_file = "../results/data/co2-levels-over-time.pdf", w = 18, h = 12)
+save_plot(
+  co2_pl,
+  pdf_file = "results/data/co2-levels-over-time.png",
+  w = 10, h = 6
+)
 ```
 
 
@@ -76,20 +113,37 @@ save_plot(co2_pl, pdf_file = "../results/data/co2-levels-over-time.pdf", w = 18,
 
 ```{r}
 aer_pl <- aer %>%
-  ggplot(aes(x = room, fill = daytime, y = aer)) +
-  geom_boxplot(position = position_dodge(width = .85)) +
-  #geom_bar(stat = "identity", position = position_dodge(width = 1, preserve = "single"), width = .66) +
-  #facet_wrap(~ room) +
-  scale_fill_brewer(palette = 9) +
+  mutate(room = factor(
+    room,
+    levels = c("Waiting room", "Corridor", "TB room")
+  )) %>%
+  ggplot(aes(x = room, fill = room, y = aer)) +
+  geom_boxplot() +
+  # geom_jitter(
+  #   mapping = aes(color = daytime),
+  #   width = 0.2,
+  #   height = 0,
+  #   shape = 21
+  # ) +
+  scale_x_discrete(labels = c("WR", "TB", "CR")) +
+  scale_fill_manual(values = wes_palette("Royal2")[-1]) +
   scale_y_continuous(expand = expansion(mult = c(0, .05)), limits = c(0, NA)) +
-  labs(y = "Air change rate (changes per hour)",
-       title = "Ventilation conditions in the clinic",
-       subtitle = expression("Air exchange rate as computed from CO"[2])) +
-  theme_custom(14) +
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank(),
-        legend.position = c(0.8, 0.9))
+  labs(
+    y = "Air changes per hour",
+    title = "b"
+  ) +
+  theme_custom(8) +
+  theme(
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    legend.position = c(0.8, 0.95)
+  ) +
+  guides(fill = "none")
 
-save_plot(aer_pl, pdf_file = "../results/data/air-changes-per-hour.pdf", w = 11, h = 12)
+save_plot(
+  aer_pl,
+  pdf_file = "results/data/air-changes-per-hour.png",
+  w = 6, h = 6
+)
 ```
 

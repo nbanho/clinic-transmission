@@ -17,8 +17,8 @@ library(lubridate)
 library(parallel)
 library(reshape2)
 
-source("../utils/plotting.r")
-source("../utils/spatial.r")
+source("utils/plotting.r")
+source("utils/spatial.r")
 ```
 
 
@@ -27,19 +27,34 @@ source("../utils/spatial.r")
 ### Tracking
 
 ```{r}
-df <- readRDS("../data-clean/patient-tracking/augmented-and-combined-data.rds")
+df <- readRDS("data-clean/patient-tracking/augmented-and-combined-data.rds")
 
 # filter considered clinical attendees
-df_matched <- do.call(rbind, lapply(unique(df$date), function(d) readRDS(paste0("../data-clean/patient-tracking/matched-clinical/", d, ".rds")))) %>%
+df_matched <- do.call(
+  rbind,
+  lapply(
+    unique(df$date),
+    function(d) {
+      readRDS(paste0(
+        "data-clean/patient-tracking/matched-clinical/",
+        d, ".rds"
+      ))
+    }
+  )
+) %>%
   mutate(date = as.Date(time))
-df_filt <- filter(df, paste(date, patient_id) %in% unique(paste(df_matched$date, df_matched$patient_id)))
+df_filt <- filter(
+  df,
+  paste(date, patient_id) %in%
+    unique(paste(df_matched$date, df_matched$patient_id))
+)
 ```
 
 ### Building
 
 ```{r}
-cellSize = 250
-source("../preprocessing/prep_building-rasterize.R")
+cellSize <- 250
+source("preprocessing/prep_building-rasterize.R")
 ```
 
 
@@ -59,10 +74,17 @@ track_qual <- df %>%
   ungroup() %>%
   dplyr::select(tracking_end) %>%
   unlist() %>%
-  table() 
+  table()
 
 sum(track_qual[names(track_qual) != "Possible HCW"])
-track_qual_str <- paste0(names(track_qual), ": ", track_qual, " (", round(track_qual / sum(track_qual) * 100), "%)")
+track_qual_str <- paste0(
+  names(track_qual),
+  ": ",
+  track_qual,
+  " (",
+  round(track_qual / sum(track_qual) * 100),
+  "%)"
+)
 track_qual_str
 
 df %>%
@@ -81,11 +103,13 @@ df %>%
 ```{r}
 time_in_clin <- df_filt %>%
   group_by(date, patient_id) %>%
-  summarize(tracking_end = first(tracking_end),
-            `Clinic` = n(),
-            `Waiting room` = sum(is_waitingroom),
-            `TB room` = sum(is_tbroom),
-            `Corridor` = sum(is_passage)) %>%
+  summarize(
+    tracking_end = first(tracking_end),
+    `Clinic` = n(),
+    `Waiting room` = sum(is_waitingroom),
+    `TB room` = sum(is_tbroom),
+    `Corridor` = sum(is_passage)
+  ) %>%
   ungroup() %>%
   mutate(across(c(`Clinic`, `Waiting room`, `TB room`, `Corridor`), ~ .x / 60))
 
@@ -93,19 +117,31 @@ time_in_clin_pl <- time_in_clin %>%
   filter(tracking_end != "Possible HCW") %>%
   dplyr::select(-tracking_end) %>%
   melt(c("date", "patient_id")) %>%
-  mutate(variable = factor(variable, levels = c("Clinic", "Waiting room", "TB room", "Corridor"))) %>%
+  mutate(variable = factor(
+    variable,
+    levels = c("Clinic", "Waiting room", "TB room", "Corridor")
+  )) %>%
   ggplot(aes(x = variable, fill = variable, y = value)) +
   geom_boxplot() +
-  scale_y_sqrt() +
+  scale_y_sqrt(breaks = c(0, 1, 10, 30, 60, 120, 180)) +
+  scale_x_discrete(labels = c("Clinic", "WR", "TB", "CR")) +
   scale_fill_manual(values = wes_palette("Royal2")) +
-  labs(y = "Time (minutes)", title = "Time spent in clinic", subtitle = "Duration of tracked clinical visit") +
-  theme_custom(14) +
-  theme(legend.position = "none",
-        legend.title = element_blank(),
-        axis.title.x = element_blank(),
-        plot.title.position = "plot")
+  labs(
+    y = "Time in clinic (minutes)",
+    title = "c"
+  ) +
+  theme_custom(8) +
+  theme(
+    legend.position = "none",
+    legend.title = element_blank(),
+    axis.title.x = element_blank(),
+    plot.title.position = "plot"
+  )
 
-save_plot(time_in_clin_pl, pdf_file = "../results/data/time-in-clinic.pdf", w = 13, h = 12)
+save_plot(
+  time_in_clin_pl,
+  pdf_file = "results/data/time-in-clinic.png", w = 5.3, h = 6
+)
 ```
 
 
@@ -116,19 +152,27 @@ save_plot(time_in_clin_pl, pdf_file = "../results/data/time-in-clinic.pdf", w = 
 no_close_contacts <- df_filt %>%
   unnest(cols = closeContacts) %>%
   group_by(date, patient_id, closeContacts, tracking_end) %>%
-  summarise(n_time = n(),
-            tracking_end = first(tracking_end)) %>%
+  summarise(
+    n_time = n(),
+    tracking_end = first(tracking_end)
+  ) %>%
   ungroup() %>%
   group_by(date, patient_id) %>%
-  summarize(n_cc = sum(n_time > 60),
-            tracking_end = first(tracking_end)) %>%
-  ungroup() 
+  summarize(
+    n_cc = sum(n_time > 60),
+    tracking_end = first(tracking_end)
+  ) %>%
+  ungroup()
 
 time_close_contacts <- df_filt %>%
-  mutate(has_closeContact = ifelse(sapply(closeContacts, length) >= 1, T, F)) %>%
+  mutate(has_closeContact = ifelse(
+    sapply(closeContacts, length) >= 1, T, F
+  )) %>%
   group_by(date, patient_id) %>%
-  summarize(cc_time = sum(has_closeContact) / 60,
-            tracking_end = first(tracking_end)) %>%
+  summarize(
+    cc_time = sum(has_closeContact) / 60,
+    tracking_end = first(tracking_end)
+  ) %>%
   ungroup()
 
 close_contact <- no_close_contacts %>%
@@ -137,34 +181,52 @@ close_contact <- no_close_contacts %>%
 
 cc_n_pl <- close_contact %>%
   filter(tracking_end != "Possible HCW") %>%
-  ggplot(aes(x = n_cc))  +
-  scale_x_continuous(expand = c(0,0)) +
-  scale_y_continuous(expand = c(0,0)) +
-  labs(y = "Density", x = "Number of close contacts",
-       title = "Close contacts",
-       subtitle = "Defined as <1m for >1min") +
+  ggplot(aes(x = n_cc)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(
+    y = "Density", x = "Number of close contacts",
+    title = "d"
+    # subtitle = "Defined as <1m for >1min"
+  ) +
   geom_density(fill = wes_palette("FantasticFox1")[2], color = wes_palette("FantasticFox1")[2], alpha = 0.8) +
-  theme_custom(14) +
-  theme(plot.title.position = "plot",
-        plot.margin = margin(r = 11),
-        plot.subtitle = element_text(margin = margin(b = 11)))
-cc_n_pl
+  theme_custom(8) +
+  theme(
+    plot.title.position = "plot",
+    plot.margin = margin(r = 11),
+    plot.subtitle = element_text(margin = margin(b = 11))
+  )
+
+save_plot(
+  cc_n_pl,
+  pdf_file = "results/data/number-close-contacts.png", w = 5.3, h = 6
+)
 
 cc_t_pl <- close_contact %>%
   filter(tracking_end != "Possible HCW") %>%
-  ggplot(aes(x = cc_time / Clinic * 100) ) +
-  scale_x_continuous(expand = c(0,0), limits = c(0, 100)) +
-  scale_y_continuous(expand = c(0,0)) +
-  labs(y = "Density", x = "Time in close contact (%)", title = "", subtitle = "") +
-  geom_density(fill = wes_palette("Moonrise1")[2], color = wes_palette("Moonrise1")[2], alpha = 0.8) +
-  theme_custom(14) +
-  theme(plot.title.position = "plot",
-        plot.margin = margin(r = 11))
-cc_t_pl
+  ggplot(aes(x = cc_time / Clinic * 100)) +
+  scale_x_continuous(expand = c(0, 0), limits = c(0, 100)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(
+    y = "Density",
+    x = "Time in close contact (%)",
+    title = "e"
+  ) +
+  geom_density(
+    fill = wes_palette("Moonrise1")[2],
+    color = wes_palette("Moonrise1")[2],
+    alpha = 0.8
+  ) +
+  theme_custom(8) +
+  theme(
+    plot.title.position = "plot",
+    plot.margin = margin(r = 11)
+  )
 
-cc_pl <- (cc_n_pl + cc_t_pl) + plot_layout(nrow = 1, heights = c(0.5, .5)) & 
-  plot_annotation(theme = theme(plot.background = element_rect(fill = "transparent", color = "transparent")))
-save_plot(cc_pl, pdf_file = "../results/data/close-contact.pdf", w = 16, h = 12)
+save_plot(
+  cc_t_pl,
+  pdf_file = "results/data/time-close-contacts.png", w = 5.3, h = 6
+)
 ```
 
 
@@ -177,30 +239,51 @@ clinic_occupancy <- df %>%
     `Clinic` = n(),
     `Waiting room` = sum(is_waitingroom),
     `TB room` = sum(is_tbroom),
-    `Corridor` = sum(is_passage)) %>%
+    `Corridor` = sum(is_passage)
+  ) %>%
   ungroup() %>%
   melt(c("date", "time")) %>%
-  mutate(variable = factor(variable, levels = c("Clinic", "Waiting room", "TB room", "Corridor")),
-         date = format(date, "%b %d"),
-         date = factor(as.character(date), levels = c("Oct 13", "Oct 15", "Oct 25", "Nov 04", "Nov 05")),
-         time = as.POSIXct(format(time, format = "%H:%M:%S"), format = "%H:%M:%S")) %>%
-  filter(between(hour(time), 7, 16)) 
+  mutate(
+    variable = factor(
+      variable,
+      levels = c("Clinic", "Waiting room", "TB room", "Corridor")
+    ),
+    date = format(date, "%b %d"),
+    date = factor(
+      as.character(date),
+      levels = c("Oct 13", "Oct 15", "Oct 25", "Nov 04", "Nov 05")
+    ),
+    time = as.POSIXct(format(time, format = "%H:%M:%S"), format = "%H:%M:%S")
+  ) %>%
+  filter(between(hour(time), 7, 16))
 
 
 time_pl <- clinic_occupancy %>%
+  filter(variable == "Clinic") %>%
   ggplot(aes(x = time, y = value, color = date)) +
   geom_step() +
-  ggh4x::facet_wrap2(~ variable, axes = "x", remove_labels = "all") +
-  coord_cartesian(expand = F) +
+  # ggh4x::facet_wrap2(~variable, axes = "x", remove_labels = "all") +
+  coord_cartesian(expand = FALSE) +
   scale_x_datetime(date_breaks = "3 hours", date_labels = "%H:%M") +
   scale_color_manual(values = wes_palette("Moonrise3")) +
-  labs(y = "Number of people", title = "Occupancy over time", subtitle = "Number of active tracks per room over time") +
-  theme_custom(14) +
-  theme(axis.title.x = element_blank(),
-        legend.title = element_blank(),
-        legend.position = "bottom") 
+  labs(
+    y = "Number of people in clinic",
+    title = "f"
+  ) +
+  theme_custom(8) +
+  theme(
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.key.width = unit(0.275, "cm"),
+    legend.key.height = unit(0.2, "cm")
+  )
 
-save_plot(time_pl, pdf_file = "../results/data/no-people-over-time.pdf", w = 16, h = 12)
+save_plot(
+  time_pl,
+  pdf_file = "results/data/no-people-over-time.png",
+  w = 8, h = 6
+)
 ```
 
 
@@ -210,16 +293,31 @@ save_plot(time_pl, pdf_file = "../results/data/no-people-over-time.pdf", w = 16,
 spatial_pl <- plot_spatial(
   ggplot(data = df, mapping = aes(x = x, y = y)) +
     geom_bin2d(binwidth = 200),
-  text_descr = 14) +
-  labs(fill = "Number of tracks", title = "Spatial occupancy", subtitle = "Total number of tracks per grid cell") +
-  scale_fill_gradientn(colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"), trans = "log10", labels = scales::comma) +
-  # scale_fill_stepsn(colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"), trans = "log10", 
-  #                   breaks = c(1, 10, 100, 1000, 10000)) +
-  theme(legend.position = c(0.82,0.095), legend.direction = "horizontal",
-        legend.key.height = unit(0.2, "cm"), legend.key.width = unit(.8, "cm")) +
-  guides(fill = guide_colorbar(title.position = "top"))
+  text_descr = 8
+) +
+  labs(
+    fill = "Number of tracks",
+    title = "g"
+  ) +
+  scale_fill_gradientn(
+    colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"),
+    trans = "log10",
+    labels = scales::comma,
+    breaks = c(1, 10, 100, 1000, 10000)
+  ) +
+  theme(
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    legend.key.height = unit(0.2, "cm"),
+    legend.key.width = unit(1, "cm")
+  ) +
+  guides(fill = guide_colorbar(title.vjust = 1))
 
-save_plot(spatial_pl, pdf_file = "../results/data/no-people-spatial.pdf", w = 16, h = 12)
+save_plot(
+  spatial_pl,
+  pdf_file = "results/data/no-people-spatial.png",
+  w = 8, h = 6
+)
 ```
 
 
@@ -244,7 +342,7 @@ ex_df <- df %>% filter(day_pid %in% ex_pid)
 ex_df_se <- ex_df %>%
   group_by(day_pid) %>%
   slice(1, n()) %>%
-  mutate(type = factor(c("Start", "End"), levels=c("Start", "End"))) %>%
+  mutate(type = factor(c("Start", "End"), levels = c("Start", "End"))) %>%
   ungroup()
 
 # manual sample of tracks
@@ -254,31 +352,42 @@ ex_pid_man <- c(
   "2021-11-04 12860", # (Entered) + Exited, waiting room and corridor
   "2021-10-13 9346", # Entered + Exited, including TB room
   "2021-11-05 16625", # Entered + (Exited), only waiting room
-  #"2021-10-25 9526", # Lost Exit, waiting room and corridor
-  #"2021-11-04 9841", # Entered = (Exited), waiting room and corridor
-  #"2021-10-15 8644", # Entered + Exited, including TB room
+  "2021-10-25 9526", # Lost Exit, waiting room and corridor
+  "2021-11-04 9841", # Entered = (Exited), waiting room and corridor
+  "2021-10-15 8644", # Entered + Exited, including TB room
   "2021-10-15 9419" # Lost Enter
 )
 ex_df_man <- df %>% filter(day_pid %in% ex_pid_man)
 ex_df_man_se <- ex_df_man %>%
   group_by(day_pid) %>%
   slice(1, n()) %>%
-  mutate(type = factor(c("Start", "End"), levels=c("Start", "End"))) %>%
+  mutate(type = factor(c("Start", "End"), levels = c("Start", "End"))) %>%
   ungroup()
 
 # plot
 ex_tracks <- plot_spatial(
   ggplot() +
-    geom_path(data = ex_df_man, mapping = aes(x = x, y = y), color = "darkred") +
-    geom_point(data = ex_df_man_se, mapping = aes(x = x, y = y, shape = type), size = 2) +
-    facet_wrap(~ day_pid, ncol = 3) +
-    scale_shape_manual(values = c(1,13)),
-  text_descr = 10
+    geom_path(
+      data = ex_df_man,
+      mapping = aes(x = x, y = y),
+      color = "darkred"
+    ) +
+    geom_point(
+      data = ex_df_man_se,
+      mapping = aes(x = x, y = y, shape = type),
+      size = 2
+    ) +
+    facet_wrap(~day_pid, ncol = 3) +
+    scale_shape_manual(values = c(1, 13)),
+  text_descr = 8
 ) +
-  labs(title = "Sample of invidiual tracks", subtitle = "Illustrative examples of the mixed tracking quality") +
-  theme(legend.position = "none",
-        plot.title = element_text(size = 16),
-        plot.subtitle = element_text(size = 14))
+  theme(
+    legend.position = "none"
+  )
 
-save_plot(ex_tracks, pdf_file = "../results/data/example-patient-tracks.pdf", w = 22, h = 12)
+save_plot(
+  ex_tracks,
+  pdf_file = "results/data/example-patient-tracks.png",
+  w = 16, h = 12
+)
 ```
