@@ -113,13 +113,18 @@ time_in_clin <- df_filt %>%
   ungroup() %>%
   mutate(across(c(`Clinic`, `Waiting room`, `TB room`, `Corridor`), ~ .x / 60))
 
+time_in_clin %>%
+  filter(tracking_end != "Possible HCW") %>%
+  tidybayes::median_qi(`Clinic`, .width = .5) %>%
+  mutate_if(is.numeric, round)
+
 time_in_clin_pl <- time_in_clin %>%
   filter(tracking_end != "Possible HCW") %>%
   dplyr::select(-tracking_end) %>%
   melt(c("date", "patient_id")) %>%
   mutate(variable = factor(
     variable,
-    levels = c("Clinic", "Waiting room", "TB room", "Corridor")
+    levels = c("Clinic", "Waiting room", "Corridor", "TB room")
   )) %>%
   ggplot(aes(x = variable, fill = variable, y = value)) +
   geom_boxplot() +
@@ -127,7 +132,7 @@ time_in_clin_pl <- time_in_clin %>%
   scale_fill_manual(values = wes_palette("Royal2")) +
   labs(
     y = "Time in clinic (min)",
-    title = "e"
+    title = "c"
   ) +
   theme_custom(8) +
   theme(
@@ -164,6 +169,11 @@ no_close_contacts <- df_filt %>%
   ) %>%
   ungroup()
 
+no_close_contacts %>%
+  filter(tracking_end != "Possible HCW") %>%
+  tidybayes::median_qi(n_cc, .width = .5) %>%
+  mutate_if(is.numeric, round)
+
 time_close_contacts <- df_filt %>%
   mutate(has_closeContact = ifelse(
     sapply(closeContacts, length) >= 1, T, F
@@ -186,7 +196,7 @@ cc_n_pl <- close_contact %>%
   scale_y_continuous(expand = c(0, 0)) +
   labs(
     y = "Density", x = "Number of close contacts",
-    title = "f"
+    title = "d"
     # subtitle = "Defined as <1m for >1min"
   ) +
   geom_density(fill = "grey70", color = "grey0", alpha = 0.8) +
@@ -202,6 +212,11 @@ save_plot(
   pdf_file = "results/data/number-close-contacts.png", w = 5.3, h = 6
 )
 
+close_contact %>%
+  filter(tracking_end != "Possible HCW") %>%
+  tidybayes::median_qi(cc_time / Clinic * 100, .width = .5) %>%
+  mutate_if(is.numeric, round)
+
 cc_t_pl <- close_contact %>%
   filter(tracking_end != "Possible HCW") %>%
   ggplot(aes(x = cc_time / Clinic * 100)) +
@@ -210,7 +225,7 @@ cc_t_pl <- close_contact %>%
   labs(
     y = "Density",
     x = "Time in close contact (%)",
-    title = "g"
+    title = "e"
   ) +
   geom_density(
     fill = "grey70", color = "grey0", alpha = 0.8
@@ -265,8 +280,8 @@ time_pl <- clinic_occupancy %>%
   scale_x_datetime(date_breaks = "3 hours", date_labels = "%H:%M") +
   scale_color_manual(values = wes_palette("Moonrise3")) +
   labs(
-    y = "Number of people in clinic",
-    title = "d"
+    y = "Number of tracks",
+    title = "b"
   ) +
   theme_custom(8) +
   theme(
@@ -295,7 +310,7 @@ spatial_pl <- plot_spatial(
 ) +
   labs(
     fill = "Number of tracks",
-    title = "c"
+    title = "a"
   ) +
   scale_fill_gradientn(
     colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"),

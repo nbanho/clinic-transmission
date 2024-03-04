@@ -60,6 +60,11 @@ diag_tb <- df %>%
     variable = factor(variable, levels = c("Suspected", "Diagnosed"))
   )
 
+diag_tb %>%
+  filter(date_in_model != "Not modeled") %>%
+  group_by(variable) %>%
+  summarise(sum(value))
+
 diag_tb_pl <- diag_tb %>%
   ggplot(aes(x = date, y = value, fill = date_in_model, alpha = variable)) +
   geom_bar(position = position_stack(), stat = "identity") +

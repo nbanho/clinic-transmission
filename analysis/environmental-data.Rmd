@@ -89,7 +89,7 @@ co2_pl <- cont_df %>%
   scale_color_manual(values = wes_palette("Moonrise3")) +
   labs(
     y = expression("CO"[2] * " (parts per million, ppm)"),
-    title = "a"
+    title = "f"
   ) +
   theme_custom(8) +
   theme(
@@ -112,6 +112,11 @@ save_plot(
 ### Air change rate
 
 ```{r}
+aer %>%
+  group_by(room) %>%
+  tidybayes::median_qi(aer, .width = .5) %>%
+  mutate_if(is.numeric, round)
+
 aer_pl <- aer %>%
   mutate(room = factor(
     room,
@@ -129,7 +134,7 @@ aer_pl <- aer %>%
   scale_y_continuous(expand = expansion(mult = c(0, .05)), limits = c(0, NA)) +
   labs(
     y = "Air changes per hour",
-    title = "b"
+    title = "g"
   ) +
   theme_custom(8) +
   theme(
