@@ -124,17 +124,17 @@ time_in_clin_pl <- time_in_clin %>%
   ggplot(aes(x = variable, fill = variable, y = value)) +
   geom_boxplot() +
   scale_y_sqrt(breaks = c(0, 1, 10, 30, 60, 120, 180)) +
-  scale_x_discrete(labels = c("Clinic", "WR", "TB", "CR")) +
   scale_fill_manual(values = wes_palette("Royal2")) +
   labs(
-    y = "Time in clinic (minutes)",
-    title = "c"
+    y = "Time in clinic (min)",
+    title = "e"
   ) +
   theme_custom(8) +
   theme(
     legend.position = "none",
     legend.title = element_blank(),
     axis.title.x = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
     plot.title.position = "plot"
   )
 
@@ -186,10 +186,10 @@ cc_n_pl <- close_contact %>%
   scale_y_continuous(expand = c(0, 0)) +
   labs(
     y = "Density", x = "Number of close contacts",
-    title = "d"
+    title = "f"
     # subtitle = "Defined as <1m for >1min"
   ) +
-  geom_density(fill = wes_palette("FantasticFox1")[2], color = wes_palette("FantasticFox1")[2], alpha = 0.8) +
+  geom_density(fill = "grey70", color = "grey0", alpha = 0.8) +
   theme_custom(8) +
   theme(
     plot.title.position = "plot",
@@ -210,12 +210,10 @@ cc_t_pl <- close_contact %>%
   labs(
     y = "Density",
     x = "Time in close contact (%)",
-    title = "e"
+    title = "g"
   ) +
   geom_density(
-    fill = wes_palette("Moonrise1")[2],
-    color = wes_palette("Moonrise1")[2],
-    alpha = 0.8
+    fill = "grey70", color = "grey0", alpha = 0.8
   ) +
   theme_custom(8) +
   theme(
@@ -268,7 +266,7 @@ time_pl <- clinic_occupancy %>%
   scale_color_manual(values = wes_palette("Moonrise3")) +
   labs(
     y = "Number of people in clinic",
-    title = "f"
+    title = "d"
   ) +
   theme_custom(8) +
   theme(
@@ -297,7 +295,7 @@ spatial_pl <- plot_spatial(
 ) +
   labs(
     fill = "Number of tracks",
-    title = "g"
+    title = "c"
   ) +
   scale_fill_gradientn(
     colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"),

@@ -329,7 +329,7 @@ mean_quanta_pl <- plot_spatial(
       )
     ) +
     labs(
-      fill = expression("Quanta concentration in quanta/m"^3 * " x 10e"^-3),
+      fill = expression("Mean quanta concentration (quanta/m"^3 * " x 10e"^-3 * " per sec)"),
       title = "a"
     ) +
     scale_fill_gradientn(
@@ -424,7 +424,7 @@ annotate_average_trans_risk <- function(tr) {
     ungroup() %>%
     mutate(across(c(mean_P, lower_P, upper_P), ~ round_k(100 * .x, 1)),
       lab = paste0(
-        "Average ", mean_P, "%",
+        mean_P, "%",
         " (95%-CrI ", lower_P, "% – ", upper_P, "%)"
       )
     )
@@ -718,8 +718,7 @@ mean_roi_comp_pl <- ggplot(
   ) +
   labs(
     x = "Risk of infection (%)",
-    y = "Number of clinical attendees",
-    title = "b"
+    y = "Number of clinical attendees"
   ) +
   theme_custom() +
   theme(
