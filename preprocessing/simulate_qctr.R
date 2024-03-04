@@ -181,10 +181,21 @@ for (sim in cont_n:term_n) {
   )
 
   # no TB patient tracks but including HCW
-  track_susc_all <- rbind(
-    filter(track, tracking_end == "Possible HCW"),
-    filter(track_undiag, !(patient_id %in% sim_param[[paste0("undiagTB", "_", who_is_tb)]][[sim]]))
-  )
+  if (who_is_tb == "ds") {
+    track_susc_all <- rbind(
+      filter(track, tracking_end == "Possible HCW"),
+      filter(
+        track,
+        tracking_end != "Possible HCW",
+        !(patient_id %in% pid_diag)
+      )
+    )
+  } else {
+    track_susc_all <- rbind(
+      filter(track, tracking_end == "Possible HCW"),
+      filter(track_undiag, !(patient_id %in% sim_param[[paste0("undiagTB", "_", who_is_tb)]][[sim]]))
+    )
+  }
 
   # initialize
   susc_quanta_exp <- list()
