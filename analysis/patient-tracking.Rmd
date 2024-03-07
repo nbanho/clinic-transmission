@@ -42,11 +42,21 @@ df_matched <- do.call(
     }
   )
 ) %>%
-  mutate(date = as.Date(time))
+  mutate(
+    date = as.Date(time),
+    hr = lubridate::hour(time)
+  ) %>%
+  filter(between(hr, 8, 15)) %>%
+  filter(!(hr > 11 & date == "2021-10-15")) %>%
+  group_by(date, patient_id) %>%
+  slice(1) %>%
+  ungroup() %>%
+  mutate(patient_id = paste(date, patient_id))
+
+
 df_filt <- filter(
   df,
-  paste(date, patient_id) %in%
-    unique(paste(df_matched$date, df_matched$patient_id))
+  paste(date, patient_id) %in% df_matched$patient_id
 )
 ```
 
@@ -63,6 +73,11 @@ source("preprocessing/prep_building-rasterize.R")
 ```{r}
 n_distinct(paste(df$date, df$patient_id))
 n_distinct(paste(df_filt$date, df_filt$patient_id))
+df_filt %>%
+  filter(tracking_end != "Possible HCW") %>%
+  mutate(patient_id = paste(date, patient_id)) %>%
+  dplyr::select(patient_id) %>%
+  n_distinct()
 ```
 
 ### Tracking quality

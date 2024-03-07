@@ -106,6 +106,10 @@ save_plot(
   pdf_file = "results/data/co2-levels-over-time.png",
   w = 10, h = 6
 )
+
+cont_df %>%
+  median_qi(co2, .width = .5) %>%
+  mutate_if(is.numeric, round)
 ```
 
 

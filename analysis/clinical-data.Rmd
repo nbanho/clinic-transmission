@@ -48,6 +48,9 @@ diag_tb <- df %>%
       levels = c(modeled_days_abbrv, "Not modeled")
     )
   ) %>%
+  group_by(patient_id, date) %>%
+  slice(1) %>%
+  ungroup() %>%
   group_by(date, date_in_model) %>%
   summarize(
     n_infectious = sum(is_infectious),
@@ -97,7 +100,7 @@ diag_tb_pl <- diag_tb %>%
 save_plot(
   diag_tb_pl,
   pdf_file = "results/data/diagnosed-tb-patients.png",
-  w = 16, h = 12
+  w = 16, h = 10
 )
 ```
 
@@ -107,34 +110,31 @@ diag_tb %>%
   ggplot(aes(x = value)) +
   geom_histogram()
 
-table(diag_tb$value[diag_tb$variable == "Diagnosed"])
+counts <- table(diag_tb$value[diag_tb$variable == "Diagnosed"])
+counts
+df_counts <- data.frame(
+  x = names(counts),
+  n = as.numeric(counts),
+  p = round(100 * as.numeric(counts) / sum(counts))
+)
 
-#' Assumption:
-#' Number of diagnosed ~ number of diagnosed TB
-#' --> Assume a Dirichlet prior with support according to the counts in the range (1,5).
-
-source("utils/trans_risk.r")
-
-undiag_tb_pl <- data.frame(x = rundiag(1e5)) %>%
-  group_by(x) %>%
-  summarize(n = n()) %>%
-  ungroup() %>%
-  mutate(
-    p = 100 * n / sum(n),
-    p = round(p)
-  ) %>%
+undiag_tb_pl <- df_counts %>%
   ggplot(aes(x = factor(x), y = p)) +
   geom_bar(
     stat = "identity",
-    color = wes_palette("GrandBudapest1")[3],
-    fill = wes_palette("GrandBudapest1")[4],
-    alpha = .5
+    color = "grey0",
+    fill = "grey70",
+    alpha = .8
+  ) +
+  geom_text(
+    aes(label = paste0("n" = n, " (", p, "%)")),
+    vjust = -1,
+    size = 8 / cm(1)
   ) +
   labs(
     x = "Number of undiagnosed TB patients", y = "Probability (%)"
   ) +
-  coord_cartesian(expand = F) +
-  scale_y_continuous(limits = c(0, NA)) +
+  scale_y_continuous(expand = expansion(mult = c(0, .12))) +
   theme_custom(8) +
   theme(plot.caption = element_text(size = 10))
 

@@ -286,6 +286,13 @@ main_qc_cr_af <- mean_qc(main_qc_files, "Corridor", "afternoon")
 main_qc_tb_mo <- mean_qc(main_qc_files, "TB room", "morning")
 main_qc_tb_af <- mean_qc(main_qc_files, "TB room", "afternoon")
 
+# example translation
+source("utils/trans_risk.r")
+IR_sit <- .5 * IR("sitting", "male") + .5 * IR("sitting", "female")
+WR_vol <- convert_dist(cellSize)^2 * dimWR[3]
+round((1 - exp(-max(main_qc_wr_mo$value) * 600 * IR_sit / WR_vol)) * 100, 0)
+round((1 - exp(-max(main_qc_wr_af$value) * 600 * IR_sit / WR_vol)) * 100, 0)
+
 # link to building
 main_qc <- rbind(
   main_qc_wr_mo, main_qc_wr_af,
@@ -392,17 +399,17 @@ average_trans_risk <- function(files) {
     reshape2::melt("patient_id") %>%
     mutate(
       val_col = ifelse(value < .05, "Low",
-        ifelse(value < .1, "Median", "High")
+        ifelse(value < .1, "Medium", "High")
       ),
-      val_col = factor(val_col, levels = c("Low", "Median", "High")),
+      val_col = factor(val_col, levels = c("Low", "Medium", "High")),
       variable = ifelse(
         grepl("mean", variable),
         "Mean risk of infection",
-        "Median risk of infection"
+        "Medium risk of infection"
       ),
       variable = factor(
         variable,
-        levels = paste(c("Mean", "Median"), "risk of infection")
+        levels = paste(c("Mean", "Medium"), "risk of infection")
       )
     )
 
@@ -411,6 +418,13 @@ average_trans_risk <- function(files) {
 
 # average risk
 main_tr <- average_trans_risk(main_files)
+
+main_tr %>%
+  filter(variable == "Mean risk of infection") %>%
+  group_by(val_col) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n) * 100, 0))
 
 # annotation
 annotate_average_trans_risk <- function(tr) {
@@ -568,6 +582,15 @@ amod_est <- spread_draws(amod, aer, time_in_clinic, n_cc, cc_time) %>%
   reshape2::melt(c(".chain", ".iteration", ".draw")) %>%
   mutate(value = exp(value))
 
+amod_est %>%
+  group_by(variable) %>%
+  summarize(
+    lower = quantile(value, .025),
+    median = median(value),
+    upper = quantile(value, .975)
+  ) %>%
+  mutate(across(c(lower, median, upper), ~ round_k(.x, 2)))
+
 amod_est_pl <- ggplot(amod_est, aes(y = variable, x = value)) +
   geom_vline(aes(xintercept = 1), linetype = "dotted", color = "red") +
   stat_interval() +
@@ -684,8 +707,8 @@ annon_comp <- rbind(
     scenario = factor(scenario, levels = c(
       "No mask wearing",
       "Lower ventilation",
-      "Prevalence-based model",
-      "Suspected-based model"
+      "Suspected-based model",
+      "Prevalence-based model"
     ))
   )
 
@@ -751,6 +774,12 @@ mod_comp <- left_join(
     val_col = factor(val_col, levels = c("Lower", "Similar", "Higher"))
   )
 
+mod_comp %>%
+  filter(variable == "Mean risk of infection") %>%
+  group_by(val_col) %>%
+  summarize(n = n()) %>%
+  mutate(prop = round(n / sum(n) * 100, 0))
+
 mod_comp_annon <- mod_comp %>%
   summarise(
     mean_diff = mean(diff),
@@ -778,7 +807,7 @@ mod_comp_pl <- mod_comp %>%
     hjust = 1, vjust = 2
   ) +
   labs(
-    y = "Number of clinical attendees (log-scale)",
+    y = "Number of clinical attendees",
     x = "Difference between spatiotemporal and temporal model (perc. points)"
   ) +
   scale_y_log10(labels = scales::comma) +

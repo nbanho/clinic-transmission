@@ -37,7 +37,8 @@ q_dat <- rbind(
 
 q_dat %>%
   group_by(activity) %>%
-  tidybayes::median_qi(x, .width = .5)
+  tidybayes::median_qi(x, .width = .95) %>%
+  mutate_if(is.numeric, round, 3)
 
 q_dat_dens <- q_dat %>%
   group_by(activity) %>%
@@ -108,7 +109,8 @@ set.seed(12345)
 lambda_dat <- data.frame(x = rlambda(1e6))
 
 lambda_dat %>%
-  tidybayes::median_qi(x, .width = .5)
+  tidybayes::median_qi(x) %>%
+  mutate_if(is.numeric, round, 1)
 
 prev_est_vir <- data.frame(
   study = c(
