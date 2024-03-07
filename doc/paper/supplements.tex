@@ -407,7 +407,7 @@ Absent further knowledge on airflow, we assume that aerosols diffuse uniformly i
 \end{align}
 where $\Delta$ is the Laplace operator and $D$ is the diffusion constant (in m$^2$/s). We solve this equation with a standard second-order finite difference model using the Euler method with a 5-point stencil. 
 
-The diffusion constant $D$ is unknown but can be approximated using an empirical relationship between the eddy diffusion coefficient $K$ and the outdoor air exchange rate $AER$ (in air changes/h)\cite{Cheng2011EnvSciTech}
+The diffusion constant $D$ is unknown but can be approximated using an empirical relationship between the eddy diffusion coefficient $K$ and the outdoor air exchange rate $AER$ (in air changes/h)\cite{Cheng2011EnvSciTech,Foat2020BE}
 \begin{align}
     K = (0.52 \cdot AER + 8.61\cdot10^{-5}) \cdot V^{\frac{2}{3}},
 \end{align}
@@ -533,6 +533,23 @@ In addition to the diagnosed, known TB patients, there may also be some undiagno
 
 % based on incidence
 
+\clearpage
+
+\section{Additional results}\label{sec:additional-results}
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{results/data/diagnosed-tb-patients.png}
+    \caption{Number of diagnosed TB patients (dark bars) and those suspected of TB (light bars) following symptom screening. Modeled study days in color, other clinic days in October and November in grey.}
+    \label{fig:diagnosed-tb-patients}
+\end{figure}
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{results/modeling/model-comparison.png}
+    \caption{Difference in the mean risk of infection per clinical attendee between the spatiotemporal and temporal model. Lower: <$-$0.5, Similar: between $-$0.5 and 0.5, Higher: >0.5 percentage points.}
+    \label{fig:model-comparison}
+\end{figure}
 
 \clearpage
 
