@@ -70,12 +70,23 @@ if (sel_rooms == "clinic") {
   stop("Invalid rooms argument.")
 }
 
+# save quanta concentration
+save_quanta <- ifelse(args[12] == "T", TRUE, FALSE)
 
 # file containing simulation parameters
-param_file <- paste0("simulations/", "/", "sim-param-", 2021, "-", mth, "-", dy, ".rds")
+param_file <- paste0(
+  "simulations/", "sim-param-",
+  2021, "-", mth, "-", dy,
+  ".rds"
+)
 
 # path to store cellSize dependend tracking data
-track_file <- paste0("simulations/", "/", "tracking-df-", cellSize, "px-", 2021, "-", mth, "-", dy, ".rds")
+track_file <- paste0(
+  "simulations/", "tracking-df-",
+  cellSize, "px-",
+  2021, "-", mth, "-", dy,
+  ".rds"
+)
 
 # path to file to save simulation results
 sim_path_to_file <- paste0(adir, mth, "-", dy, "/")
@@ -99,9 +110,9 @@ source("models/tm-v1.R")
 #### Time ####
 
 date <- paste0("2021-", mth, "-", dy)
-t_start <- as.POSIXct(paste(date, "08:00:00"))
-midday <- as.POSIXct(paste(date, "12:00:00"))
-t_end <- as.POSIXct(paste(date, "16:00:00"))
+t_start <- as.POSIXct(paste(date, "08:00:00"), tz = "CET")
+midday <- as.POSIXct(paste(date, "12:00:00"), tz = "CET")
+t_end <- as.POSIXct(paste(date, "16:00:00"), tz = "CET")
 tt <- seq.POSIXt(t_start, t_end, by = "1 sec")
 tt_morn <- seq.POSIXt(t_start, midday, by = "1 sec")
 tt_noon <- seq.POSIXt(midday + 1, t_end, by = "1 sec")
@@ -243,15 +254,26 @@ for (sim in cont_n:term_n) {
       dplyr::select(time, cell_x, cell_y, activity) %>%
       rename(x = cell_x, y = cell_y) %>%
       mutate(
-        q = ifelse(activity == 1, sim_param$q_wait[sim_param$sim == sim], sim_param$q_walk[sim_param$sim == sim]),
-        q = ifelse(is_masking == 1, q * sim_param$mask_red[sim_param$sim == sim], q),
+        q = ifelse(
+          activity == 1,
+          sim_param$q_wait[sim_param$sim == sim],
+          sim_param$q_walk[sim_param$sim == sim]
+        ),
+        q = ifelse(
+          is_masking == 1,
+          q * sim_param$mask_red[sim_param$sim == sim],
+          q
+        ),
         q = q / 3600
       )
 
     # quanta conc in the morning
     print("-- morning")
     track_tb_morn <- filter(track_tb, time <= midday)
-    track_tb_morn$t <- as.numeric(difftime(track_tb_morn$time, t_start, units = "sec"))
+    track_tb_morn$t <- as.numeric(difftime(
+      track_tb_morn$time, t_start,
+      units = "sec"
+    ))
 
     if (mod == "spattemp") {
       ct_morn <- stm(
@@ -278,8 +300,27 @@ for (sim in cont_n:term_n) {
       stop("Model does not exist")
     }
 
-    ct_morn_mean <- apply(ct_morn, c(1, 2), mean)
-    saveRDS(ct_morn_mean, paste0(sim_path_to_file, "mean_quanta_conc-morning-", room, "-sim-", sim, ".rds"))
+    if (save_quanta) {
+      ct_morn_mean <- apply(ct_morn, c(1, 2), mean) %>%
+        reshape2::melt() %>%
+        rename(
+          y = Var1,
+          x = Var2
+        ) %>%
+        mutate(
+          across(c(x, y), as.numeric),
+          sim = sim
+        ) %>%
+        dplyr::select(sim, x, y, value)
+      write.table(
+        x = ct_morn_mean,
+        file = paste0(sim_path_to_file, "quanta_conc-morning-", room, ".txt"),
+        append = TRUE,
+        row.names = FALSE,
+        col.names = FALSE
+      )
+    }
+
 
 
     # quanta conc in the afternoon
@@ -290,7 +331,11 @@ for (sim in cont_n:term_n) {
       c0_noon <- c0
     }
     track_tb_noon <- filter(track_tb, time > midday)
-    track_tb_noon$t <- as.numeric(difftime(track_tb_noon$time, midday + lubridate::seconds(1), units = "sec"))
+    track_tb_noon$t <- as.numeric(difftime(
+      track_tb_noon$time,
+      midday + lubridate::seconds(1),
+      units = "sec"
+    ))
 
 
     if (mod == "spattemp") {
@@ -318,9 +363,26 @@ for (sim in cont_n:term_n) {
       stop("Model does not exist")
     }
 
-    ct_noon_mean <- apply(ct_noon, c(1, 2), mean)
-    saveRDS(ct_noon_mean, paste0(sim_path_to_file, "mean_quanta_conc-afternoon-", room, "-sim-", sim, ".rds"))
-
+    if (save_quanta) {
+      ct_noon_mean <- apply(ct_noon, c(1, 2), mean) %>%
+        reshape2::melt() %>%
+        rename(
+          y = Var1,
+          x = Var2
+        ) %>%
+        mutate(
+          across(c(x, y), as.numeric),
+          sim = sim
+        ) %>%
+        dplyr::select(sim, x, y, value)
+      write.table(
+        x = ct_noon_mean,
+        file = paste0(sim_path_to_file, "quanta_conc-afternoon-", room, ".txt"),
+        append = TRUE,
+        row.names = FALSE,
+        col.names = FALSE
+      )
+    }
 
     # compute quanta conc exposure by susc
     ct <- abind::abind(ct_morn, ct_noon, along = 3)
@@ -333,10 +395,16 @@ for (sim in cont_n:term_n) {
             ct[y, x, t]
           }
         },
-        t = track_susc$t, x = as.character(track_susc$cell_x), y = as.character(track_susc$cell_y)
+        t = track_susc$t,
+        x = as.character(track_susc$cell_x),
+        y = as.character(track_susc$cell_y)
       )
       track_susc <- track_susc %>%
-        mutate(quanta_conc = inhal_rate * quanta / (convert_dist(cellSize)^2 * convert_dist(cell_height))) %>%
+        mutate(
+          quanta_conc =
+            inhal_rate * quanta /
+              (convert_dist(cellSize)^2 * convert_dist(cell_height))
+        ) %>%
         dplyr::select(patient_id, quanta_conc)
     } else {
       track_susc <- track_susc %>%
@@ -352,7 +420,17 @@ for (sim in cont_n:term_n) {
     group_by(patient_id) %>%
     summarize(quanta_conc = sum(quanta_conc)) %>%
     ungroup() %>%
-    mutate(P = 1 - exp(-quanta_conc))
+    mutate(
+      P = 1 - exp(-quanta_conc),
+      sim = sim
+    ) %>%
+    dplyr::select(sim, patient_id, P)
 
-  saveRDS(trans_risk, paste0(sim_path_to_file, "trans-risk-", sim, ".rds"))
+  write.table(
+    x = trans_risk,
+    file = paste0(sim_path_to_file, "trans-risk", ".txt"),
+    append = TRUE,
+    row.names = FALSE,
+    col.names = FALSE
+  )
 }

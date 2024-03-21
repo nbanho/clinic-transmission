@@ -101,7 +101,7 @@ for (i in 1:length(dates)) {
     )
     track$cell_height <- 1 / convert_dist(1) * track$cell_height
 
-    # inhalation rate depending on activity
+    # inhalation rate depending on activity in m3/s
     track$inhal_rate <- ifelse(track$activity == 1,
       .5 * IR("sitting", "male") + .5 * IR("sitting", "female"),
       .5 * IR("walking", "male") + .5 * IR("walking", "female")
