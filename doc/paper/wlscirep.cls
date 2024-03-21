@@ -48,7 +48,7 @@
 % Set up of the bibliography style
 
 % \RequirePackage[numbers]{natbib}
-\RequirePackage[biblabel,nomove]{cite}
+\RequirePackage[biblabel,nomove,superscript]{cite}
 %% Nov 3, 2016: Support DOI
 \bibliographystyle{vancouver}
               
