@@ -83,7 +83,7 @@ df_filt %>%
 ### Tracking quality
 
 ```{r}
-track_qual <- df %>%
+track_qual <- df_filt %>%
   group_by(date, patient_id) %>%
   slice(1) %>%
   ungroup() %>%
@@ -91,7 +91,6 @@ track_qual <- df %>%
   unlist() %>%
   table()
 
-sum(track_qual[names(track_qual) != "Possible HCW"])
 track_qual_str <- paste0(
   names(track_qual),
   ": ",
@@ -102,15 +101,13 @@ track_qual_str <- paste0(
 )
 track_qual_str
 
-df %>%
-  filter(tracking_end != "Possible HCW") %>%
-  group_by(date, patient_id) %>%
-  slice(1) %>%
+df_filt %>%
+  group_by(date, patient_id, tracking_end) %>%
+  summarise(time_in_clinic = n() / 60) %>%
   ungroup() %>%
   group_by(tracking_end) %>%
-  summarize(n = n()) %>%
-  ungroup() %>%
-  mutate(prop = round(n / sum(n) * 100))
+  tidybayes::mean_qi(time_in_clinic, .width = .95) %>%
+  ungroup()
 ```
 
 ### Time in clinic
