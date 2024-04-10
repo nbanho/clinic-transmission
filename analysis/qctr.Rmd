@@ -246,16 +246,6 @@ gganimate::anim_save("results/modeling/illustrated-quanta-conc-over-time.gif")
 
 ## Main
 
-<<<<<<< HEAD
-=======
-```{r main-files}
-main_files <- list.files("simulations/main/",
-  full.names = TRUE, pattern = "*.rds$",
-  recursive = TRUE
-)
-```
-
->>>>>>> 6093ab5330ee278b607fd82b06ebe75725c08ffd
 ### Quanta conc
 
 ```{r}
@@ -296,7 +286,6 @@ main_mean_qc <- main_qc %>%
 source("utils/trans_risk.r")
 IR_sit <- (.5 * IR("sitting", "male") + .5 * IR("sitting", "female")) / 3600
 WR_vol <- convert_dist(cellSize)^2 * dimWR[3]
-<<<<<<< HEAD
 wr_morn <- main_mean_qc %>%
   filter(room == "Waiting room", daytime == "morning") %>%
   pull(value) %>%
@@ -307,10 +296,6 @@ wr_noon <- main_mean_qc %>%
   max()
 round((1 - exp(-wr_morn * 3600 * IR_sit / WR_vol)) * 100, 3)
 round((1 - exp(-wr_noon * 3600 * IR_sit / WR_vol)) * 100, 3)
-=======
-round((1 - exp(-max(main_qc_wr_mo$value) * 600 * IR_sit / WR_vol)) * 100, 3)
-round((1 - exp(-max(main_qc_wr_af$value) * 600 * IR_sit / WR_vol)) * 100, 3)
->>>>>>> 6093ab5330ee278b607fd82b06ebe75725c08ffd
 
 # link to building
 main_mean_qc <- left_join(roomCoord,
@@ -409,28 +394,11 @@ average_trans_risk <- function(file) {
     filter(tracking_end != "Possible HCW") %>%
     dplyr::select(-tracking_end) %>%
     mutate(
-<<<<<<< HEAD
       P_col = ifelse(P_mean < .001, "Low",
         ifelse(P_mean < .01, "Medium", "High")
       ),
       P_col = factor(P_col, levels = c("Low", "Medium", "High")),
       P_ann = 1 - (1 - P_mean)^12
-=======
-      val_col = ifelse(value < .001, "Low",
-        ifelse(value < .01, "Medium", "High")
-      ),
-      val_col = factor(val_col, levels = c("Low", "Medium", "High")),
-      val_ann = 1 - (1 - value)^12,
-      variable = ifelse(
-        grepl("mean", variable),
-        "Mean risk of infection",
-        "Medium risk of infection"
-      ),
-      variable = factor(
-        variable,
-        levels = paste(c("Mean", "Medium"), "risk of infection")
-      )
->>>>>>> 6093ab5330ee278b607fd82b06ebe75725c08ffd
     )
   return(average_tr)
 }
@@ -456,7 +424,6 @@ main_tr %>%
 annotate_average_trans_risk <- function(tr) {
   roi_annon <- tr %>%
     summarize(
-<<<<<<< HEAD
       mean_P = mean(P_mean),
       lower_P = quantile(P_mean, .025),
       upper_P = quantile(P_mean, .975),
@@ -464,16 +431,6 @@ annotate_average_trans_risk <- function(tr) {
       lower_P_ann = quantile(P_ann, .025),
       upper_P_ann = quantile(P_ann, .975)
     ) %>%
-=======
-      mean_P = mean(value),
-      lower_P = quantile(value, .025),
-      upper_P = quantile(value, .975),
-      mean_P_ann = mean(val_ann),
-      lower_P_ann = quantile(val_ann, .025),
-      upper_P_ann = quantile(val_ann, .975)
-    ) %>%
-    ungroup() %>%
->>>>>>> 6093ab5330ee278b607fd82b06ebe75725c08ffd
     mutate(
       across(c(mean_P, lower_P, upper_P), ~ round_k(100 * .x, 3)),
       lab = paste0(
@@ -491,7 +448,6 @@ annotate_average_trans_risk <- function(tr) {
 
 main_annon <- annotate_average_trans_risk(main_tr)
 
-<<<<<<< HEAD
 main_annon$lab
 main_annon$lab_ann
 
@@ -502,22 +458,11 @@ roi_pl <- ggplot(
 ) +
   geom_histogram(
     mapping = aes(fill = P_col),
-=======
-main_annon
-
-# plot
-roi_pl <- ggplot(
-  data = main_tr %>% filter(variable == "Mean risk of infection"),
-  mapping = aes(x = value)
-) +
-  geom_histogram(
-    mapping = aes(fill = val_col),
->>>>>>> 6093ab5330ee278b607fd82b06ebe75725c08ffd
     binwidth = .0005,
     boundary = 1
   ) +
   geom_text(
-    data = main_annon %>% filter(variable == "Mean risk of infection"),
+    data = main_annon,
     mapping = aes(x = Inf, y = Inf, label = lab),
     size = 8 / cm(1),
     hjust = 1, vjust = 2
@@ -525,13 +470,9 @@ roi_pl <- ggplot(
   scale_fill_manual(values = wes_palette("Darjeeling1")[c(2, 3, 1)]) +
   coord_cartesian(expand = FALSE) +
   scale_x_continuous(
-<<<<<<< HEAD
     labels = function(x) x * 100,
     breaks = c(0, 0.001, 0.005, 0.01, 0.015, 0.02),
     limits = c(0, 0.02)
-=======
-    labels = function(x) x * 100
->>>>>>> 6093ab5330ee278b607fd82b06ebe75725c08ffd
   ) +
   scale_y_sqrt(
     labels = scales::comma,
@@ -699,11 +640,7 @@ assoc_df <- track_ft %>%
   )
 
 # model
-<<<<<<< HEAD
 amod <- stan_betareg(P_mean ~ time_in_clinic + n_cc + cc_time,
-=======
-amod <- stan_betareg(mean_risk ~ time_in_clinic + n_cc + cc_time,
->>>>>>> 6093ab5330ee278b607fd82b06ebe75725c08ffd
   data = assoc_df %>% mutate(
     n_cc = n_cc + 1, cc_time = cc_time + 1 / 60,
     across(c(time_in_clinic, n_cc, cc_time), log2)
@@ -735,13 +672,8 @@ amod_est_pl <- ggplot(amod_est, aes(y = variable, x = value)) +
     fill = "white"
   ) +
   labs(
-<<<<<<< HEAD
     x = "Odds ratio of the modeled risk of infection for a doubling in the predictor",
     title = "d",
-=======
-    x = "OR of modeled risk if 2 x predictor",
-    title = "c",
->>>>>>> 6093ab5330ee278b607fd82b06ebe75725c08ffd
     color = "CrI"
   ) +
   scale_y_discrete(
@@ -758,12 +690,8 @@ amod_est_pl <- ggplot(amod_est, aes(y = variable, x = value)) +
   theme_custom() +
   theme(
     axis.title.y = element_blank(),
-<<<<<<< HEAD
     legend.position = "right",
     legend.key.size = unit(.3, "cm")
-=======
-    legend.position = "bottom"
->>>>>>> 6093ab5330ee278b607fd82b06ebe75725c08ffd
   )
 
 amod_est_pl
@@ -772,16 +700,10 @@ amod_est_pl
 ```{r main-figure}
 main_fig <- grid.arrange(
   mean_quanta_pl,
-<<<<<<< HEAD
   grid.arrange(roi_pl, main_focus_pl, ncol = 2),
   amod_est_pl,
   ncol = 1,
   heights = c(10, 6, 4)
-=======
-  grid.arrange(roi_pl, amod_est_pl, ncol = 2),
-  ncol = 1,
-  heights = c(8, 8)
->>>>>>> 6093ab5330ee278b607fd82b06ebe75725c08ffd
 )
 
 ggsave(
