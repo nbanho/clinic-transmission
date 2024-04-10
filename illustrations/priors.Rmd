@@ -49,10 +49,11 @@ prev_est <- data.frame(
     "Andrews (2014)",
     "Escombe (2008)",
     "Nardell (1991)",
-    "Riley (1962)"
+    "Riley (1962)",
+    "Dharmadhikari (2012)"
   ),
-  x = c(0.89, 8.2, 12.5, 1.25),
-  y = c(1, 7, 9, 3) / 1e2
+  x = c(0.89, 8.2, 12.5, 1.25, 138),
+  y = c(1, 7, 9, 3, 12) / 1e2
 ) %>%
   mutate(lab = paste0(study, ": ", round(x, 2)))
 

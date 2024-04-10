@@ -34,20 +34,20 @@ aer <- readRDS("data-clean/environmental/air-change-rate.rds") %>%
 
 ## Illustration
 
-```{r}
+```{r illustration}
 # data
 mth <- 10
 dy <- 25
 sim <- 1
 param_1025 <- readRDS(
   paste0(
-    "../simulations/", "/", "sim-param-",
+    "simulations/", "/", "sim-param-",
     2021, "-", mth, "-", dy, ".rds"
   )
 )
 track_1025 <- readRDS(
   paste0(
-    "../simulations/", "/", "tracking-df-",
+    "simulations/", "/", "tracking-df-",
     250, "px-", 2021, "-", mth, "-", dy, ".rds"
   )
 )
@@ -64,7 +64,7 @@ track_tb_all <- rbind(
     patient_id %in% param_1025[[paste0("undiagTB", "_", "du")]][[sim]]
   )
 )
-aer_df <- readRDS("../data-clean/environmental/air-change-rate.rds") %>%
+aer_df <- readRDS("data-clean/environmental/air-change-rate.rds") %>%
   filter(
     month(date) == as.numeric(mth),
     day(date) == as.numeric(dy)
@@ -232,7 +232,7 @@ qc_anim_pl <- ggplot(
     fill = expression("Quanta/m"^3 * " x 10e"^-3)
   )
 
-animate(
+gganimate::animate(
   qc_anim_pl,
   duration = 30,
   width = 1.850877 * 600,
@@ -241,66 +241,65 @@ animate(
   nframes = length(tt_selected_idx)
 )
 
-anim_save("results/modeling/illustrated-quanta-conc-over-time.gif")
+gganimate::anim_save("results/modeling/illustrated-quanta-conc-over-time.gif")
 ```
 
 ## Main
 
-```{r}
-main_files <- c(
-  list.files("simulations/main/10-13/", full.names = T),
-  list.files("simulations/main/10-15/", full.names = T),
-  list.files("simulations/main/10-25/", full.names = T),
-  list.files("simulations/main/11-04/", full.names = T),
-  list.files("simulations/main/11-05/", full.names = T)
-)
-```
-
 ### Quanta conc
 
 ```{r}
-main_qc_files <- main_files[grepl("quanta", main_files)]
+main_qc <- data.frame(
+  files = list.files("simulations/main/",
+    full.names = TRUE, pattern = "quanta_conc-.*.txt$",
+    recursive = TRUE
+  )
+) %>%
+  mutate(
+    room = ifelse(grepl("Waiting", files), "Waiting room",
+      ifelse(grepl("Corridor", files), "Corridor", "TB room")
+    ),
+    daytime = ifelse(grepl("morning", files), "morning", "afternoon")
+  )
 
-mean_qc <- function(files, room, daytime) {
-  room_files <- files[grepl(room, files)]
-  room_dt_files <- room_files[grepl(daytime, room_files)]
-  qc <- simplify2array(lapply(room_dt_files, readRDS))
-  mqc <- apply(qc, c(1, 2), mean)
-  mqc_df <- melt(mqc) %>%
-    rename(
-      y = Var1,
-      x = Var2
-    ) %>%
-    mutate(
-      room = room,
-      daytime = daytime,
-      across(c(x, y), as.numeric)
-    )
+mean_qc <- function(file) {
+  df <- read.table(file)
+  colnames(df) <- c("sim", "x", "y", "value")
+  df <- df %>%
+    group_by(x, y) %>%
+    summarize(value = mean(value)) %>%
+    ungroup()
+  return(df)
 }
 
-# total quanta concentration by daytime averaged across simulations
-main_qc_wr_mo <- mean_qc(main_qc_files, "Waiting room", "morning")
-main_qc_wr_af <- mean_qc(main_qc_files, "Waiting room", "afternoon")
-main_qc_cr_mo <- mean_qc(main_qc_files, "Corridor", "morning")
-main_qc_cr_af <- mean_qc(main_qc_files, "Corridor", "afternoon")
-main_qc_tb_mo <- mean_qc(main_qc_files, "TB room", "morning")
-main_qc_tb_af <- mean_qc(main_qc_files, "TB room", "afternoon")
+main_qc$value <- lapply(main_qc$files, mean_qc)
+
+main_mean_qc <- main_qc %>%
+  unnest(value) %>%
+  group_by(room, daytime, x, y) %>%
+  summarize(
+    value = mean(value)
+  ) %>%
+  ungroup()
 
 # example translation
 source("utils/trans_risk.r")
-IR_sit <- .5 * IR("sitting", "male") + .5 * IR("sitting", "female")
+IR_sit <- (.5 * IR("sitting", "male") + .5 * IR("sitting", "female")) / 3600
 WR_vol <- convert_dist(cellSize)^2 * dimWR[3]
-round((1 - exp(-max(main_qc_wr_mo$value) * 600 * IR_sit / WR_vol)) * 100, 0)
-round((1 - exp(-max(main_qc_wr_af$value) * 600 * IR_sit / WR_vol)) * 100, 0)
+wr_morn <- main_mean_qc %>%
+  filter(room == "Waiting room", daytime == "morning") %>%
+  pull(value) %>%
+  max()
+wr_noon <- main_mean_qc %>%
+  filter(room == "Waiting room", daytime == "afternoon") %>%
+  pull(value) %>%
+  max()
+round((1 - exp(-wr_morn * 3600 * IR_sit / WR_vol)) * 100, 3)
+round((1 - exp(-wr_noon * 3600 * IR_sit / WR_vol)) * 100, 3)
 
 # link to building
-main_qc <- rbind(
-  main_qc_wr_mo, main_qc_wr_af,
-  main_qc_cr_mo, main_qc_cr_af,
-  main_qc_tb_mo, main_qc_tb_af
-)
-main_qc <- left_join(roomCoord,
-  main_qc,
+main_mean_qc <- left_join(roomCoord,
+  main_mean_qc %>% dplyr::select(room, daytime, x, y, value),
   by = c("x", "y", "room")
 ) %>%
   mutate(
@@ -318,25 +317,25 @@ mean_quanta_pl <- plot_spatial(
     geom_polygon(
       data = left_join(
         fortify(waiting_room),
-        filter(main_qc, room == "Waiting room"),
+        filter(main_mean_qc, room == "Waiting room"),
         by = c("id")
       )
     ) +
     geom_polygon(
       data = left_join(
         fortify(corridor),
-        filter(main_qc, room == "Corridor"),
+        filter(main_mean_qc, room == "Corridor"),
         by = c("id")
       )
     ) +
     geom_polygon(
       data = left_join(fortify(tb_room),
-        filter(main_qc, room == "TB room"),
+        filter(main_mean_qc, room == "TB room"),
         by = c("id")
       )
     ) +
     labs(
-      fill = expression("Mean quanta concentration (quanta/m"^3 * " x 10e"^-3 * " per sec)"),
+      fill = expression("Mean quanta concentration (quanta m"^-3 * " " * "x 10e"^-3 * ")"),
       title = "a"
     ) +
     scale_fill_gradientn(
@@ -349,9 +348,9 @@ mean_quanta_pl <- plot_spatial(
     legend.position = "bottom",
     legend.direction = "horizontal",
     legend.key.height = unit(0.2, "cm"),
-    legend.key.width = unit(2, "cm")
-  ) +
-  guides(fill = guide_colorbar(title.position = "top"))
+    legend.key.width = unit(1.5, "cm"),
+    legend.title = element_text(margin = margin(r = 10))
+  )
 
 mean_quanta_pl
 ```
@@ -359,24 +358,22 @@ mean_quanta_pl
 ### Trans risk
 
 ```{r}
-average_trans_risk <- function(files) {
-  # files
-  tr_files <- files[grepl("risk", files)]
-
-  # data
-  tr <- do.call(rbind, lapply(tr_files, function(f) {
-    readRDS(f) %>% mutate(
-      mthdy = stringi::stri_extract(f, regex = "\\d{2}-\\d{2}"),
-      sim = stringi::stri_extract(f, regex = "\\d{1,6}")
-    )
-  }))
-
-  average_tr <- tr %>%
-    mutate(patient_id = paste(mthdy, patient_id, sep = "-")) %>%
+average_trans_risk <- function(file) {
+  average_tr <- read.table(file) %>%
+    set_names(c("sim", "patient_id", "P")) %>%
+    mutate(
+      mthdy = stringi::stri_extract(file, regex = "\\d{2}-\\d{2}"),
+      patient_id = paste(mthdy, patient_id, sep = "-")
+    ) %>%
     group_by(patient_id) %>%
     summarize(
       P_mean = mean(P),
-      P_med = median(P)
+      P025 = quantile(P, .025),
+      P975 = quantile(P, .975),
+      P25 = quantile(P, .25),
+      P75 = quantile(P, .75),
+      P20 = quantile(P, .2),
+      P80 = quantile(P, .8)
     ) %>%
     ungroup() %>%
     left_join(track %>%
@@ -396,32 +393,29 @@ average_trans_risk <- function(files) {
       dplyr::select(patient_id, tracking_end)) %>%
     filter(tracking_end != "Possible HCW") %>%
     dplyr::select(-tracking_end) %>%
-    reshape2::melt("patient_id") %>%
     mutate(
-      val_col = ifelse(value < .05, "Low",
-        ifelse(value < .1, "Medium", "High")
+      P_col = ifelse(P_mean < .001, "Low",
+        ifelse(P_mean < .01, "Medium", "High")
       ),
-      val_col = factor(val_col, levels = c("Low", "Medium", "High")),
-      variable = ifelse(
-        grepl("mean", variable),
-        "Mean risk of infection",
-        "Medium risk of infection"
-      ),
-      variable = factor(
-        variable,
-        levels = paste(c("Mean", "Medium"), "risk of infection")
-      )
+      P_col = factor(P_col, levels = c("Low", "Medium", "High")),
+      P_ann = 1 - (1 - P_mean)^12
     )
-
   return(average_tr)
 }
 
 # average risk
-main_tr <- average_trans_risk(main_files)
+main_tr <- data.frame(
+  files = list.files("simulations/main/",
+    full.names = TRUE, pattern = "trans-risk.txt$",
+    recursive = TRUE
+  )
+)
+main_tr$value <- lapply(main_tr$files, average_trans_risk)
+
+main_tr <- main_tr %>% unnest(value)
 
 main_tr %>%
-  filter(variable == "Mean risk of infection") %>%
-  group_by(val_col) %>%
+  group_by(P_col) %>%
   summarise(n = n()) %>%
   ungroup() %>%
   mutate(prop = round(n / sum(n) * 100, 0))
@@ -429,30 +423,42 @@ main_tr %>%
 # annotation
 annotate_average_trans_risk <- function(tr) {
   roi_annon <- tr %>%
-    group_by(variable) %>%
     summarize(
-      mean_P = mean(value),
-      lower_P = quantile(value, .025),
-      upper_P = quantile(value, .975)
+      mean_P = mean(P_mean),
+      lower_P = quantile(P_mean, .025),
+      upper_P = quantile(P_mean, .975),
+      mean_P_ann = mean(P_ann),
+      lower_P_ann = quantile(P_ann, .025),
+      upper_P_ann = quantile(P_ann, .975)
     ) %>%
-    ungroup() %>%
-    mutate(across(c(mean_P, lower_P, upper_P), ~ round_k(100 * .x, 1)),
+    mutate(
+      across(c(mean_P, lower_P, upper_P), ~ round_k(100 * .x, 3)),
       lab = paste0(
         mean_P, "%",
         " (95%-CrI ", lower_P, "% – ", upper_P, "%)"
+      ),
+      across(c(mean_P_ann, lower_P_ann, upper_P_ann), ~ round_k(100 * .x, 2)),
+      lab_ann = paste0(
+        mean_P_ann, "%",
+        " (95%-CrI ", lower_P_ann, "% – ", upper_P_ann, "%)"
       )
     )
-
   return(roi_annon)
 }
 
 main_annon <- annotate_average_trans_risk(main_tr)
 
+main_annon$lab
+main_annon$lab_ann
+
 # plot
-roi_pl <- ggplot(main_tr, aes(x = value)) +
+roi_pl <- ggplot(
+  data = main_tr,
+  mapping = aes(x = P_mean)
+) +
   geom_histogram(
-    mapping = aes(fill = val_col),
-    binwidth = .05,
+    mapping = aes(fill = P_col),
+    binwidth = .0005,
     boundary = 1
   ) +
   geom_text(
@@ -461,31 +467,96 @@ roi_pl <- ggplot(main_tr, aes(x = value)) +
     size = 8 / cm(1),
     hjust = 1, vjust = 2
   ) +
-  facet_wrap(~variable) +
   scale_fill_manual(values = wes_palette("Darjeeling1")[c(2, 3, 1)]) +
   coord_cartesian(expand = FALSE) +
   scale_x_continuous(
-    breaks = c(0, .05, 0.1, seq(0.2, .5, .1)),
-    labels = function(x) x * 100
+    labels = function(x) x * 100,
+    breaks = c(0, 0.001, 0.005, 0.01, 0.015, 0.02),
+    limits = c(0, 0.02)
   ) +
-  scale_y_continuous(
-    labels = scales::comma
+  scale_y_sqrt(
+    labels = scales::comma,
+    breaks = c(0, 25, 100, 250, 500, 1000)
   ) +
   labs(
     x = "Risk of infection (%)",
-    y = "Number of clinical attendees",
+    y = "Number of people",
     title = "b"
   ) +
   theme_custom() +
   theme(
-    legend.position = "bottom",
+    legend.position = c(0.7, .3),
     legend.title = element_blank(),
-    legend.key.height = unit(.6, "cm"),
-    legend.key.width = unit(.4, "cm"),
+    legend.key.height = unit(.3, "cm"),
+    legend.key.width = unit(.2, "cm"),
+    legend.direction = "horizontal",
     panel.spacing = unit(2, "cm")
   )
 
 roi_pl
+```
+
+```{r}
+main_tr <- main_tr %>%
+  mutate(P_unc = P75 - P25)
+
+hr_lu_pt <- main_tr %>%
+  filter(P_unc < .25 / 100, P_mean > 0.25 / 100) %>%
+  head(1)
+
+main_focus_pl <- main_tr %>%
+  ggplot(aes(x = P_unc, y = P_mean)) +
+  geom_point(shape = 4) +
+  annotate(
+    "point",
+    x = hr_lu_pt$P_unc,
+    y = hr_lu_pt$P_mean,
+    size = 7,
+    shape = 1,
+    color = "red"
+  ) +
+  annotate(
+    geom = "segment",
+    x = hr_lu_pt$P_unc + .00002,
+    y = hr_lu_pt$P_mean + .0004,
+    xend = hr_lu_pt$P_unc + .00008,
+    yend = hr_lu_pt$P_mean + .004,
+    arrow = arrow(length = unit(0.1, "cm")),
+    color = "red"
+  ) +
+  annotate(
+    geom = "text",
+    x = hr_lu_pt$P_unc + .00008,
+    y = hr_lu_pt$P_mean + .004,
+    label = "Moderate risk,\nlow uncertainty",
+    hjust = -.1,
+    size = 6.5 / cm(1),
+    color = "red"
+  ) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0.01, 0.01)),
+    limits = c(0, .01),
+    breaks = seq(0, .01, .0025),
+    labels = function(x) round_k(100 * x, 3)
+  ) +
+  scale_x_continuous(
+    expand = expansion(mult = c(0.01, 0.01)),
+    limits = c(0, .002),
+    breaks = seq(0, .002, .0005),
+    labels = function(x) round_k(100 * x, 3)
+  ) +
+  labs(
+    x = "Uncertainty (interquartile range, pp)",
+    y = "Mean risk of infection (%)",
+    title = "c"
+  ) +
+  theme_bw2() +
+  theme(
+    plot.title.position = "plot",
+    plot.title = element_text(size = 10, face = 2),
+  )
+
+main_focus_pl
 ```
 
 ### Association
@@ -552,11 +623,11 @@ track_ft <- left_join(
   )
 
 assoc_df <- track_ft %>%
-  left_join(
-    aer %>%
-      filter(room == "Waiting room") %>%
-      dplyr::select(date, daytime, aer)
-  ) %>%
+  # left_join(
+  #   aer %>%
+  #     filter(room == "Waiting room") %>%
+  #     dplyr::select(date, daytime, aer)
+  # ) %>%
   mutate(patient_id = paste(
     lubridate::month(date),
     lubridate::day(date),
@@ -564,21 +635,20 @@ assoc_df <- track_ft %>%
     sep = "-"
   )) %>%
   left_join(
-    reshape2::dcast(main_tr, patient_id ~ variable) %>%
-      dplyr::select(patient_id, `Mean risk of infection`) %>%
-      rename(mean_risk = `Mean risk of infection`)
+    main_tr %>%
+      dplyr::select(patient_id, P_mean)
   )
 
 # model
-amod <- stan_betareg(mean_risk ~ aer + time_in_clinic + n_cc + cc_time,
+amod <- stan_betareg(P_mean ~ time_in_clinic + n_cc + cc_time,
   data = assoc_df %>% mutate(
     n_cc = n_cc + 1, cc_time = cc_time + 1 / 60,
-    across(c(aer, time_in_clinic, n_cc, cc_time), log2)
+    across(c(time_in_clinic, n_cc, cc_time), log2)
   ),
   seed = 12345, cores = 4
 )
 
-amod_est <- spread_draws(amod, aer, time_in_clinic, n_cc, cc_time) %>%
+amod_est <- spread_draws(amod, time_in_clinic, n_cc, cc_time) %>%
   reshape2::melt(c(".chain", ".iteration", ".draw")) %>%
   mutate(value = exp(value))
 
@@ -586,39 +656,43 @@ amod_est %>%
   group_by(variable) %>%
   summarize(
     lower = quantile(value, .025),
-    median = median(value),
+    mean = mean(value),
     upper = quantile(value, .975)
   ) %>%
-  mutate(across(c(lower, median, upper), ~ round_k(.x, 2)))
+  mutate(across(c(lower, mean, upper), ~ round_k(.x, 2)))
 
 amod_est_pl <- ggplot(amod_est, aes(y = variable, x = value)) +
   geom_vline(aes(xintercept = 1), linetype = "dotted", color = "red") +
-  stat_interval() +
+  stat_interval(point_interval = "mean_qi") +
   stat_summary(
     geom = "point",
-    fun = median,
+    fun = mean,
     size = 2,
     shape = 21,
     fill = "white"
   ) +
   labs(
     x = "Odds ratio of the modeled risk of infection for a doubling in the predictor",
-    title = "c",
-    color = "Credible interval"
+    title = "d",
+    color = "CrI"
   ) +
   scale_y_discrete(
     labels = c(
-      "Air change rate",
+      # "Air change rate",
       "Time in clinic",
-      "Number of close contacts",
-      "Time in clocse contact"
+      "No. close contacts",
+      "Time close contact"
     )
   ) +
   scale_color_brewer(
     labels = paste0(c(95, 80, 50), "%")
   ) +
   theme_custom() +
-  theme(axis.title.y = element_blank())
+  theme(
+    axis.title.y = element_blank(),
+    legend.position = "right",
+    legend.key.size = unit(.3, "cm")
+  )
 
 amod_est_pl
 ```
@@ -626,18 +700,46 @@ amod_est_pl
 ```{r main-figure}
 main_fig <- grid.arrange(
   mean_quanta_pl,
-  roi_pl,
+  grid.arrange(roi_pl, main_focus_pl, ncol = 2),
   amod_est_pl,
   ncol = 1,
-  heights = c(8, 8, 4)
+  heights = c(10, 6, 4)
 )
 
 ggsave(
   main_fig,
   filename = "results/modeling/main-figure.png",
   width = 16 / cm(1),
-  height = 20 / cm(1)
+  height = 16 / cm(1)
 )
+```
+
+## Comparison with temporal model
+
+```{r}
+# files
+files_temp <- list.files("simulations/temporal/",
+  full.names = TRUE, pattern = "trans-risk",
+  recursive = TRUE
+)
+
+temp_tr <- map_dfr(files_temp, average_trans_risk)
+temp_annon <- annotate_average_trans_risk(temp_tr)
+
+# comparison with temporal model
+mod_comp <- left_join(
+  temp_tr %>%
+    dplyr::select(patient_id, P_mean) %>%
+    rename(`Temporal model` = P_mean),
+  main_tr %>%
+    dplyr::select(patient_id, P_mean) %>%
+    mutate(`Spatiotemporal model` = P_mean)
+) %>%
+  mutate(
+    ratio = abs(`Spatiotemporal model` - `Temporal model`) / `Temporal model` * 100
+  )
+
+summary(mod_comp$ratio)
 ```
 
 
@@ -646,33 +748,69 @@ ggsave(
 ```{r additional-analyses}
 # files
 files_nm <- list.files("simulations/nomasks/",
-  full.names = TRUE, pattern = "*.rds$",
+  full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
-files_vent <- list.files("simulations/ventilation/",
-  full.names = TRUE, pattern = "*.rds$",
-  recursive = TRUE
-)
-files_temp <- list.files("simulations/temporal/",
-  full.names = TRUE, pattern = "*.rds$",
+files_vent <- list.files("simulations/vent/",
+  full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
 files_prev <- list.files("simulations/prevalence/",
-  full.names = TRUE, pattern = "*.rds$",
+  full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
 files_susp <- list.files("simulations/suspected/",
-  full.names = TRUE, pattern = "*.rds$",
+  full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
 
 # average risk
-nm_tr <- average_trans_risk(files_nm)
-vent_tr <- average_trans_risk(files_vent)
-temp_tr <- average_trans_risk(files_temp)
-prev_tr <- average_trans_risk(files_prev)
-susp_tr <- average_trans_risk(files_susp)
+nm_tr <- map_dfr(files_nm, average_trans_risk)
+vent_tr <- map_dfr(files_vent, average_trans_risk)
+prev_tr <- map_dfr(files_prev, average_trans_risk)
+susp_tr <- map_dfr(files_susp, average_trans_risk)
 
+nm_tr %>%
+  group_by(P_col) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n) * 100, 0))
+
+vent_tr %>%
+  group_by(P_col) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n) * 100, 0))
+
+susp_tr %>%
+  group_by(P_col) %>%
+  summarise(n = n()) %>%
+  ungroup() %>%
+  mutate(prop = round(n / sum(n) * 100, 0))
+
+main_tr %>%
+  dplyr::select(patient_id, P_mean) %>%
+  rename(`Spatiotemporal model` = P_mean) %>%
+  left_join(
+    nm_tr %>%
+      dplyr::select(patient_id, P_mean) %>%
+      rename(`No mask wearing` = P_mean)
+  ) %>%
+  left_join(
+    vent_tr %>%
+      dplyr::select(patient_id, P_mean) %>%
+      rename(`Lower ventilation` = P_mean)
+  ) %>%
+  mutate(
+    mask_factor = `No mask wearing` / `Spatiotemporal model`,
+    vent_factor = `Lower ventilation` / `Spatiotemporal model`
+  ) %>%
+  mean_qi(mask_factor, vent_factor) %>%
+  gather() %>%
+  head(6) %>%
+  mutate(value = round(as.numeric(value), 2))
+
+# combine
 tr_comp <- rbind(
   nm_tr %>% mutate(scenario = "No mask wearing"),
   vent_tr %>% mutate(scenario = "Lower ventilation"),
@@ -693,7 +831,6 @@ tr_comp <- rbind(
 # annotation
 nm_annon <- annotate_average_trans_risk(nm_tr)
 vent_annon <- annotate_average_trans_risk(vent_tr)
-temp_annon <- annotate_average_trans_risk(temp_tr)
 prev_annon <- annotate_average_trans_risk(prev_tr)
 susp_annon <- annotate_average_trans_risk(susp_tr)
 
@@ -714,17 +851,16 @@ annon_comp <- rbind(
 
 # plot mean
 mean_roi_comp_pl <- ggplot(
-  tr_comp %>%
-    filter(variable == "Mean risk of infection"),
-  aes(x = value)
+  tr_comp,
+  aes(x = P_mean)
 ) +
   geom_histogram(
-    mapping = aes(fill = val_col),
-    binwidth = .05,
+    mapping = aes(fill = P_col),
+    binwidth = .0005,
     boundary = 1
   ) +
   geom_text(
-    data = annon_comp %>% filter(variable == "Mean risk of infection"),
+    data = annon_comp,
     mapping = aes(x = Inf, y = Inf, label = lab),
     size = 8 / cm(1),
     hjust = 1, vjust = 2
@@ -733,11 +869,14 @@ mean_roi_comp_pl <- ggplot(
   scale_fill_manual(values = wes_palette("Darjeeling1")[c(2, 3, 1)]) +
   coord_cartesian(expand = FALSE) +
   scale_x_continuous(
-    breaks = c(0, .05, 0.1, seq(0.2, .5, .1)),
-    labels = function(x) x * 100
+    labels = function(x) x * 100,
+    breaks = c(0, 0.001, 0.005, 0.01, 0.015, 0.02),
+    limits = c(0, 0.02)
   ) +
-  scale_y_continuous(
-    labels = scales::comma
+  scale_y_sqrt(
+    labels = scales::comma,
+    breaks = c(0, 25, 100, 250, 500, 1000),
+    limits = c(0, 1000)
   ) +
   labs(
     x = "Risk of infection (%)",
@@ -757,75 +896,5 @@ save_plot(
   "results/modeling/mean-roi-comparison.png",
   w = 16,
   h = 12
-)
-
-# comparison with temporal model
-mod_comp <- left_join(
-  temp_tr %>% rename(`Temporal model` = value) %>% dplyr::select(-val_col),
-  main_tr %>% mutate(`Spatiotemporal model` = value) %>% dplyr::select(-val_col)
-) %>%
-  mutate(
-    diff = `Spatiotemporal model` - `Temporal model`
-  ) %>%
-  mutate(
-    val_col = ifelse(diff > .005, "Higher",
-      ifelse(diff < -.005, "Lower", "Similar")
-    ),
-    val_col = factor(val_col, levels = c("Lower", "Similar", "Higher"))
-  )
-
-mod_comp %>%
-  filter(variable == "Mean risk of infection") %>%
-  group_by(val_col) %>%
-  summarize(n = n()) %>%
-  mutate(prop = round(n / sum(n) * 100, 0))
-
-mod_comp_annon <- mod_comp %>%
-  summarise(
-    mean_diff = mean(diff),
-    lower_diff = quantile(diff, .025),
-    upper_diff = quantile(diff, .975)
-  ) %>%
-  mutate(across(c(mean_diff, lower_diff, upper_diff), ~ round_k(100 * .x, 1)),
-    lab = paste0(
-      "Average ", mean_diff, "%",
-      " (95%-CrI ", lower_diff, "% – ", upper_diff, "%)"
-    )
-  )
-
-mod_comp_pl <- mod_comp %>%
-  ggplot(aes(x = diff)) +
-  geom_histogram(
-    mapping = aes(fill = val_col),
-    binwidth = .005,
-    boundary = 1
-  ) +
-  geom_text(
-    data = mod_comp_annon,
-    mapping = aes(x = Inf, y = Inf, label = lab),
-    size = 8 / cm(1),
-    hjust = 1, vjust = 2
-  ) +
-  labs(
-    y = "Number of clinical attendees",
-    x = "Difference between spatiotemporal and temporal model (perc. points)"
-  ) +
-  scale_y_log10(labels = scales::comma) +
-  scale_x_continuous(labels = function(x) scales::percent(x, suffix = "")) +
-  scale_fill_manual(values = wes_palette("Zissou1")[c(1, 3, 5)]) +
-  coord_cartesian(expand = FALSE) +
-  theme_custom() +
-  theme(
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    legend.key.height = unit(.6, "cm"),
-    legend.key.width = unit(.4, "cm")
-  )
-
-save_plot(
-  mod_comp_pl,
-  "results/modeling/model-comparison.png",
-  w = 12,
-  h = 8
 )
 ```
