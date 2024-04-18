@@ -22,7 +22,7 @@ sf::st_crs(building_sf) <- NA
 
 if (!exists("cellSize")) {
   stop("No local cellSize variable found")
-} 
+}
 
 rasterize.rooms <- function(cellSize) {
   waiting_room <- shapeToSpatial(building_sf$geometry[2], cellSize)
@@ -41,9 +41,11 @@ cdCoord <- create_coord_df(corridor)
 tb_room <- rooms$tb_room
 tbMat <- sP_to_matrix(tb_room)
 tbCoord <- create_coord_df(tb_room)
-roomCoord <- rbind(wrCoord %>% mutate(room = "Waiting room"), 
-                   cdCoord %>% mutate(room = "Corridor"), 
-                   tbCoord %>% mutate(room = "TB room")) 
+roomCoord <- rbind(
+  wrCoord %>% mutate(room = "Waiting room"),
+  cdCoord %>% mutate(room = "Corridor"),
+  tbCoord %>% mutate(room = "TB room")
+)
 
 # room dimensions
 # - waiting room
@@ -56,26 +58,29 @@ dimTB <- c(4.75, 3.5, 3)
 # plotting
 
 plot_spatial <- function(pl, text_descr = 10) {
-  
   entrance_lab <- textGrob(label = "Entrance", x = 0.1, y = 0.165, gp = gpar(fontsize = text_descr), just = c("left"))
   wr_lab <- textGrob(label = "Waiting room", x = 0.05, y = 0.45, gp = gpar(fontsize = text_descr), just = c("left"))
   tb_lab <- textGrob(label = "TB room", x = 0.75, y = 0.4, gp = gpar(fontsize = text_descr), just = c("left"))
+  cr_lab <- textGrob(label = "Corridor", x = 0.6, y = 0.615, gp = gpar(fontsize = text_descr), just = c("left"))
   re_lab <- textGrob(label = "Registration", x = 0.44, y = 0.25, gp = gpar(fontsize = text_descr), just = c("left"), rot = 90)
   col <- RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")
-  
- pl +
+
+  pl +
     ggpubr::background_image(clinic_img) +
-    scale_y_continuous(expand = expansion(add=c(1700, 3000)), limits = c(-6500, 2000)) +
-    scale_x_continuous(expand = expansion(add=c(400, 500)), limits = c(-16000, 7500)) +
+    scale_y_continuous(expand = expansion(add = c(1700, 3000)), limits = c(-6500, 2000)) +
+    scale_x_continuous(expand = expansion(add = c(400, 500)), limits = c(-16000, 7500)) +
     annotation_custom(entrance_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
     annotation_custom(wr_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
+    annotation_custom(cr_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
     annotation_custom(tb_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
     annotation_custom(re_lab, xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf) +
     theme_custom(text_descr) +
-    theme(text = element_text(size = text_descr),
-          axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(),
-          panel.background = element_rect(fill = col[1]), panel.grid.major = element_blank(),
-          panel.grid.minor = element_blank()) 
+    theme(
+      text = element_text(size = text_descr),
+      axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(),
+      panel.background = element_rect(fill = col[1]), panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank()
+    )
 }
 
 # room data frames

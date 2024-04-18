@@ -325,7 +325,7 @@ time_pl <- clinic_occupancy %>%
 save_plot(
   time_pl,
   pdf_file = "results/data/no-people-over-time.png",
-  w = 8, h = 6
+  w = 8, h = 8
 )
 ```
 
@@ -359,7 +359,7 @@ spatial_pl <- plot_spatial(
 save_plot(
   spatial_pl,
   pdf_file = "results/data/no-people-spatial.png",
-  w = 8, h = 6
+  w = 8, h = 8
 )
 ```
 
