@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 library(tidyverse)
+library(tidybayes)
 library(lubridate)
 
 source("utils/plotting.r")
@@ -88,15 +89,13 @@ co2_pl <- cont_df %>%
   scale_x_datetime(date_breaks = "4 hours", date_labels = "%H:%M") +
   scale_color_manual(values = wes_palette("Moonrise3")) +
   labs(
-    y = expression("CO"[2] * " (parts per million, ppm)"),
-    title = "f"
+    y = expression("CO"[2] * " (parts per million, ppm)")
   ) +
   theme_custom(8) +
   theme(
     axis.title.x = element_blank(),
     legend.title = element_blank(),
     legend.position = "bottom",
-    panel.spacing = unit(1, "lines"),
     legend.key.width = unit(0.275, "cm"),
     legend.key.height = unit(0.2, "cm")
   )
@@ -104,7 +103,7 @@ co2_pl <- cont_df %>%
 save_plot(
   co2_pl,
   pdf_file = "results/data/co2-levels-over-time.png",
-  w = 10, h = 6
+  w = 16, h = 10
 )
 
 cont_df %>%
@@ -138,7 +137,7 @@ aer_pl <- aer %>%
   scale_y_continuous(expand = expansion(mult = c(0, .05)), limits = c(0, NA)) +
   labs(
     y = "Air changes per hour",
-    title = "g"
+    title = "d"
   ) +
   theme_custom(8) +
   theme(
@@ -151,7 +150,7 @@ aer_pl <- aer %>%
 save_plot(
   aer_pl,
   pdf_file = "results/data/air-changes-per-hour.png",
-  w = 6, h = 6
+  w = 8, h = 6
 )
 ```
 

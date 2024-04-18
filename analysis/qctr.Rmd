@@ -335,8 +335,7 @@ mean_quanta_pl <- plot_spatial(
       )
     ) +
     labs(
-      fill = expression("Mean quanta concentration (quanta m"^-3 * " " * "x 10e"^-3 * ")"),
-      title = "a"
+      fill = expression("Mean quanta concentration (quanta m"^-3 * " " * "x 10e"^-3 * ")")
     ) +
     scale_fill_gradientn(
       colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"),
@@ -352,7 +351,12 @@ mean_quanta_pl <- plot_spatial(
     legend.title = element_text(margin = margin(r = 10))
   )
 
-mean_quanta_pl
+save_plot(
+  mean_quanta_pl,
+  "results/modeling/mean-quanta-concentration.png",
+  w = 16,
+  h = 8
+)
 ```
 
 ### Trans risk
@@ -397,8 +401,7 @@ average_trans_risk <- function(file) {
       P_col = ifelse(P_mean < .001, "Low",
         ifelse(P_mean < .01, "Medium", "High")
       ),
-      P_col = factor(P_col, levels = c("Low", "Medium", "High")),
-      P_ann = 1 - (1 - P_mean)^12
+      P_col = factor(P_col, levels = c("Low", "Medium", "High"))
     )
   return(average_tr)
 }
@@ -412,35 +415,23 @@ main_tr <- data.frame(
 )
 main_tr$value <- lapply(main_tr$files, average_trans_risk)
 
-main_tr <- main_tr %>% unnest(value)
-
-main_tr %>%
-  group_by(P_col) %>%
-  summarise(n = n()) %>%
-  ungroup() %>%
-  mutate(prop = round(n / sum(n) * 100, 0))
+main_tr <- main_tr %>%
+  unnest(value) %>%
+  dplyr::select(-files)
 
 # annotation
 annotate_average_trans_risk <- function(tr) {
   roi_annon <- tr %>%
     summarize(
       mean_P = mean(P_mean),
-      lower_P = quantile(P_mean, .025),
-      upper_P = quantile(P_mean, .975),
-      mean_P_ann = mean(P_ann),
-      lower_P_ann = quantile(P_ann, .025),
-      upper_P_ann = quantile(P_ann, .975)
+      lower_P = quantile(P_mean, .2),
+      upper_P = quantile(P_mean, .8)
     ) %>%
     mutate(
-      across(c(mean_P, lower_P, upper_P), ~ round_k(100 * .x, 3)),
+      across(c(mean_P, lower_P, upper_P), ~ round_k(100 * .x, 2)),
       lab = paste0(
         mean_P, "%",
-        " (95%-CrI ", lower_P, "% – ", upper_P, "%)"
-      ),
-      across(c(mean_P_ann, lower_P_ann, upper_P_ann), ~ round_k(100 * .x, 2)),
-      lab_ann = paste0(
-        mean_P_ann, "%",
-        " (95%-CrI ", lower_P_ann, "% – ", upper_P_ann, "%)"
+        " (80%-CrI ", lower_P, "% – ", upper_P, "%)"
       )
     )
   return(roi_annon)
@@ -448,57 +439,12 @@ annotate_average_trans_risk <- function(tr) {
 
 main_annon <- annotate_average_trans_risk(main_tr)
 
-main_annon$lab
-main_annon$lab_ann
-
-# plot
-roi_pl <- ggplot(
-  data = main_tr,
-  mapping = aes(x = P_mean)
-) +
-  geom_histogram(
-    mapping = aes(fill = P_col),
-    binwidth = .0005,
-    boundary = 1
-  ) +
-  geom_text(
-    data = main_annon,
-    mapping = aes(x = Inf, y = Inf, label = lab),
-    size = 8 / cm(1),
-    hjust = 1, vjust = 2
-  ) +
-  scale_fill_manual(values = wes_palette("Darjeeling1")[c(2, 3, 1)]) +
-  coord_cartesian(expand = FALSE) +
-  scale_x_continuous(
-    labels = function(x) x * 100,
-    breaks = c(0, 0.001, 0.005, 0.01, 0.015, 0.02),
-    limits = c(0, 0.02)
-  ) +
-  scale_y_sqrt(
-    labels = scales::comma,
-    breaks = c(0, 25, 100, 250, 500, 1000)
-  ) +
-  labs(
-    x = "Risk of infection (%)",
-    y = "Number of people",
-    title = "b"
-  ) +
-  theme_custom() +
-  theme(
-    legend.position = c(0.7, .3),
-    legend.title = element_blank(),
-    legend.key.height = unit(.3, "cm"),
-    legend.key.width = unit(.2, "cm"),
-    legend.direction = "horizontal",
-    panel.spacing = unit(2, "cm")
-  )
-
-roi_pl
+main_annon
 ```
 
 ```{r}
 main_tr <- main_tr %>%
-  mutate(P_unc = P75 - P25)
+  mutate(P_unc = P80 - P20)
 
 hr_lu_pt <- main_tr %>%
   filter(P_unc < .25 / 100, P_mean > 0.25 / 100) %>%
@@ -546,17 +492,22 @@ main_focus_pl <- main_tr %>%
     labels = function(x) round_k(100 * x, 3)
   ) +
   labs(
-    x = "Uncertainty (interquartile range, pp)",
-    y = "Mean risk of infection (%)",
-    title = "c"
+    x = "Uncertainty (80%-CrI, pp)",
+    y = "Mean risk of infection (%)"
   ) +
   theme_bw2() +
   theme(
     plot.title.position = "plot",
     plot.title = element_text(size = 10, face = 2),
+    plot.margin = margin(.5, .5, .5, .5, "cm")
   )
 
-main_focus_pl
+save_plot(
+  main_focus_pl,
+  "results/modeling/patient-risk-focus-plot.png",
+  w = 12,
+  h = 10
+)
 ```
 
 ### Association
@@ -639,6 +590,17 @@ assoc_df <- track_ft %>%
       dplyr::select(patient_id, P_mean)
   )
 
+# risk per hour in clinic
+assoc_df %>%
+  filter(tracking_end != "Possible HCW") %>%
+  mutate(
+    rph = 60 * P_mean / time_in_clinic,
+    rpy = 1 - (1 - rph)^12
+  ) %>%
+  mean_qi(rph, rpy, .width = .8, na.rm = TRUE) %>%
+  mutate_if(is.numeric, ~ round_k(100 * .x, 2)) %>%
+  unlist()
+
 # model
 amod <- stan_betareg(P_mean ~ time_in_clinic + n_cc + cc_time,
   data = assoc_df %>% mutate(
@@ -660,58 +622,6 @@ amod_est %>%
     upper = quantile(value, .975)
   ) %>%
   mutate(across(c(lower, mean, upper), ~ round_k(.x, 2)))
-
-amod_est_pl <- ggplot(amod_est, aes(y = variable, x = value)) +
-  geom_vline(aes(xintercept = 1), linetype = "dotted", color = "red") +
-  stat_interval(point_interval = "mean_qi") +
-  stat_summary(
-    geom = "point",
-    fun = mean,
-    size = 2,
-    shape = 21,
-    fill = "white"
-  ) +
-  labs(
-    x = "Odds ratio of the modeled risk of infection for a doubling in the predictor",
-    title = "d",
-    color = "CrI"
-  ) +
-  scale_y_discrete(
-    labels = c(
-      # "Air change rate",
-      "Time in clinic",
-      "No. close contacts",
-      "Time close contact"
-    )
-  ) +
-  scale_color_brewer(
-    labels = paste0(c(95, 80, 50), "%")
-  ) +
-  theme_custom() +
-  theme(
-    axis.title.y = element_blank(),
-    legend.position = "right",
-    legend.key.size = unit(.3, "cm")
-  )
-
-amod_est_pl
-```
-
-```{r main-figure}
-main_fig <- grid.arrange(
-  mean_quanta_pl,
-  grid.arrange(roi_pl, main_focus_pl, ncol = 2),
-  amod_est_pl,
-  ncol = 1,
-  heights = c(10, 6, 4)
-)
-
-ggsave(
-  main_fig,
-  filename = "results/modeling/main-figure.png",
-  width = 16 / cm(1),
-  height = 16 / cm(1)
-)
 ```
 
 ## Comparison with temporal model
@@ -743,7 +653,7 @@ summary(mod_comp$ratio)
 ```
 
 
-## Additional analyses
+## IPC comparison
 
 ```{r additional-analyses}
 # files
@@ -755,11 +665,7 @@ files_vent <- list.files("simulations/vent/",
   full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
-files_prev <- list.files("simulations/prevalence/",
-  full.names = TRUE, pattern = "trans-risk",
-  recursive = TRUE
-)
-files_susp <- list.files("simulations/suspected/",
+files_nmvent <- list.files("simulations/nomasksvent/",
   full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
@@ -767,8 +673,7 @@ files_susp <- list.files("simulations/suspected/",
 # average risk
 nm_tr <- map_dfr(files_nm, average_trans_risk)
 vent_tr <- map_dfr(files_vent, average_trans_risk)
-prev_tr <- map_dfr(files_prev, average_trans_risk)
-susp_tr <- map_dfr(files_susp, average_trans_risk)
+nmvent_tr <- map_dfr(files_nmvent, average_trans_risk)
 
 nm_tr %>%
   group_by(P_col) %>%
@@ -782,7 +687,7 @@ vent_tr %>%
   ungroup() %>%
   mutate(prop = round(n / sum(n) * 100, 0))
 
-susp_tr %>%
+nmvent_tr %>%
   group_by(P_col) %>%
   summarise(n = n()) %>%
   ungroup() %>%
@@ -801,53 +706,42 @@ main_tr %>%
       dplyr::select(patient_id, P_mean) %>%
       rename(`Lower ventilation` = P_mean)
   ) %>%
+  left_join(
+    nmvent_tr %>%
+      dplyr::select(patient_id, P_mean) %>%
+      rename(`No mask wearing and lower ventilation` = P_mean)
+  ) %>%
   mutate(
     mask_factor = `No mask wearing` / `Spatiotemporal model`,
-    vent_factor = `Lower ventilation` / `Spatiotemporal model`
+    vent_factor = `Lower ventilation` / `Spatiotemporal model`,
+    nmvent_factor = `No mask wearing and lower ventilation` / `Spatiotemporal model`
   ) %>%
-  mean_qi(mask_factor, vent_factor) %>%
+  mean_qi(mask_factor, vent_factor, nmvent_factor) %>%
   gather() %>%
-  head(6) %>%
-  mutate(value = round(as.numeric(value), 2))
+  head(9) %>%
+  mutate(value = round(as.numeric(value), 1))
 
 # combine
 tr_comp <- rbind(
-  nm_tr %>% mutate(scenario = "No mask wearing"),
-  vent_tr %>% mutate(scenario = "Lower ventilation"),
-  prev_tr %>% mutate(scenario = "Prevalence-based model"),
-  susp_tr %>% mutate(scenario = "Suspected-based model")
+  main_tr %>% mutate(scenario = "a   Mask use and high ventilation"),
+  nm_tr %>% mutate(scenario = "b   No mask use and high ventilation"),
+  vent_tr %>% mutate(scenario = "c   Mask use and normal ventilation"),
+  nmvent_tr %>% mutate(scenario = "d   No mask use and normal ventilation")
 ) %>%
-  mutate(
-    scenario = factor(scenario, levels = c(
-      "Spatiotemporal model",
-      "Temporal model",
-      "No mask wearing",
-      "Lower ventilation",
-      "Prevalence-based model",
-      "Suspected-based model"
-    ))
-  )
+  mutate(scenario = factor(scenario, levels = unique(scenario)))
 
 # annotation
 nm_annon <- annotate_average_trans_risk(nm_tr)
 vent_annon <- annotate_average_trans_risk(vent_tr)
-prev_annon <- annotate_average_trans_risk(prev_tr)
-susp_annon <- annotate_average_trans_risk(susp_tr)
+nmvent_annon <- annotate_average_trans_risk(nmvent_tr)
 
 annon_comp <- rbind(
-  nm_annon %>% mutate(scenario = "No mask wearing"),
-  vent_annon %>% mutate(scenario = "Lower ventilation"),
-  prev_annon %>% mutate(scenario = "Prevalence-based model"),
-  susp_annon %>% mutate(scenario = "Suspected-based model")
+  main_annon %>% mutate(scenario = "a   Mask use and high ventilation"),
+  nm_annon %>% mutate(scenario = "b   No mask use and high ventilation"),
+  vent_annon %>% mutate(scenario = "c   Mask use and normal ventilation"),
+  nmvent_annon %>% mutate(scenario = "d   No mask use and normal ventilation")
 ) %>%
-  mutate(
-    scenario = factor(scenario, levels = c(
-      "No mask wearing",
-      "Lower ventilation",
-      "Suspected-based model",
-      "Prevalence-based model"
-    ))
-  )
+  mutate(scenario = factor(scenario, levels = unique(scenario)))
 
 # plot mean
 mean_roi_comp_pl <- ggplot(
@@ -876,7 +770,7 @@ mean_roi_comp_pl <- ggplot(
   scale_y_sqrt(
     labels = scales::comma,
     breaks = c(0, 25, 100, 250, 500, 1000),
-    limits = c(0, 1000)
+    limits = c(0, NA)
   ) +
   labs(
     x = "Risk of infection (%)",
@@ -888,7 +782,8 @@ mean_roi_comp_pl <- ggplot(
     legend.title = element_blank(),
     legend.key.height = unit(.6, "cm"),
     legend.key.width = unit(.4, "cm"),
-    panel.spacing = unit(2, "cm")
+    panel.spacing = unit(2, "cm"),
+    strip.text = element_text(hjust = 0)
   )
 
 save_plot(
@@ -896,5 +791,86 @@ save_plot(
   "results/modeling/mean-roi-comparison.png",
   w = 16,
   h = 12
+)
+```
+
+## Additional analysis
+
+```{r} 
+files_prev <- list.files("simulations/prevalence/",
+  full.names = TRUE, pattern = "trans-risk",
+  recursive = TRUE
+)
+files_susp <- list.files("simulations/suspected/",
+  full.names = TRUE, pattern = "trans-risk",
+  recursive = TRUE
+)
+
+prev_tr <- map_dfr(files_prev, average_trans_risk)
+susp_tr <- map_dfr(files_susp, average_trans_risk)
+
+tr_assum <- rbind(
+  prev_tr %>% mutate(scenario = "a   Prevalence-based model"),
+  susp_tr %>% mutate(scenario = "b   Suspected-based model")
+) %>%
+  mutate(scenario = factor(scenario, levels = unique(scenario)))
+
+prev_annon <- annotate_average_trans_risk(prev_tr)
+susp_annon <- annotate_average_trans_risk(susp_tr)
+
+annon_assum <- rbind(
+  prev_annon %>% mutate(scenario = "a   Prevalence-based model"),
+  susp_annon %>% mutate(scenario = "b   Suspected-based model")
+) %>%
+  mutate(scenario = factor(scenario, levels = unique(scenario)))
+
+# plot mean
+mean_roi_assum_pl <- ggplot(
+  tr_assum,
+  aes(x = P_mean)
+) +
+  geom_histogram(
+    mapping = aes(fill = P_col),
+    binwidth = .0005,
+    boundary = 1
+  ) +
+  geom_text(
+    data = annon_assum,
+    mapping = aes(x = Inf, y = Inf, label = lab),
+    size = 8 / cm(1),
+    hjust = 1, vjust = 2
+  ) +
+  facet_wrap(~scenario, ncol = 2) +
+  scale_fill_manual(values = wes_palette("Darjeeling1")[c(2, 3, 1)]) +
+  coord_cartesian(expand = FALSE) +
+  scale_x_continuous(
+    labels = function(x) x * 100,
+    breaks = c(0, 0.001, 0.005, 0.01, 0.015, 0.02),
+    limits = c(0, 0.02)
+  ) +
+  scale_y_sqrt(
+    labels = scales::comma,
+    breaks = c(0, 25, 100, 250, 500, 1000),
+    limits = c(0, NA)
+  ) +
+  labs(
+    x = "Risk of infection (%)",
+    y = "Number of clinical attendees"
+  ) +
+  theme_custom() +
+  theme(
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    legend.key.height = unit(.6, "cm"),
+    legend.key.width = unit(.4, "cm"),
+    panel.spacing = unit(2, "cm"),
+    strip.text = element_text(hjust = 0)
+  )
+
+save_plot(
+  mean_roi_assum_pl,
+  "results/modeling/mean-roi-assumptions.png",
+  w = 16,
+  h = 7
 )
 ```
