@@ -501,13 +501,13 @@ The bacterial inactivation rate for \emph{Mtb} has not been precisely estimated.
 \begin{figure}[!htpb]
     \centering
     \includegraphics{results/inputs/bacterial-inactivation-rate.png}
-    \caption{Prior distribution (log scale) for the bacterial inactivation rate (quanta h$^{-1}$) of \emph{Mtb} along with reported estimates from the literature\cite{Loudon1969AMRRD,Gannon2007ResVetSci,Klein2014IJ,Lever2000LettersAppliedMicrobioMyco}.}
+    \caption{Prior distribution (log scale) for the bacterial inactivation rate (quanta h$^{-1}$) of \emph{Mtb} along with reported estimates from the literature\cite{Loudon1969AMRRD,Gannon2007ResVetSci,Klein2014IJMyco,Lever2000LettersAppliedMicrobio}.}
     \label{fig:lambda-distribution}
 \end{figure}
 
 \subsubsection{Number of undiagnosed TB patients}
 
-Undiagnosed (subclinical) TB patients may go undetected because they do not show symptoms according to the WHO 4-question symptom screen (cough, fever, weight loss, and night sweats), or the diagnosis could not be made at first presentation based on existing tests\cite{Patterson2023Preprint}. Previous studies suggest that the number of undiagnosed (subclinical) TB patients is roughly similar to the number of diagnosed TB patients\cite{Berhanu2023CID,Moyo2022LancetID}. Therefore, we model the number of undiagnosed TB patients with a Multinomial distribution based on the counts of the daily number of diagnosed TB patients during our study period from October to November 2021 (\Cref{fig:undiagnosed-distribution}. We assume that all clinic attendees can be potential undiagnosed TB patients and sample among them with equal probability. We further assume that undiagnosed and diagnosed TB patients have the same quanta generation rate.
+Undiagnosed (subclinical) TB patients may go undetected because they do not show symptoms according to the WHO 4-question symptom screen (cough, fever, weight loss, and night sweats), or the diagnosis could not be made at first presentation based on existing tests\cite{Patterson2024PNAS}. Previous studies suggest that the number of undiagnosed (subclinical) TB patients is roughly similar to the number of diagnosed TB patients\cite{Berhanu2023CID,Moyo2022LancetID}. Therefore, we model the number of undiagnosed TB patients with a Multinomial distribution based on the counts of the daily number of diagnosed TB patients during our study period from October to November 2021 (\Cref{fig:undiagnosed-distribution}. We assume that all clinic attendees can be potential undiagnosed TB patients and sample among them with equal probability. We further assume that undiagnosed and diagnosed TB patients have the same quanta generation rate.
 
 \begin{figure}[!htpb]
     \centering
@@ -519,6 +519,31 @@ Undiagnosed (subclinical) TB patients may go undetected because they do not show
 \subsubsection{Breathing rate}
 
 Adam et al.\cite{Adams1993} reports breathing (inhalation) rates for different activity levels and by sex. We use the average breathing rate for two activity levels: sitting with $p = 0.51$\,m$^3$ h$^{-1}$ and walking (slowly at 2.5 mph) with $p = 1.33$\,m$^3$ h$^{-1}$. Again, the inhalation rate for each susceptible clinic attendee is determined based on whether the distance between two tracks was more (walking) or less (sitting) than 0.25m. 
+
+\clearpage
+
+\section{Additional results}\label{sec:additional-results}
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{results/data/diagnosed-tb-patients.png}
+    \caption{Number of diagnosed TB patients (dark bars) and those suspected of TB (light bars) following symptom screening. Modeled study days in color, other clinic days in October and November in grey.}
+    \label{fig:diagnosed-tb-patients}
+\end{figure}
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{results/data/co2-levels-over-time.png}
+    \caption{CO$_2$ levels per room of the clinic over time per day.}
+    \label{fig:co2-levels}
+\end{figure}
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{results/modeling/mean-roi-assumptions.png}
+    \caption{\textbf{Scenario modeling results.} Mean risk of infection per clinical attendee if \textbf{(a)}~the number of infectious people in the clinic corresponded to the prevalence of TB in the population, or \textbf{(b)}~the number of infectious people in the clinic corresponded to the number of bacteriologically confirmed TB patients and those suspected of having TB due to respiratory symptoms when attending the clinic. Low: <5\%, Medium: 5-10\%, High: >10\% risk of infection.}
+    \label{fig:assumptions-results}
+\end{figure}
 
 \clearpage
 
