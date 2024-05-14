@@ -19,6 +19,8 @@ library(reshape2)
 
 source("utils/plotting.r")
 source("utils/spatial.r")
+cellSize <- 250
+source("preprocessing/prep_building-rasterize.R")
 ```
 
 
@@ -27,6 +29,33 @@ source("utils/spatial.r")
 ### Tracking
 
 ```{r}
+# spatial track counts
+tracking_data <- do.call(
+  rbind,
+  lapply(
+    list.files("data-raw/patient-tracking/annotated",
+      full.names = TRUE
+    ),
+    readRDS
+  )
+) %>%
+  rename(date_time = time) %>%
+  mutate(date = as.Date(date_time)) %>%
+  filter(date %in% tracking_dates) %>%
+  filter(between(hour(date_time), 8, 15)) %>%
+  mutate(
+    room = ifelse(is_waitingroom, "Waiting room",
+      ifelse(is_tbroom, "TB room",
+        ifelse(is_passage, "Corridor", NA)
+      )
+    ),
+    room = factor(room, levels = c("Waiting room", "Corridor", "TB room"))
+  )
+
+# track counts over time
+track_count_time <- readRDS("data-clean/patient-tracking/tracks-over-time.rds")
+
+# manually reconnected tracking data
 df <- readRDS("data-clean/patient-tracking/augmented-and-combined-data.rds")
 
 # filter considered clinical attendees
@@ -258,38 +287,22 @@ save_plot(
 ### Temporal hotspots
 
 ```{r}
-clinic_occupancy <- df %>%
-  group_by(date, time) %>%
-  summarize(
-    `Clinic` = n(),
-    `Waiting room` = sum(is_waitingroom),
-    `TB room` = sum(is_tbroom),
-    `Corridor` = sum(is_passage)
-  ) %>%
-  ungroup() %>%
-  dplyr::select(-Clinic) %>%
-  melt(c("date", "time")) %>%
+track_count_time <- track_count_time %>%
   mutate(
-    variable = factor(
-      variable,
-      levels = c("Clinic", "Waiting room", "TB room", "Corridor")
-    ),
     date = format(date, "%b %d"),
     date = factor(
       as.character(date),
       levels = c("Oct 13", "Oct 15", "Oct 25", "Nov 04", "Nov 05")
     ),
-    time = as.POSIXct(format(time, format = "%H:%M:%S"), format = "%H:%M:%S")
-  ) %>%
-  filter(between(hour(time), 7, 16))
+    time = as.POSIXct(format(date_time, format = "%H:%M:%S"), format = "%H:%M:%S")
+  )
 
 
-time_pl <- clinic_occupancy %>%
-  filter(variable != "Clinic") %>%
-  group_by(time, variable) %>%
+time_pl <- track_count_time %>%
+  group_by(time, room) %>%
   summarise(
-    mv = mean(value),
-    sv = sd(value)
+    mv = mean(n),
+    sv = sd(n)
   ) %>%
   ungroup() %>%
   mutate(
@@ -298,15 +311,17 @@ time_pl <- clinic_occupancy %>%
   ) %>%
   ggplot(aes(x = time)) +
   geom_line(
-    aes(y = mv, color = variable)
+    aes(y = mv, color = room)
   ) +
   geom_ribbon(
-    aes(ymin = lv, ymax = uv, fill = variable),
+    aes(ymin = lv, ymax = uv, fill = room),
     alpha = 0.4
   ) +
   # ggh4x::facet_wrap2(~variable, axes = "x", remove_labels = "all") +
   coord_cartesian(expand = FALSE) +
-  scale_x_datetime(date_breaks = "3 hours", date_labels = "%H:%M") +
+  scale_x_datetime(
+    date_breaks = "2 hours", date_labels = "%H:%M"
+  ) +
   scale_fill_manual(values = wes_palette("Royal2")) +
   scale_color_manual(values = wes_palette("Royal2")) +
   labs(
@@ -319,7 +334,8 @@ time_pl <- clinic_occupancy %>%
     legend.title = element_blank(),
     legend.position = "bottom",
     legend.key.width = unit(0.275, "cm"),
-    legend.key.height = unit(0.2, "cm")
+    legend.key.height = unit(0.2, "cm"),
+    plot.margin = margin(r = 11)
   )
 
 save_plot(
@@ -334,7 +350,7 @@ save_plot(
 
 ```{r}
 spatial_pl <- plot_spatial(
-  ggplot(data = df, mapping = aes(x = x, y = y)) +
+  ggplot(data = tracking_data, mapping = aes(x = x, y = y)) +
     geom_bin2d(binwidth = 200),
   text_descr = 8
 ) +

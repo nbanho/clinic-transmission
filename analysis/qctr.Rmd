@@ -782,7 +782,6 @@ mean_roi_comp_pl <- ggplot(
     legend.title = element_blank(),
     legend.key.height = unit(.6, "cm"),
     legend.key.width = unit(.4, "cm"),
-    panel.spacing = unit(2, "cm"),
     strip.text = element_text(hjust = 0)
   )
 

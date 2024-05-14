@@ -59,15 +59,17 @@ aer <- readRDS("data-clean/environmental/air-change-rate.rds") %>%
 
 ```{r}
 cont_df %>%
-  group_by(date) %>%
-  summarize(across(c(co2, temperature, humidity), .fns = list(mean, sd)))
-
-cont_df %>%
-  group_by(date, room) %>%
-  summarize(across(c(co2), .fns = list(mean, sd))) %>%
-  mutate_if(is.numeric, round) %>%
-  ungroup() %>%
-  arrange(room)
+  summarize(
+    across(c(co2, temperature, humidity),
+      .fns = list(
+        median = median,
+        q25 = function(x) quantile(x, .25),
+        q75 = function(x) quantile(x, .75)
+      )
+    )
+  ) %>%
+  gather() %>%
+  mutate(value = round(value))
 ```
 
 ### CO2 over time
@@ -105,10 +107,6 @@ save_plot(
   pdf_file = "results/data/co2-levels-over-time.png",
   w = 16, h = 10
 )
-
-cont_df %>%
-  median_qi(co2, .width = .5) %>%
-  mutate_if(is.numeric, round)
 ```
 
 
