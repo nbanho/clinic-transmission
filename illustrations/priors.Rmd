@@ -73,10 +73,10 @@ q_pl <- ggplot() +
     mapping = aes(x = x, color = study, y = y),
     shape = 17, size = 2
   ) +
-  geom_text(
+  geom_label(
     data = prev_est,
     mapping = aes(x = x, label = lab, color = study, y = y),
-    size = 8 / cm(1), vjust = -2, hjust = 1
+    size = 8 / cm(1), vjust = 0, hjust = 1.05,
   ) +
   scale_x_log10(
     expand = expansion(mult = c(0, .025)),
@@ -84,7 +84,6 @@ q_pl <- ggplot() +
   ) +
   scale_y_continuous(
     expand = c(0, 0),
-    labels = scales::percent_format(suffix = "")
   ) +
   scale_color_manual(values = wes_palette("Cavalcanti1")) +
   labs(
@@ -146,18 +145,17 @@ lambda_pl <- ggplot() +
     mapping = aes(x = x, color = study, y = y),
     shape = 17, size = 2
   ) +
-  geom_text(
+  geom_label(
     data = prev_est_vir,
     mapping = aes(x = x, label = lab, color = study, y = y),
-    size = 8 / cm(1), vjust = -2
+    size = 8 / cm(1), nudge_y = .05
   ) +
   scale_x_log10(
     expand = expansion(mult = c(0, .025)),
     breaks = c(1e-4, 1e-5, 1e-3, 1e-2, 1e-1, 1e0, 1e1, 1e2, 1e3, 1e4, 1e5)
   ) +
   scale_y_continuous(
-    expand = expansion(mult = c(0, .05)),
-    labels = scales::percent_format(suffix = "")
+    expand = expansion(mult = c(0, .05))
   ) +
   scale_color_manual(values = wes_palette("Cavalcanti1")) +
   labs(
