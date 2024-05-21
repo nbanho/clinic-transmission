@@ -229,7 +229,7 @@ qc_anim_pl <- ggplot(
   labs(
     subtitle = "Time (secs): {frame_time}",
     title = "Quanta concentration in the waiting room on Oct 25 between 9:41 and 09:45am", # nolint
-    fill = expression("Quanta/m"^3 * " x 10e"^-3)
+    fill = expression("Quanta/m"^3 * " x 10"^-3)
   )
 
 gganimate::animate(
@@ -335,7 +335,7 @@ mean_quanta_pl <- plot_spatial(
       )
     ) +
     labs(
-      fill = expression("Mean quanta concentration (quanta m"^-3 * " " * "x 10e"^-3 * ")")
+      fill = expression("Mean quanta concentration (quanta m"^-3 * " " * "x 10"^-3 * ")")
     ) +
     scale_fill_gradientn(
       colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"),
