@@ -73,7 +73,7 @@ quanta_concn_pl <- ct_df %>%
   geom_tile() +
   labs(
     fill = expression(Quanta %.% 10^-3 * " / 0.1875m"^3),
-    x = "x length in m", y = "y width in m", title = "A"
+    x = "x length in m", y = "y width in m", title = "a"
   ) +
   scale_fill_gradientn(
     colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"),
@@ -117,7 +117,7 @@ time_pl <- ct_df %>%
   scale_y_continuous(labels = function(x) round(1e3 * x, 1)) +
   labs(
     y = expression(Quanta %.% 10^-3 * " / 0.1875m"^3),
-    title = "B"
+    title = "b"
   ) +
   coord_cartesian(expand = FALSE) +
   theme_custom() +
