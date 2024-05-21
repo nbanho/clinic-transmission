@@ -377,8 +377,8 @@ We divide the airspace into a 2-dimensional grid with cells $c = 1, \dots, C$, w
     \item $D$: diffusion constant (m$^2$ s$^{-1}$)
     \item $AER$: air change rate (air changes s$^{-1}$)
     \item $V$: volume of the airspace (m$^3$)
-    \item $CO^{\text{I}}$: CO$_2$ concentration in indoor air (parts per million, ppm)
-    \item $CO^{\text{O}}$: CO$_2$ concentration in outdoor air (ppm)
+    \item $CO^{\text{I}}$: CO$_2$ mixing ratio in indoor air (parts per million, ppm)
+    \item $CO^{\text{O}}$: CO$_2$ mixing ratio in outdoor air (ppm)
     \item $G$: average CO$_2$ generation rate per person (L$\cdot$min$^{-1}\cdot$person$^{-1}$)
     \item $n_t$: number of individuals in the airspace at time $t$
     \item $\lambda$: bacterial inactivation rate (quanta s$^{-1}$)
@@ -407,15 +407,15 @@ The diffusion constant $D$ is unknown. We approximate it using an empirical rela
 \end{align}
 where $V$ is the volume of the airspace (in m$^3$). We thus assume that pathogen-carrying particles spread with a similar speed than CO$_2$ particles, which likely overestimates the diffusion constant, because CO$_2$ particles are smaller than \emph{Mtb}-carrying particles.
 
-The $AER$ is not directly observed but can be estimated from indoor CO$_2$ levels, room occupancy, and volume. Under steady-state conditions (\ie CO$_2$ levels reaching a steady-state concentration), the $AER$ can be computed as
+The $AER$ is not directly observed but can be estimated from indoor CO$_2$ levels, room occupancy, and volume. Under steady-state conditions (\ie CO$_2$ levels reaching a steady-state mixing ratio), the $AER$ can be computed as
 \begin{align}
     AER = \frac{6\cdot10^4 \cdot n \cdot G}{V\cdot(CO^{\text{I}}-CO^{\text{O}})},
 \end{align}
-where $n$ is the number of people in the airspace, $G$ is the average CO$_2$ generation rate per person, $CO^{\text{I}}$ is the CO$_2$ concentration in indoor and $CO^{\text{O}}$ is the concentration in outdoor air\cite{Batterman2017IJERPH}. However, in a primary care clinic, room occupancy varies continuously and thus it may be difficult to determine the steady-state CO$_2$ concentration. Therefore, we determine $AER$ using a transient mass balance model of the form\cite{Batterman2017IJERPH}
+where $n$ is the number of people in the airspace, $G$ is the average CO$_2$ generation rate per person, $CO^{\text{I}}$ is the CO$_2$ mixing ratio in indoor and $CO^{\text{O}}$ is the mixing ratio in outdoor air\cite{Batterman2017IJERPH}. However, in a primary care clinic, room occupancy varies continuously and thus it may be difficult to determine the steady-state CO$_2$ mixing ratio. Therefore, we determine $AER$ using a transient mass balance model of the form\cite{Batterman2017IJERPH}
 \begin{align}
     CO_{t+1}^{\text{I}} = \frac{6\cdot10^4 \cdot n_t + G}{Q} \cdot \left(1 - \exp(-Q/V \Delta t)\right) + (CO_t^{\text{I}}-CO^{\text{O}}) \cdot \exp(-Q/V \Delta t) + CO^{\text{O}},
 \end{align}
-where $Q$ is the outdoor air supply rate (in m$^3$\,s$^{-1}$ $\cdot \frac{1}{3600}$ ) and $AER = Q/V$. We numerically solve the transient mass balance model with the limited memory Broyden–Fletcher–Goldfarb–Shanno algorithm (L-BFGS), a quasi-Newton method, as implemented in the statistical software R\cite{Byrd1995SIAM}. The optimal solution is the outdoor air supply rate $Q$ that minimizes the root mean square error. We also follow recommendations to fit the outdoor CO$_2$ level with reasonable constraints on $CO^{\text{O}} = [300,600]$\,ppm\cite{Batterman2017IJERPH}. We can compute $AER$ over different time windows, hence the index in $AER_t$.
+where $Q$ is the outdoor air supply rate (in m$^3$\,s$^{-1}$ $\cdot \frac{1}{3600}$ ) and $AER = Q/V$. We numerically solve the transient mass balance model with the limited memory Broyden–Fletcher–Goldfarb–Shanno algorithm (L-BFGS), a quasi-Newton method, as implemented in the statistical software R\cite{Byrd1995SIAM}. The optimal solution is the outdoor air supply rate $Q$ that minimizes the root mean square error. We also follow recommendations to fit the outdoor CO$_2$ mixing ratio with reasonable constraints on $CO^{\text{O}} = [300,600]$\,ppm\cite{Batterman2017IJERPH}. We can compute $AER$ over different time windows, hence the index in $AER_t$.
 
 \subsection{Quanta removal}\label{sec:quanta-removal}
 
@@ -433,15 +433,15 @@ Combining \Cref{eq:generation}, \Cref{eq:diffusion}, and \Cref{eq:removal}, the 
 
 \subsection{Illustrative example}\label{sec:example}
 
-We illustrate our modelling approach with an example. Consider a room with a volume $V$=150\,m$^3$ (length = 10\,m, breadth = 5\,m, height = 3\,m), which we rasterize into a grid of $C = 40 \cdot 20 = 800$\,cells with an area of (0.25\,m)$^2$. We assume that quanta generation is confined to the cell where the infectious individual is located as well as the first neighbouring cells. We monitor the room from 8\,am to 12\,am and consider one infectious individual generating quanta continuously for one hour between 8\,am and 9\,am in the middle of the room (cell (20,10)), which means that quanta is generated in cells $(x_c = 20\pm1, y_c = 10\pm1)$. We assume a quanta generation rate of $q = 10$\,quanta h$^{-1}$ and a bacterial inactivation rate of $\lambda = 0$\,quanta h$^{-1}$. We further assume a constant outdoor air exchange rate of $AER = 3$\,air changes h$^{-1}$, translating into a quanta removal rate of 3\,quanta h$^{-1}$ and corresponding to a diffusion constant of 0.007\,m$^2$ s$^{-1}$. 
+We illustrate our modelling approach with an example. Consider a room with a volume $V$=150\,m$^3$ (length = 10\,m, breadth = 5\,m, height = 3\,m), which we rasterize into a grid of $C = 40 \cdot 20 = 800$\,cells with an area of (0.25\,m)$^2$. We assume that quanta generation is confined to the cell where the infectious individual is located as well as the first neighbouring cells. We monitor the room from 8\,am to 12\,am and consider one infectious individual generating quanta continuously for one hour between 8\,am and 9\,am in the middle of the room (cell (20,10)), which means that quanta is generated in cells $(x_c = 20\pm1, y_c = 10\pm1)$. We assume a quanta generation rate of $q = 2$\,quanta h$^{-1}$ and a bacterial inactivation rate of $\lambda = 0$\,quanta h$^{-1}$. We further assume a constant outdoor air exchange rate of $AER = 1$\,air changes h$^{-1}$, translating into a quanta removal rate of 1\,quanta h$^{-1}$ and corresponding to a diffusion constant of 0.015\,m$^2$ s$^{-1}$. 
 
-\Cref{fig:toy-example} shows the quanta concentration at different time points. The quanta concentration increases over time and is higher near the infectious individual in the room's centre. After the individual has left the room, the quanta diffuses fairly quickly and a well-mixed airspace is already at 9:05\,am. Over time, the removal through outdoor air exchange and bacterial inactivation brings the concentration in the entire room back towards zero. 
+\Cref{fig:toy-example} shows the spatiotemporal quanta concentration. The quanta concentration increases over time and is higher near the infectious individual in the room's centre (\Cref{fig:toy-example}a, top panel). After the individual has left the room, the quanta diffuses within minutes and most quanta is removed by 10\,am (\Cref{fig:toy-example}a, bottom panel) through outdoor air exchange. Spatial variation in the quanta concentration peaks at 9\,am, right before the infectious individual leaves the space, and then it takes about 15\,min until the a well-mixed airspace has been reached through quanta diffusion (\Cref{fig:toy-example}b). 
 
 \begin{figure}[!htpb]
     \centering
     \includegraphics{tests/stm_v2-toy_example.png}
-    \includegraphics[tests/]{}
-    \caption{Spatiotemporal quanta concentration in an indoor space between 8\,am and 10\,am following the generation of quanta by an infectious individual between 8\,am and 9\,am in the room's centre.}
+    \includegraphics{tests/stm_v2-toy_example-B.png}
+    \caption[Example: Spatiotemporal quanta concentration in an indoor space]{\textbf{Example: Spatiotemporal quanta concentration in an indoor space between 8\,am and 10\,am following the generation of quanta by an infectious individual between 8\,am and 9\,am in the room's centre}. \textbf{(a)}~Spatial quanta concentration at selected time points and \textbf{(b)}~quanta concentration over time per cell of the indoor space.}
     \label{fig:toy-example}
 \end{figure}
 
