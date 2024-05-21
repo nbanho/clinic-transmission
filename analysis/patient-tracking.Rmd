@@ -29,6 +29,10 @@ source("preprocessing/prep_building-rasterize.R")
 ### Tracking
 
 ```{r}
+tracking_dates <- c(
+  "2021-10-13", "2021-10-15", "2021-10-25", "2021-11-04", "2021-11-05"
+)
+
 # spatial track counts
 tracking_data <- do.call(
   rbind,
@@ -384,7 +388,7 @@ save_plot(
 
 ```{r}
 # unique id
-df$day_pid <- paste(df$date, df$patient_id)
+df$day_pid <- paste("Date:", df$date, " |  ID:", df$patient_id)
 
 # random sample tracks
 ex_pid <- df %>%
@@ -406,15 +410,15 @@ ex_df_se <- ex_df %>%
 
 # manual sample of tracks
 ex_pid_man <- c(
-  "2021-10-25 4649", # Entered + Exited, including TB room stay
-  "2021-10-13 6297", # Lost Exit, only waiting room
-  "2021-11-04 12860", # (Entered) + Exited, waiting room and corridor
-  "2021-10-13 9346", # Entered + Exited, including TB room
-  "2021-11-05 16625", # Entered + (Exited), only waiting room
-  "2021-10-25 9526", # Lost Exit, waiting room and corridor
-  "2021-11-04 9841", # Entered = (Exited), waiting room and corridor
-  "2021-10-15 8644", # Entered + Exited, including TB room
-  "2021-10-15 9419" # Lost Enter
+  "Date: 2021-10-25  |  ID: 4649", # Entered + Exited, including TB room stay
+  # "2021-10-13 6297", # Lost Exit, only waiting room
+  # "2021-11-04 12860", # (Entered) + Exited, waiting room and corridor
+  # "2021-10-13 9346", # Entered + Exited, including TB room
+  # "2021-11-05 16625", # Entered + (Exited), only waiting room
+  "Date: 2021-10-25  |  ID: 9526", # Lost Exit, waiting room and corridor
+  "Date: 2021-11-04  |  ID: 9841", # Entered = (Exited), waiting room and corridor
+  "Date: 2021-10-15  |  ID: 8644" # Entered + Exited, including TB room
+  # "2021-10-15 9419" # Lost Enter
 )
 ex_df_man <- df %>% filter(day_pid %in% ex_pid_man)
 ex_df_man_se <- ex_df_man %>%
@@ -436,7 +440,7 @@ ex_tracks <- plot_spatial(
       mapping = aes(x = x, y = y, shape = type),
       size = 2
     ) +
-    facet_wrap(~day_pid, ncol = 3) +
+    facet_wrap(~day_pid, ncol = 2) +
     scale_shape_manual(values = c(1, 13)),
   text_descr = 8
 ) +
