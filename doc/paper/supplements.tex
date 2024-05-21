@@ -244,7 +244,7 @@
 \nolinenumbers
 
 \title{\LARGE\singlespacing{\textbf{Supplementary Information} \\ \medskip
-A novel spatiotemporal model to estimate \emph{Mycobacterium tuberculosis} transmission risks in crowded indoor settings using environmental, clinical, and patient movement data}}
+Estimating \emph{Mycobacterium} tuberculosis transmission in a South African clinic: Spatiotemporal model}}
 
 % author list
 \author[1]{Nicolas Banholzer}
@@ -299,7 +299,7 @@ Person-tracking data required processing because many tracks were interrupted, f
 
 We reconnected tracks that most likely belonged to the same person. First, we automatically matched tracks that were less than 10\,s and 3\,m apart while moving or less than 60\,s and 0.5\,m apart while sitting. Second, we manually reconnected the remaining tracks if they were likely from the same person. For that purpose, we developed a Shiny app and a matching manual (\url{https://github.com/nbanho/clinic-transmission/wiki/Matching-Manual}) to assist the students performing the matching. 
 
-The Shiny app is shown in \Cref{fig:shiny-app}. In the center panel, a floor plan of the clinic is shown in (x,y)-space. Different areas of the clinic are delineated by colors, \eg seating areas are marked in purple and exit areas are marked in blue. Tracks are shown as lines with a open and crossed circles indicating the tracks' start and end, respectively. The currently selected track is shown in black, possible links in colors, and alternatives for the selected possible link in light grey. 
+The Shiny app is shown in \Cref{fig:shiny-app}. In the centre panel, a floor plan of the clinic is shown in (x,y)-space. Different areas of the clinic are delineated by colours, \eg seating areas are marked in purple and exit areas are marked in blue. Tracks are shown as lines with a open and crossed circles indicating the tracks' start and end, respectively. The currently selected track is shown in black, possible links in colours, and alternatives for the selected possible link in light grey. 
 
 Below the floor plan, a table is showing descriptive information about the possible links in relation to the currently selected track: (1)~the patient ID of the selected track (Pid) and the observation ID of possible links (Oid), (2)~the height difference at the end point of Pid and the start point of Oid, (3)~ the standing height (\ie maximum height during the entire track) difference, (4)~the duration of Oid, (5)~the time difference, and (6)~the distance between the end point of Pid and the start of point of Oid. Possible links are sorted in ascending order by the time difference. 
 
@@ -333,9 +333,9 @@ We obtained 3,319 tracks after preprocessing. Further exclusion of short tracks 
 
 \clearpage
 
-\section{Spatiotemporal modeling approach}\label{sec:spattemp-model}
+\section{Spatiotemporal modelling approach}\label{sec:spattemp-model}
 
-\subsection{The Wells-Riley modeling framework}
+\subsection{The Wells-Riley modelling framework}
 
 We build upon the Wells-Riley model\cite{Riley1961Book}, which is an established epidemiological model to estimate the risk of infection. The model estimates the risk (probability) of airborne indoor transmission $P$ using the following equation: 
 \begin{align}
@@ -343,7 +343,7 @@ We build upon the Wells-Riley model\cite{Riley1961Book}, which is an established
 \end{align}
 where $C$ is the number of diseased cases, $S$ is the number of susceptible cases, $I$ is the number of infectious people in the indoor space, $p$ is the breathing rate (m$^3$ h$^{-1}$), $q$ is the quantum (infectious dose) generation rate (quanta h$^{-1}$), $t$ is the exposure time (s), and $Q$ is the ventilation rate (m$^3$ h$^{-1}$).
 
-The unknown parameter $q$ is not the actual number of infectious particles in the air. It rather represents the dose of infectious particles that corresponds to a certain probability of infection with a Poisson relationship, \eg one quantum corresponds to $P = 1 - \exp (1) = 63\%$ risk of infection\cite{Rudnick2003IndoorAir}. It is an attempt to consider the stochastic behavior of airborne transmission, since the number of infectious particles that cause an infection is unknown. Moreover, the risk of transmission depends on the environment, characteristics of the pathogen, and characteristics of the individual. For example, the type of respiratory activity (\eg breathing, coughing, or sneezing) determines the site in the respiratory tract where the exhaled particles are generated, which in turn influences the particle size distribution\cite{Wei2016AMJIC}. Smaller particles reach deeper into the lungs of the susceptible person\cite{Wang2021Science}, which increases the probability of infection. 
+The unknown parameter $q$ is not the actual number of infectious particles in the air. It rather represents the dose of infectious particles that corresponds to a certain probability of infection with a Poisson relationship, \eg one quantum corresponds to $P = 1 - \exp (1) = 63\%$ risk of infection\cite{Rudnick2003IndoorAir}. It is an attempt to consider the stochastic behaviour of airborne transmission, since the number of infectious particles that cause an infection is unknown. Moreover, the risk of transmission depends on the environment, characteristics of the pathogen, and characteristics of the individual. For example, the type of respiratory activity (\eg breathing, coughing, or sneezing) determines the site in the respiratory tract where the exhaled particles are generated, which in turn influences the particle size distribution\cite{Wei2016AMJIC}. Smaller particles reach deeper into the lungs of the susceptible person\cite{Wang2021Science}, which increases the probability of infection. 
 
 While considering the stochastic behaviour of airborne transmission, the Wells-Riley model makes two simplifying assumptions. First, it assumes a well-mixed airspace, which means that the generated quanta disperse immediately and uniformly in the indoor airspace. In other words, the exposure to infectious quanta is the same regardless of the location of the infectious and susceptible individual. Second, the Wells-Riley model assumes steady-state conditions, which means that the quanta concentration and the outdoor air supply rate are constant over time. In other words, the risk of infection for each susceptible only varies with the duration of exposure (the time spent in the indoor space). 
 
@@ -353,13 +353,13 @@ Rudnick and Milton\cite{Rudnick2003IndoorAir} modified the Wells-Riley model to 
 \end{align}
 where $f = \frac{CO^{\text{I}}-CO^{\text{O}}}{CO^{\text{A}}}$ is the fraction of indoor air that is exhaled breath, which is computed based on the CO$_2$ level in indoor air $CO^{\text{I}}$, outdoor air $CO^{\text{O}}$, and exhaled breath $CO^{\text{A}}$ (in parts per million [ppm], respectively). 
 
-The extension by Rudnick and Milton still assumes a well-mixed airspace. We relax this assumption by modeling spatial variation in the concentration of infectious quanta. We then compute the risk of infection for susceptible individuals using the Wells-Riley equation considering their cumulative exposure to infectious quanta over space and time as 
+The extension by Rudnick and Milton still assumes a well-mixed airspace. We relax this assumption by modelling spatial variation in the concentration of infectious quanta. We then compute the risk of infection for susceptible individuals using the Wells-Riley equation considering their cumulative exposure to infectious quanta over space and time as 
 \begin{equation}\label{eq:spattemp-P}
     P = \sum_s \sum_t N_{c,t} \cdot \mathbb{I}_{c,t} \cdot p,
 \end{equation}
 where $N$ is the quanta concentration in the indoor space area $c$ at time $t$ (in quanta/$m^3$), $\mathbb{I}$ is a binary variable indicating whether the susceptible individual was in $c$ at $t$, and $p$ is the breathing rate. 
 
-Modeling of the spatiotemporal quanta concentration can be divided into three processes
+Modelling of the spatiotemporal quanta concentration can be divided into three processes
 \begin{itemize}
     \item[\ref{sec:quanta-generation}] \textbf{Quanta generation}: Infectious particles are generated at the infectious individual's location. 
     \item[\ref{sec:quanta-diffusion}] \textbf{Quanta diffusion}: Pathogen-carrying particles spread in the indoor space. 
@@ -369,7 +369,7 @@ We describe each process in more detail in the following, but first we introduce
 
 \subsection{Model setup and notation}
 
-We divide the airspace into a 2-dimensional grid with cells $c = 1, \dots, C$, where $(x_c, y_c)$ refer to the center of cell $c$. The grid provides a discrete approximation to the continuously varying quanta concentration in the indoor space, with the number of grid cells $C = n_x \cdot n_y$ determining the spatial resolution. We denote the following variables and modeling parameters:
+We divide the airspace into a 2-dimensional grid with cells $c = 1, \dots, C$, where $(x_c, y_c)$ refer to the centre of cell $c$. The grid provides a discrete approximation to the continuously varying quanta concentration in the indoor space, with the number of grid cells $C = n_x \cdot n_y$ determining the spatial resolution. We denote the following variables and modelling parameters:
 \begin{itemize}
     \item $N_{c,t}$: quanta concentration in airspace unit $c = 1, \dots, C$ at time $t = 1, \dots T$ (in seconds)
     \item $I_{c,t}$: number of infectious individuals in airspace unit $c$ at time $t$
@@ -401,9 +401,9 @@ Absent measurements of airflow, we assume that aerosols diffuse uniformly in the
 \end{align}
 where $\Delta$ is the Laplace operator and $D$ is the diffusion constant. We solve this equation with a standard second-order finite difference model using the Euler method with a 5-point stencil. 
 
-The diffusion constant $D$ is unknown. We approximate it using an empirical relationship between the eddy diffusion coefficient $K$ ($K \approx D$) and the outdoor air exchange rate $AER$ for CO$_2$ particles\cite{Cheng2011EnvSciTech,Foat2020BE}
+The diffusion constant $D$ is unknown. We approximate it using an empirical relationship between the eddy diffusion coefficient $K$ ($K \approx D$ in m$^2$\,s$^{-1}$) and the outdoor air exchange rate $AER$ for CO$_2$ particles\cite{Cheng2011EnvSciTech,Foat2020BE}
 \begin{align}
-    K = (0.52 \cdot AER + 8.61\cdot10^{-5}) \cdot V^{\frac{2}{3}},
+    K = (0.52 \cdot AER + 8.61\cdot10^{-5} \cdot \text{s}^{-1}) \cdot V^{\frac{2}{3}},
 \end{align}
 where $V$ is the volume of the airspace (in m$^3$). We thus assume that pathogen-carrying particles spread with a similar speed than CO$_2$ particles, which likely overestimates the diffusion constant, because CO$_2$ particles are smaller than \emph{Mtb}-carrying particles.
 
@@ -415,7 +415,7 @@ where $n$ is the number of people in the airspace, $G$ is the average CO$_2$ gen
 \begin{align}
     CO_{t+1}^{\text{I}} = \frac{6\cdot10^4 \cdot n_t + G}{Q} \cdot \left(1 - \exp(-Q/V \Delta t)\right) + (CO_t^{\text{I}}-CO^{\text{O}}) \cdot \exp(-Q/V \Delta t) + CO^{\text{O}},
 \end{align}
-where $Q$ is the outdoor air supply rate (in m$^3$/h) and $AER = Q/V$. We numerically solve the transient mass balance model with the limited memory Broyden–Fletcher–Goldfarb–Shanno algorithm (L-BFGS), a quasi-Newton method, as implemented in the statistical software R\cite{Byrd1995SIAM}. The optimal solution is the outdoor air supply rate $Q$ that minimizes the root mean square error. We also follow recommendations to fit the outdoor CO$_2$ level with reasonable constraints on $CO^{\text{O}} = [300,600]$\cite{Batterman2017IJERPH}. We can compute $AER$ over different time windows, hence the index in $AER_t$.
+where $Q$ is the outdoor air supply rate (in m$^3$\,s$^{-1}$ $\cdot \frac{1}{3600}$ ) and $AER = Q/V$. We numerically solve the transient mass balance model with the limited memory Broyden–Fletcher–Goldfarb–Shanno algorithm (L-BFGS), a quasi-Newton method, as implemented in the statistical software R\cite{Byrd1995SIAM}. The optimal solution is the outdoor air supply rate $Q$ that minimizes the root mean square error. We also follow recommendations to fit the outdoor CO$_2$ level with reasonable constraints on $CO^{\text{O}} = [300,600]$\,ppm\cite{Batterman2017IJERPH}. We can compute $AER$ over different time windows, hence the index in $AER_t$.
 
 \subsection{Quanta removal}\label{sec:quanta-removal}
 
@@ -428,19 +428,20 @@ Infectious quanta may be removed from the air through outdoor air exchange, bact
 
 Combining \Cref{eq:generation}, \Cref{eq:diffusion}, and \Cref{eq:removal}, the quanta concentration at time $t$ in the indoor space can be computed as
 \begin{align}\label{eq:spattemp-N}
-    \underbrace{N_{t}}_{\text{new concn.}} = \underbrace{\left(D \Delta (\underbrace{N_{t-1}}_{\text{prev. concn.}} + \underbrace{I_t \cdot q}_{\text{generation}})\right)}_{\text{diffusion}} \cdot \underbrace{\exp\left(-(AER_t + \lambda)\right)}_{\text{removal}} ~.
+    \underbrace{N_{t}}_{\text{new concn.}} = \underbrace{\left(D \Delta (\underbrace{N_{t-1}}_{\text{prev. concn.}} + \underbrace{I_t \cdot q \cdot 1\text{s}}_{\text{generation}}) \cdot 1\text{s}\right)}_{\text{diffusion}} \cdot \underbrace{\exp\left(-(AER_t + \lambda) \cdot 1\text{s}\right)}_{\text{removal}} ~.
 \end{align}
 
 \subsection{Illustrative example}\label{sec:example}
 
-We illustrate our modeling approach with an example. Consider a room with a volume $V$=150\,m$^3$ (length = 10\,m, breadth = 5\,m, height = 3\,m), which we rasterize into a grid of $C = 40 \cdot 20 = 800$\,cells with an area of 0.25\,m$^2$. We assume that quanta generation is confined to the cell where the infectious individual is located as well as the first neighbouring cells. We monitor the room from 8\,am to 12\,am and consider one infectious individual generating quanta continuously for one hour between 8\,am and 9\,am in the middle of the room (cell (20,10)), which means that quanta is generated in cells $(x_c = 20\pm1, y_c = 10\pm1)$. We assume a quanta generation rate of $q = 10$\,quanta h$^{-1}$ and a bacterial inactivation rate of $\lambda = 0.5$\,quanta h$^{-1}$. We further assume a constant outdoor air exchange rate of $AER = 1$\,air changes h$^{-1}$, translating into a quanta removal rate of $1 + 0.5 = 1.5$\,quanta h$^{-1}$ and corresponding to a diffusion constant of 0.007\,m$^2$ s$^{-1}$. 
+We illustrate our modelling approach with an example. Consider a room with a volume $V$=150\,m$^3$ (length = 10\,m, breadth = 5\,m, height = 3\,m), which we rasterize into a grid of $C = 40 \cdot 20 = 800$\,cells with an area of (0.25\,m)$^2$. We assume that quanta generation is confined to the cell where the infectious individual is located as well as the first neighbouring cells. We monitor the room from 8\,am to 12\,am and consider one infectious individual generating quanta continuously for one hour between 8\,am and 9\,am in the middle of the room (cell (20,10)), which means that quanta is generated in cells $(x_c = 20\pm1, y_c = 10\pm1)$. We assume a quanta generation rate of $q = 10$\,quanta h$^{-1}$ and a bacterial inactivation rate of $\lambda = 0$\,quanta h$^{-1}$. We further assume a constant outdoor air exchange rate of $AER = 3$\,air changes h$^{-1}$, translating into a quanta removal rate of 3\,quanta h$^{-1}$ and corresponding to a diffusion constant of 0.007\,m$^2$ s$^{-1}$. 
 
-\Cref{fig:toy-example} shows the quanta concentration at different time points. The quanta concentration increases over time and is higher near the infectious individual in the room's center. After the individual has left the room, the quanta diffuses fairly quickly and a well-mixed airspace is already at 9:05\,am. Over time, the removal through outdoor air exchange and bacterial inactivation brings the concentration in the entire room back towards zero. 
+\Cref{fig:toy-example} shows the quanta concentration at different time points. The quanta concentration increases over time and is higher near the infectious individual in the room's centre. After the individual has left the room, the quanta diffuses fairly quickly and a well-mixed airspace is already at 9:05\,am. Over time, the removal through outdoor air exchange and bacterial inactivation brings the concentration in the entire room back towards zero. 
 
 \begin{figure}[!htpb]
     \centering
     \includegraphics{tests/stm_v2-toy_example.png}
-    \caption{Spatiotemporal quanta concentration in an indoor space between 8\,am and 10\,am following the generation of quanta by an infectious individual between 8\,am and 9\,am in the room's center.}
+    \includegraphics[tests/]{}
+    \caption{Spatiotemporal quanta concentration in an indoor space between 8\,am and 10\,am following the generation of quanta by an infectious individual between 8\,am and 9\,am in the room's centre.}
     \label{fig:toy-example}
 \end{figure}
 
@@ -451,25 +452,25 @@ We illustrate our modeling approach with an example. Consider a room with a volu
 
 \subsection{Setup and setting}\label{prep:building}
 
-We divide the clinic into three spaces: the waiting room (length = 10.55\,m $\times$ breadth = 5.50\,m $\times$ height = 3.00\,m), the corridor (length = 12.45\,m $\times$ breadth = 2.20\,m $\times$ height = 2.50\,m), and the TB room (length = 4.75\,m $\times$ breadth = 3.50\,m $\times$ height = 3.00\,m). We rasterize each room into a grid of cubic cells with a squared area of 0.25\,m$^2$, corresponding to a diagonal length of $\sqrt{0.25^2 + 0.25^2} = 0.35$\,m. 
+We divide the clinic into three spaces: the waiting room (length = 10.55\,m $\times$ breadth = 5.50\,m $\times$ height = 3.00\,m), the corridor (length = 12.45\,m $\times$ breadth = 2.20\,m $\times$ height = 2.50\,m), and the TB room (length = 4.75\,m $\times$ breadth = 3.50\,m $\times$ height = 3.00\,m). We rasterize each room into a grid of cubic cells with a squared area of (0.25\,m)$^2$, corresponding to a diagonal length of $\sqrt{0.25^2 + 0.25^2} = 0.35$\,m. 
 
-Although the door between the waiting room and corridor was usually not closed, we consider these rooms as separate spaces to facilitate modeling and because we observed differences in room occupancy and time-varying CO$_2$ levels. Nevertheless, we acknowledge the possibility for aerosolized \emph{Mtb} (quanta) to spread from the waiting room to the corridor, and vice versa, which is not considered in our simulations.  
+Although the door between the waiting room and corridor was usually not closed, we consider these rooms as separate spaces to facilitate modelling and because we observed differences in room occupancy and time-varying CO$_2$ levels. Nevertheless, we acknowledge the possibility for aerosolized \emph{Mtb} (quanta) to spread from the waiting room to the corridor, and vice versa, which is not considered in our simulations.  
 
 We model the spatiotemporal quanta concentration during clinic hours from 8\,am to 4\,pm and compare the modeled concentration by daytime, \ie morning (8\,am to 12\,am) and afternoon (12\,am to 4\,pm). Correspondingly, we estimate the outdoor air exchange rate by daytime, considering potential differences in ventilation conditions between the morning and afternoon. We update the quanta concentration every second from $t = 1, \dots, T$, in line with the frequency of the person-tracking data. We set the quanta concentration at $t=0$ to zero, \ie $N_{c,0} = 0 ~~ \forall c$, assuming that all quanta from the previous day has been removed from the air before the start of the following clinical day. 
 
 
 \subsection{Monte Carlo simulation}
 
-We use Monte Carlo simulation to estimate the risk of infection, considering uncertainty in several modeling parameters. Each simulation consists of the following steps:
+We use Monte Carlo simulation to estimate the risk of infection, considering uncertainty in several modelling parameters. Each simulation consists of the following steps:
 \begin{itemize}
-    \item[1.] \textbf{Sample uncertain modeling parameters}: Undiagnosed TB patients among clinic attendees, quanta generation rate, the mask reduction rate, and the bacterial inactivation rate.
+    \item[1.] \textbf{Sample uncertain modelling parameters}: Undiagnosed TB patients among clinic attendees, quanta generation rate, the mask reduction rate, and the bacterial inactivation rate.
     \item[2.] \textbf{Compute quanta concentration}: Based on the generation of infectious quanta by diagnosed and undiagnosed TB patients, we compute the quanta concentration in each room per unit space (cell) over time.
     \item[3.] \textbf{Estimate risk of infection}: Based on their spatiotemporal quanta exposure, we estimate the risk of infection for each clinic attendee using the Wells-Riley equation.
 \end{itemize}
 
 Many clinic attendees are potential undiagnosed TB patients and prior uncertainty in the quanta generation, mask reduction, and bacterial inactivation rate is large. To reflect this uncertainty, we perform 5,000 Monte Carlo simulations and compute the individual risk of infection as the mean across these simulations.  
 
-\subsection{Modeling assumptions}\label{sec:priors}
+\subsection{Modelling assumptions}\label{sec:priors}
 
 \subsubsection{Initial spread}
 
@@ -558,11 +559,11 @@ The generation, dispersion, and survival of infectious particles in the air is s
 
 \subsection{Environmental factors}
 
-Environmental factors are somewhat considered by our model using CO$_2$ as a tracer gas to estimate the air exchange rate, based on which we model quanta diffusion and removal. The combination of clinical and person-tracking data further allows the spatial modeling of quanta generation. This makes our approach unique compared to existing modeling based on the Wells-Riley equation assuming a well-mixed airspace\cite{Riley1961Book,Rudnick2003IndoorAir}. In our spatiotemporal model, we assume a radial diffusion of quanta, which may not reflect the actual airflow at the primary care clinic. The spatial dispersion of infectious particles is often simulated with computational fluid dynamics (CFD) models\cite{Vuorinen2020SafSci,Jung2021InfectChemo,Li2021BuildEnv}. CFD models can simulate a variety of diffusion patterns, which help researchers understanding the influence of airflow. For example, measuring airflow can identify poorly ventilated indoor spaces where infectious particles circulate inside the room rather than getting replaced with fresh outdoor air\cite{Li2021BuildEnv}. However, airflow is rarely considered in modeling because it is difficult to assess in a naturally ventilated space, such as our primary care clinic, where the airflow depends on the outdoor wind direction and which doors and windows are open. 
+Environmental factors are somewhat considered by our model using CO$_2$ as a tracer gas to estimate the air exchange rate, based on which we model quanta diffusion and removal. The combination of clinical and person-tracking data further allows the spatial modelling of quanta generation. This makes our approach unique compared to existing modelling based on the Wells-Riley equation assuming a well-mixed airspace\cite{Riley1961Book,Rudnick2003IndoorAir}. In our spatiotemporal model, we assume a radial diffusion of quanta, which may not reflect the actual airflow at the primary care clinic. The spatial dispersion of infectious particles is often simulated with computational fluid dynamics (CFD) models\cite{Vuorinen2020SafSci,Jung2021InfectChemo,Li2021BuildEnv}. CFD models can simulate a variety of diffusion patterns, which help researchers understanding the influence of airflow. For example, measuring airflow can identify poorly ventilated indoor spaces where infectious particles circulate inside the room rather than getting replaced with fresh outdoor air\cite{Li2021BuildEnv}. However, airflow is rarely considered in modelling because it is difficult to assess in a naturally ventilated space, such as our primary care clinic, where the airflow depends on the outdoor wind direction and which doors and windows are open. 
 
 \subsection{Pathogen-specific factors}
 
-Survival and dispersion of aerosols are further determined by the physicochemical properties of virus-laden aerosols such as particle size, viral load, and other chemical components\cite{Wang2021Science}. Currently, these stochastic properties are only indirectly incorporated in the Wells-Riley modeling framework via the quanta generation rate parameter\cite{Riley1961Book,Rudnick2003IndoorAir}. It is challenging to consider these properties specifically, especially because they can be modified by environmental factors with often unclear, pathogen-specific effects\cite{Songer1967,Chan2011AdvVir,Fernstrom2013JoP,Cox1995Book,Fernstrom2013JoP,Tang2009Interface}. For example, survival of bacteria in aerosols decreases with temperatures $>$24$^{\circ}$C, but the effects of humidity are unclear\cite{Tang2009Interface}. On the one hand, a comparison between two studies suggested that longer airborne survival of \emph{Mtb} could be attributed to lower relative humidity\cite{Loudon1969AMRRD,Lever2000LettersAppliedMicrobio}. On the other hand, airborne \emph{Mtb} was more likely detected in healthcare facilitates with higher relative humidity\cite{Sornboot2019IJTLD,Matuka2021IJERP}. Ambient carbon dioxide levels may further influence aerostability\cite{Haddrell2024NatCommun}.    
+Survival and dispersion of aerosols are further determined by the physicochemical properties of virus-laden aerosols such as particle size, viral load, and other chemical components\cite{Wang2021Science}. Currently, these stochastic properties are only indirectly incorporated in the Wells-Riley modelling framework via the quanta generation rate parameter\cite{Riley1961Book,Rudnick2003IndoorAir}. It is challenging to consider these properties specifically, especially because they can be modified by environmental factors with often unclear, pathogen-specific effects\cite{Songer1967,Chan2011AdvVir,Fernstrom2013JoP,Cox1995Book,Fernstrom2013JoP,Tang2009Interface}. For example, survival of bacteria in aerosols decreases with temperatures $>$24$^{\circ}$C, but the effects of humidity are unclear\cite{Tang2009Interface}. On the one hand, a comparison between two studies suggested that longer airborne survival of \emph{Mtb} could be attributed to lower relative humidity\cite{Loudon1969AMRRD,Lever2000LettersAppliedMicrobio}. On the other hand, airborne \emph{Mtb} was more likely detected in healthcare facilitates with higher relative humidity\cite{Sornboot2019IJTLD,Matuka2021IJERP}. Ambient carbon dioxide levels may further influence aerostability\cite{Haddrell2024NatCommun}.    
 
 \subsection{Patient-specific factors}
 
