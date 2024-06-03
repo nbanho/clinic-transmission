@@ -38,7 +38,7 @@ aer <- readRDS("data-clean/environmental/air-change-rate.rds") %>%
 # data
 mth <- 10
 dy <- 25
-sim <- 1
+sim <- 2
 param_1025 <- readRDS(
   paste0(
     "simulations/", "/", "sim-param-",
@@ -442,74 +442,6 @@ main_annon <- annotate_average_trans_risk(main_tr)
 main_annon
 ```
 
-```{r}
-main_tr <- main_tr %>%
-  mutate(P_unc = P80 - P20)
-
-hr_lu_pt <- main_tr %>%
-  filter(P_unc < .25 / 100, P_mean > 0.25 / 100) %>%
-  head(1)
-
-main_focus_pl <- main_tr %>%
-  ggplot(aes(x = P_unc, y = P_mean)) +
-  geom_point(shape = 4) +
-  annotate(
-    "point",
-    x = hr_lu_pt$P_unc,
-    y = hr_lu_pt$P_mean,
-    size = 7,
-    shape = 1,
-    color = "red"
-  ) +
-  annotate(
-    geom = "segment",
-    x = hr_lu_pt$P_unc + .00002,
-    y = hr_lu_pt$P_mean + .0004,
-    xend = hr_lu_pt$P_unc + .00008,
-    yend = hr_lu_pt$P_mean + .004,
-    arrow = arrow(length = unit(0.1, "cm")),
-    color = "red"
-  ) +
-  annotate(
-    geom = "text",
-    x = hr_lu_pt$P_unc + .00008,
-    y = hr_lu_pt$P_mean + .004,
-    label = "Moderate risk,\nlow uncertainty",
-    hjust = -.1,
-    size = 6.5 / cm(1),
-    color = "red"
-  ) +
-  scale_y_continuous(
-    expand = expansion(mult = c(0.01, 0.01)),
-    limits = c(0, .01),
-    breaks = seq(0, .01, .0025),
-    labels = function(x) round_k(100 * x, 3)
-  ) +
-  scale_x_continuous(
-    expand = expansion(mult = c(0.01, 0.01)),
-    limits = c(0, .002),
-    breaks = seq(0, .002, .0005),
-    labels = function(x) round_k(100 * x, 3)
-  ) +
-  labs(
-    x = "Uncertainty (80%-CrI, pp)",
-    y = "Mean risk of infection (%)"
-  ) +
-  theme_bw2() +
-  theme(
-    plot.title.position = "plot",
-    plot.title = element_text(size = 10, face = 2),
-    plot.margin = margin(.5, .5, .5, .5, "cm")
-  )
-
-save_plot(
-  main_focus_pl,
-  "results/modeling/patient-risk-focus-plot.png",
-  w = 12,
-  h = 10
-)
-```
-
 ### Association
 
 ```{r}
@@ -574,11 +506,6 @@ track_ft <- left_join(
   )
 
 assoc_df <- track_ft %>%
-  # left_join(
-  #   aer %>%
-  #     filter(room == "Waiting room") %>%
-  #     dplyr::select(date, daytime, aer)
-  # ) %>%
   mutate(patient_id = paste(
     lubridate::month(date),
     lubridate::day(date),
@@ -621,35 +548,8 @@ amod_est %>%
     mean = mean(value),
     upper = quantile(value, .975)
   ) %>%
-  mutate(across(c(lower, mean, upper), ~ round_k(.x, 2)))
-```
-
-## Comparison with temporal model
-
-```{r}
-# files
-files_temp <- list.files("simulations/temporal/",
-  full.names = TRUE, pattern = "trans-risk",
-  recursive = TRUE
-)
-
-temp_tr <- map_dfr(files_temp, average_trans_risk)
-temp_annon <- annotate_average_trans_risk(temp_tr)
-
-# comparison with temporal model
-mod_comp <- left_join(
-  temp_tr %>%
-    dplyr::select(patient_id, P_mean) %>%
-    rename(`Temporal model` = P_mean),
-  main_tr %>%
-    dplyr::select(patient_id, P_mean) %>%
-    mutate(`Spatiotemporal model` = P_mean)
-) %>%
-  mutate(
-    ratio = abs(`Spatiotemporal model` - `Temporal model`) / `Temporal model` * 100
-  )
-
-summary(mod_comp$ratio)
+  mutate(across(c(lower, mean, upper), ~ round_k(.x, 2))) %>%
+  dplyr::select(variable, mean, lower, upper)
 ```
 
 
@@ -759,7 +659,7 @@ mean_roi_comp_pl <- ggplot(
     size = 8 / cm(1),
     hjust = 1, vjust = 2
   ) +
-  facet_wrap(~scenario, ncol = 2) +
+  facet_wrap(~scenario, ncol = 2, scales = "free_x") +
   scale_fill_manual(values = wes_palette("Darjeeling1")[c(2, 3, 1)]) +
   coord_cartesian(expand = FALSE) +
   scale_x_continuous(
@@ -782,7 +682,8 @@ mean_roi_comp_pl <- ggplot(
     legend.title = element_blank(),
     legend.key.height = unit(.6, "cm"),
     legend.key.width = unit(.4, "cm"),
-    strip.text = element_text(hjust = 0)
+    strip.text = element_text(hjust = 0),
+    panel.spacing = unit(.5, "cm")
   )
 
 save_plot(
