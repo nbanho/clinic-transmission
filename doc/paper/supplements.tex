@@ -334,7 +334,7 @@ We build upon the Wells-Riley model\cite{Riley1961Book}, which is an established
 \begin{align}
     P = \frac{C}{S} = 1 - \exp \left(-\frac{Ipqt}{Q}\right),
 \end{align}
-where $C$ is the number of diseased cases, $S$ is the number of susceptible cases, $I$ is the number of infectious people in the indoor space, $p$ is the breathing rate (m$^3$ h$^{-1}$), $q$ is the quantum (infectious dose) generation rate (quanta h$^{-1}$), $t$ is the exposure time (s), and $Q$ is the ventilation rate (m$^3$ h$^{-1}$).
+where $C$ is the number of diseased cases, $S$ is the number of susceptible cases, $I$ is the number of infectious people in the indoor space, $p$ is the breathing rate (m$^3$\,h$^{-1}$), $q$ is the quantum (infectious dose) generation rate (quanta\,h$^{-1}$), $t$ is the exposure time (s), and $Q$ is the ventilation rate (m$^3$\,h$^{-1}$).
 
 The unknown parameter $q$ is not the actual number of infectious particles in the air. It rather represents the dose of infectious particles that corresponds to a certain probability of infection with a Poisson relationship, \eg one quantum corresponds to $P = 1 - \exp (1) = 63\%$ risk of infection\cite{Rudnick2003IndoorAir}. It is an attempt to consider the stochastic behaviour of airborne transmission, since the number of infectious particles that cause an infection is unknown. Moreover, the risk of transmission depends on the environment, characteristics of the pathogen, and characteristics of the individual. For example, the type of respiratory activity (\eg breathing, coughing, or sneezing) determines the site in the respiratory tract where the exhaled particles are generated, which in turn influences the particle size distribution\cite{Wei2016AMJIC}. Smaller particles reach deeper into the lungs of the susceptible person\cite{Wang2021Science}, which increases the probability of infection. 
 
@@ -350,7 +350,7 @@ The extension by Rudnick and Milton still assumes a well-mixed airspace. We rela
 \begin{equation}\label{eq:spattemp-P}
     P = \sum_s \sum_t N_{c,t} \cdot \mathbb{I}_{c,t} \cdot p,
 \end{equation}
-where $N$ is the quanta concentration in the indoor space area $c$ at time $t$ (in quanta/$m^3$), $\mathbb{I}$ is a binary variable indicating whether the susceptible individual was in $c$ at $t$, and $p$ is the breathing rate. 
+where $N$ is the quanta concentration in the indoor space area $c$ at time $t$ (in quanta\,$m^3$), $\mathbb{I}$ is a binary variable indicating whether the susceptible individual was in $c$ at $t$, and $p$ is the breathing rate (in m$^3$\,h$^{-1}$). 
 
 Modelling of the spatiotemporal quanta concentration can be divided into three processes
 \begin{itemize}
@@ -376,6 +376,7 @@ We divide the airspace into a 2-dimensional grid with cells $c = 1, \dots, C$, w
     \item $n_t$: number of individuals in the airspace at time $t$
     \item $\lambda$: bacterial inactivation rate (quanta s$^{-1}$)
     \item $k$: gravitational settling rate (quanta s$^{-1}$)
+    \item $p$: breathing rate (m$^3$\,h$^{-1}$)
 \end{itemize}
 
 \subsection{Quanta generation}\label{sec:quanta-generation}
@@ -428,13 +429,13 @@ Combining \Cref{eq:generation}, \Cref{eq:diffusion}, and \Cref{eq:removal}, the 
 
 We illustrate our modelling approach with an example. Consider a room with a volume $V$=150\,m$^3$ (length = 10\,m, breadth = 5\,m, height = 3\,m), which we rasterize into a grid of $C = 40 \cdot 20 = 800$\,cells with an area of (0.25\,m)$^2$. We assume that quanta generation is confined to the cell where the infectious individual is located as well as the first neighbouring cells. We monitor the room from 8\,am to 12\,am and consider one infectious individual generating quanta continuously for one hour between 8\,am and 9\,am in the middle of the room (cell (20,10)), which means that quanta is generated in cells $(x_c = 20\pm1, y_c = 10\pm1)$. We assume a quanta generation rate of $q = 2$\,quanta h$^{-1}$ and a bacterial inactivation rate of $\lambda = 0$\,quanta h$^{-1}$. We further assume a constant outdoor air exchange rate of $AER = 1$\,air changes h$^{-1}$, translating into a quanta removal rate of 1\,quanta h$^{-1}$ and corresponding to a diffusion constant of 0.015\,m$^2$ s$^{-1}$. 
 
-\Cref{fig:toy-example} shows the spatiotemporal quanta concentration. The quanta concentration increases over time and is higher near the infectious individual in the room's centre (\Cref{fig:toy-example}a, top panel). After the individual has left the room, the quanta diffuses within minutes and most quanta is removed by 10\,am (\Cref{fig:toy-example}a, bottom panel) through outdoor air exchange. Spatial variation in the quanta concentration peaks at 9\,am, right before the infectious individual leaves the space, and then it takes about 15\,min until the a well-mixed airspace has been reached through quanta diffusion (\Cref{fig:toy-example}b). 
+\Cref{fig:toy-example} shows the spatiotemporal quanta concentration. The quanta concentration increases over time and is higher near the infectious individual in the room's centre (\Cref{fig:toy-example}a, top panel). After the individual has left the room, the quanta diffuses within minutes and most quanta is removed by 10\,am (\Cref{fig:toy-example}a, bottom panel) through outdoor air exchange. Spatial variation in the quanta concentration peaks at 9\,am, right before the infectious individual leaves the space, and then it takes about 15\,min until a well-mixed airspace has been reached through quanta diffusion (\Cref{fig:toy-example}b). 
 
 \begin{figure}[!htpb]
     \centering
     \includegraphics{tests/stm_v2-toy_example.png}
     \includegraphics{tests/stm_v2-toy_example-B.png}
-    \caption[Example: Spatiotemporal quanta concentration in an indoor space]{\textbf{Example: Spatiotemporal quanta concentration in an indoor space between 8\,am and 10\,am following the generation of quanta by an infectious individual between 8\,am and 9\,am in the room's centre}. \textbf{(a)}~Spatial quanta concentration at selected time points and \textbf{(b)}~quanta concentration over time per cell of the indoor space.}
+    \caption[Example: Spatiotemporal quanta concentration in an indoor space]{\textbf{Example: Spatiotemporal quanta concentration in an indoor space between 8\,am and 10\,am following the generation of quanta by an infectious individual between 8\,am and 9\,am in the room's centre}. \textbf{(a)}~Spatial quanta concentration at selected time points and \textbf{(b)}~quanta concentration over time for the 800~cells into which the indoor space was divided.}
     \label{fig:toy-example}
 \end{figure}
 
@@ -472,7 +473,7 @@ The initial spread, referred to as the propagation distance, is the maximum dist
 
 \subsubsection{Quanta generation rate}
 
-Previous studies estimated the quanta generation rate of \emph{Mtb} using the Wells-Riley model\cite{Andrews2014JID,Riley1962ARRD,Escombe2008PLoSMed,Nardell1991ARRD,Dharmadhikari2012AJRCCM}. Andrews et al.\cite{Andrews2014JID} reported an estimate of 0.89\,(quanta h$^{-1}$) (range from 0.44 to 5.69), close to the early estimate provided by Riley et al.\cite{Riley1962ARRD} with 1.25\,quanta h$^{-1}$. On the other end, Escombe et al.\cite{Escombe2008PLoSMed} arrived at an average estimate of 8.2\,quanta h$^{-1}$, which, however, could be as high as 226\,quanta h$^{-1}$. Lower rates were observed in non-multidrug-resistant (MDR), smear-negative patients and considerably higher ones in MDR, smear-positive TB patients\cite{Escombe2008PLoSMed}. Dharmadhikari et al.\cite{Dharmadhikari2012AJRCCM} also estimated a high average rate of 138\,quanta h$^{-1}$ in MDR TB patients, and Nardell et al.\cite{Nardell1991ARRD} reported an estimate of 13\,quanta h$^{-1}$ for a single index case. The wide range of estimates within and between studies suggest that the emitted quanta varies considerably with the infectiousness of \emph{Mtb} patients\cite{Wurie2016BMJ}. To consider such variation, Mikszewski et al.\cite{Mikszewski2021GF} used the bacterial load distribution in sputum to estimate the quanta generation rate with the approach developed by Buonanno et al.\cite{Buonanno2020EI}. We have recently adopted this approach to derive quanta generation rate distributions for different activity levels in a school setting\cite{Banholzer2024PGPH}. Here, we follow the same approach to derive a quanta generation rate distribution for sitting and walking activities, assuming 80\% breathing and 20\% speaking during both activities. The resulting prior distributions are shown in \Cref{fig:quanta-distribution} along with the estimates from the literature. The quanta generation rate follows a lognormal prior distribution with median 1.08\,quanta h$^{-1}$ (95\%-credible interval [CrI] 0.003\,quanta h$^{-1}$\,$-$\,386\,quanta h$^{-1}$) while sitting and 2.81\,quanta h$^{-1}$ (95\%-CrI 0.008\,quanta h$^{-1}$\,$-$\,987\,quanta h$^{-1}$) while walking. The activity is determined based on whether the the person had moved by more or less than 0.25\,m (spatial distance between two recorded tracks of the same person). 
+Previous studies estimated the quanta generation rate of \emph{Mtb} using the Wells-Riley model\cite{Andrews2014JID,Riley1962ARRD,Escombe2008PLoSMed,Nardell1991ARRD,Dharmadhikari2012AJRCCM}. Andrews et al.\cite{Andrews2014JID} reported an estimate of 0.89\,(quanta h$^{-1}$) (range from 0.44 to 5.69), close to the early estimate provided by Riley et al.\cite{Riley1962ARRD} with 1.25\,quanta h$^{-1}$. On the other end, Escombe et al.\cite{Escombe2008PLoSMed} arrived at an average estimate of 8.2\,quanta h$^{-1}$, which, however, could be as high as 226\,quanta h$^{-1}$. Lower rates were observed in non-multidrug-resistant (MDR), smear-negative patients and considerably higher ones in MDR, smear-positive TB patients\cite{Escombe2008PLoSMed}. Dharmadhikari et al.\cite{Dharmadhikari2012AJRCCM} also estimated a high average rate of 138\,quanta h$^{-1}$ in MDR TB patients, and Nardell et al.\cite{Nardell1991ARRD} reported an estimate of 13\,quanta h$^{-1}$ for a single index case. The wide range of estimates within and between studies suggest that the emitted quanta varies considerably with the infectiousness of \emph{Mtb} patients\cite{Wurie2016BMJ}. To consider such variation, Mikszewski et al.\cite{Mikszewski2021GF} used the bacterial load distribution in sputum to estimate the quanta generation rate with the approach developed by Buonanno et al.\cite{Buonanno2020EI}. We have recently adopted this approach to derive quanta generation rate distributions for different activity levels in a school setting\cite{Banholzer2024PGPH}. Here, we follow the same approach to derive a quanta generation rate distribution for sitting and walking activities, assuming 80\% breathing and 20\% speaking during both activities. The resulting prior distributions are shown in \Cref{fig:quanta-distribution} along with the estimates from the literature. The quanta generation rate follows a lognormal prior distribution with median 1.08\,quanta h$^{-1}$ (95\%-credible interval [CrI] 0.003\,quanta h$^{-1}$\,$-$\,386\,quanta h$^{-1}$) while sitting and 2.81\,quanta h$^{-1}$ (95\%-CrI 0.008\,quanta h$^{-1}$\,$-$\,987\,quanta h$^{-1}$) while walking. The activity is determined based on whether the person had moved by more or less than 0.25\,m (spatial distance between two recorded tracks of the same person). 
 
 \begin{figure}[!htpb]
     \centering
@@ -509,18 +510,11 @@ Undiagnosed (subclinical) TB patients may go undetected because they do not show
 
 \subsubsection{Breathing rate}
 
-Adams (1993)\cite{Adams1993} reports breathing rates for different activity levels. We use the average breathing rate for the following activity levels: sitting with $p = 0.51$\,m$^3$ h$^{-1}$ and walking (slowly at 2.5 mph) with $p = 1.33$\,m$^3$ h$^{-1}$. 
+Adams (1993)\cite{Adams1993} reports breathing rates for different activity levels. We use the average breathing rate for the following activity levels: sitting with $p = 0.51$\,m$^3$\,h$^{-1}$ and walking (slowly at 2.5 mph) with $p = 1.33$\,m$^3$\,h$^{-1}$. 
 
 \clearpage
 
 \section{Additional results}\label{sec:additional-results}
-
-% \begin{figure}[!htpb]
-%     \centering
-%     \includegraphics{results/data/diagnosed-tb-patients.png}
-%     \caption{Number of diagnosed TB patients (dark bars) and those suspected of TB (light bars) following symptom screening. Modeled study days in color, other clinic days in October and November in grey.}
-%     \label{fig:diagnosed-tb-patients}
-% \end{figure}
 
 \begin{figure}[!htpb]
     \centering
@@ -528,13 +522,6 @@ Adams (1993)\cite{Adams1993} reports breathing rates for different activity leve
     \caption{CO$_2$ levels by clinic area over time for each study day.}
     \label{fig:co2-levels}
 \end{figure}
-
-% \begin{figure}
-%     \centering
-%     \includegraphics{results/modeling/patient-risk-focus-plot.png}
-%     \caption{Mean and 80\%-CrI (uncertainty) of the risk of infection per clinic visit. Highlighted in red is a visit from a clinic attendee with moderate risk of infection and low estimated uncertainty.}
-%     \label{fig:patient-risk-focus}
-% \end{figure}
 
 \begin{figure}[!htpb]
     \centering
