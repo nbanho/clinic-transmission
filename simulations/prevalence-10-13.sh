@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name="Prevalence"
-#SBATCH --time=7-02:00:00
+#SBATCH --job-name="prevalence_10_13"
+#SBATCH --time=02:00:00
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=1G
