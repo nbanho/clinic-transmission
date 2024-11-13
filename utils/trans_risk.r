@@ -127,6 +127,8 @@ IR <- function(activity, sex) {
 #' IR ratios for different physical activity levels and weight the VER by the proportion
 #' of breathing and speaking. We use the average IRs across men and women.
 #'
+#' @return quanta emission rate in quanta h-1
+#'
 #' @references
 #' - Mikszewski: Mikszewski et al. (2022) in Geoscience frontiers (doi.org/10.1016/j.gsf.2021.101285)
 #' - Adams: Adams (1993) [Report] Measurement of Breathing Rate and Volume in Routinely Performed Daily Activities.
@@ -173,6 +175,9 @@ bact_load.mtb <- function(n) rlnorm(n, log(10^5.5), log(10^1.3)) # CFU mL-1
 #' Viral inactivation rate
 #'
 #' @param n number of samples
+#' @param disease default and currently only option is TB
+#'
+#' @return inactivation rate in h-1
 #'
 #' @details
 #' Based on a crude approximation to various estimates in the literature (see references).
@@ -187,6 +192,32 @@ rlambda <- function(n, disease = "TB") {
   rlnorm(n, meanlog = log(1), sdlog = 1)
 }
 
+#' Deposition rate due to gravitational settling
+#'
+#' @param n number of samples
+#' @param disease default and currently only option is TB
+#' @param height default 1.7m
+#'
+#' @details
+#' Assuming a settling velocity of 3.5 x 10^−5 − 1.5 x 10^−3 m s−1
+#' for Mtb particles in the size range of 1 to 7mum,
+#' which is modelled with a Gamma distribution,
+#' using the central estimate of the settling velocity and
+#' computing the standard deviation from the .
+#'
+#' @return deposition rate in h-1
+#'
+#' @references
+#' - Vuorinen et al. (2020) in Saf Sci. (doi:10.1016/j.ssci.2020.104866).
+
+rk <- function(n, disease = "TB", height = 1.7) {
+  u <- 1.5e-3
+  l <- 3.5e-5
+  m <- (u + l) / 2
+  s <- (u - l) / (2 * qnorm(0.975))
+  gamma_par <- inv_gamma_moments(m, s)
+  (rgamma(n, shape = gamma_par$shape, rate = gamma_par$rate)) / height * 3600
+}
 
 #' Compute air change rate using transient mass balance method
 #'

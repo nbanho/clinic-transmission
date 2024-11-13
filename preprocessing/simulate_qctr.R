@@ -285,7 +285,7 @@ for (sim in cont_n:term_n) {
         vol = prod(roomDim),
         aer = aer_df$aer[aer_df$room == room & aer_df$daytime == "Morning"] / 3600,
         lambda = sim_param$viral_inact[sim_param$sim == sim] / 3600,
-        deposit = 0
+        deposit = sim_param$settling_rate[sim_param$sim == sim] / 3600
       )
     } else if (mod == "temp") {
       ct_morn <- tm(
@@ -294,7 +294,7 @@ for (sim in cont_n:term_n) {
         inf = dplyr::select(track_tb_morn, -time, -activity),
         aer = aer_df$aer[aer_df$room == room & aer_df$daytime == "Morning"] / 3600,
         lambda = sim_param$viral_inact[sim_param$sim == sim] / 3600,
-        deposit = 0
+        deposit = sim_param$settling_rate[sim_param$sim == sim] / 3600
       )
     } else {
       stop("Model does not exist")
@@ -348,7 +348,7 @@ for (sim in cont_n:term_n) {
         vol = prod(roomDim),
         aer = aer_df$aer[aer_df$room == room & aer_df$daytime == "Afternoon"] / 3600,
         lambda = sim_param$viral_inact[sim_param$sim == sim] / 3600,
-        deposit = 0
+        deposit = sim_param$settling_rate[sim_param$sim == sim] / 3600
       )
     } else if (mod == "temp") {
       ct_noon <- tm(
@@ -357,7 +357,7 @@ for (sim in cont_n:term_n) {
         inf = dplyr::select(track_tb_noon, -time, -activity),
         aer = aer_df$aer[aer_df$room == room & aer_df$daytime == "Afternoon"] / 3600,
         lambda = sim_param$viral_inact[sim_param$sim == sim] / 3600,
-        deposit = 0
+        deposit = sim_param$settling_rate[sim_param$sim == sim] / 3600
       )
     } else {
       stop("Model does not exist")

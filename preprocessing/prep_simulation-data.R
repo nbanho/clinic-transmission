@@ -4,6 +4,7 @@ library(tidyverse)
 library(parallel)
 library(lubridate)
 
+source("utils/distr.r")
 source("utils/spatial.r")
 source("utils/trans_risk.r")
 
@@ -148,13 +149,17 @@ for (d in dates) {
     # viral inactivation rate
     lambda <- rlambda(n)
 
+    # gravitational settling rate
+    dpr <- rk(n)
+
     # combine into tibble
     sim_param <- tibble(
       sim = 1:n,
       q_wait = q_wait,
       q_walk = q_walk,
       mask_red = q_masking_red,
-      viral_inact = lambda
+      viral_inact = lambda,
+      settling_rate = dpr
     )
   }
 
