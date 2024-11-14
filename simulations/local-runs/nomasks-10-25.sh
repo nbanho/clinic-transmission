@@ -1,0 +1,1 @@
+R CMD BATCH --'args cont_n=1 term_n=5000 mth="10" dy="25" aname="nomasks" cellSize=250 is_masking=0 fixed_aer=0 who_is_tb="du" mod="spattemp" sel_rooms="clinic" save_quanta=FALSE' simulations/simulate_qctr.R
