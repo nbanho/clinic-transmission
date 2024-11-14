@@ -1,63 +1,31 @@
 #### Command line ###
+eval(parse(text = paste(commandArgs(trailingOnly = TRUE), collapse = ";")))
 
-# all command line arguments
-args <- commandArgs(trailingOnly = TRUE)
+#' cont_n: start of simulation (integer)
+#' term_n: end of simulation (integer)
+#' mth: month (character)
+#' dy: day (character)
+#' aname: name of simulation (character)
+#' cellSize: grid cell size in px (integer)
+#' is_masking: 1 or 0 if mask were worn (integer)
+#' fixed_aier: 0 to use empirical ones, >0 to set a fixed one (numeric)
+#' who_is_tb: population-level prevalence (character)
+#' - du: use diagnosed and undiagnosed TB patients
+#' - ds: use diagnosed and suspsected TB patients
+#' - pu: use population-level prevalence to sample from undiagnosed TB patients
+#' mod: temp for temporal or spattemp for spatiotemporal model (character)
+#' sel_rooms: single room or entire clinic (character)
+#' - clinic: all rooms
+#' - war: only waiting room
+#' - tbr: only tb room
+#' - cor: only corridor
+#' save_quanta: whether to save quanta concentration (boolean)
 
-# start simulation
-#' e.g. if the previous simulation was interrupted
-#' 1 means to start from beginning
-cont_n <- as.numeric(args[1])
-
-# end simulation
-term_n <- as.numeric(args[2])
-
-# month
-mth <- args[3]
-
-# day
-dy <- args[4]
-
-# analysis name
-aname <- args[5]
 adir <- paste0("simulations/", aname, "/")
 if (!dir.exists(adir)) {
   dir.create(adir)
 }
 
-# grid cell length
-cellSize <- as.numeric(args[6]) # in px
-
-#' without mask wearing
-#' 0: without mask-wearing
-#' 1: with masking
-is_masking <- as.numeric(args[7])
-
-#' fixed air chnage rate
-#' >0: fixed AER replacing empirical one(s)
-#' 0: use empirical one(s)
-fixed_aer <- as.numeric(args[8])
-
-#' population-level prevalence
-#' du: use diagnosed and undiagnosed TB patients
-#' ds: use diagnosed and suspsected TB patients
-#' pu: use population-level prevalence to sample from undiagnosed TB patients
-#' for population-level prevalence in SA, see Moyo et al, 2022, Lancet ID, doi:10.1016/S1473-3099(22)00149-9
-who_is_tb <- args[9]
-
-#' type of model
-#' temp: temporal model (no spatial diffusion, assuming well-mixed airspace)
-#' spattemp: spatiotemporal model (including spatial diffusion, no well-mixed airspace)
-mod <- args[10]
-
-#' daytime
-#' TODO: Should the number of undiagnosed patients be adpated if the clinic was only open for half a day?
-
-#' single room
-#' clinic: all rooms
-#' war: waiting room
-#' tbr: tb room
-#' cor: corridor
-sel_rooms <- args[11]
 if (sel_rooms == "clinic") {
   sel_rooms <- c("Waiting room", "TB room", "Corridor")
 } else if (sel_rooms == "war") {
@@ -69,9 +37,6 @@ if (sel_rooms == "clinic") {
 } else {
   stop("Invalid rooms argument.")
 }
-
-# save quanta concentration
-save_quanta <- ifelse(args[12] == "T", TRUE, FALSE)
 
 # file containing simulation parameters
 param_file <- paste0(
@@ -98,7 +63,6 @@ if (!dir.exists(sim_path_to_file)) {
 #### Libraries ####
 
 library(tidyverse)
-library(parallel)
 library(lubridate)
 
 source("utils/spatial.r")
@@ -126,8 +90,8 @@ source("preprocessing/prep_building-rasterize.R")
 
 #### Tracking data ####
 
-if (file.exists(track_file)) { # check if file with that cell size already exists
-
+if (file.exists(track_file)) {
+  # check if file with that cell size already exists
   track <- readRDS(track_file)
 } else {
   stop("Track file does not exist.")
@@ -136,15 +100,18 @@ if (file.exists(track_file)) { # check if file with that cell size already exist
 
 #### TB patients ####
 
+# always consider HCW as non-infectious
 track_undiag <- track %>%
-  dplyr::filter(tracking_end != "Possible HCW") # always consider HCW as non-infectious
+  dplyr::filter(tracking_end != "Possible HCW")
 
 if (who_is_tb == "du") {
   # diagnosed
   track_diag <- dplyr::filter(track, is_infectious)
 
   # undiagnosed
-  track_undiag <- dplyr::filter(track_undiag, !is_infectious | is.na(is_infectious))
+  track_undiag <- dplyr::filter(
+    track_undiag, !is_infectious | is.na(is_infectious)
+  )
 } else if (who_is_tb == "ds") {
   # diagnosed and suspected
   track_diag <- dplyr::filter(track, is_infectious | was_suspected)
@@ -188,7 +155,10 @@ for (sim in cont_n:term_n) {
   # TB patient tracks
   track_tb_all <- rbind(
     track_diag,
-    filter(track_undiag, patient_id %in% sim_param[[paste0("undiagTB", "_", who_is_tb)]][[sim]])
+    filter(
+      track_undiag,
+      patient_id %in% sim_param[[paste0("undiagTB", "_", who_is_tb)]][[sim]]
+    )
   )
 
   # no TB patient tracks but including HCW
@@ -204,7 +174,12 @@ for (sim in cont_n:term_n) {
   } else {
     track_susc_all <- rbind(
       filter(track, tracking_end == "Possible HCW"),
-      filter(track_undiag, !(patient_id %in% sim_param[[paste0("undiagTB", "_", who_is_tb)]][[sim]]))
+      filter(
+        track_undiag,
+        !(patient_id %in% sim_param[[
+          paste0("undiagTB", "_", who_is_tb)
+        ]][[sim]])
+      )
     )
   }
 

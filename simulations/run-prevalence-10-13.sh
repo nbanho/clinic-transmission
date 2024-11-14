@@ -7,5 +7,5 @@
 #SBATCH --partition=epyc2
 
 # Your code below this line
-Rscript preprocessing/simulate_qctr.R 1 10 10 13 prevalence 250 1 0 pu spattemp clinic T || exit 91
+R CMD BATCH --'args cont_n=1 term_n=10 mth="10" dy="13" aname="prevalence" cellSize=250 is_masking=1 fixed_aer=0 who_is_tb="pu" mod="spattemp" sel_rooms="clinic" save_quanta=TRUE' simulations/simulate_qctr.R 
 echo "Script finished"
