@@ -7,39 +7,35 @@ library(grid)
 
 if (file.exists("../utils/spatial.r")) {
   source("../utils/spatial.r")
-  clinic_img <- png::readPNG("../data-raw/building/clinic_clipped.png")
-  building <- terra::vect(paste("../data-raw", "building", "clinic-vector.gpkg", sep = "/"))
+  clinic_img <- png::readPNG(
+    "../data-raw/building/clinic_clipped.png"
+  )
+  building <- terra::vect(
+    paste("../data-raw", "building", "clinic-vector.gpkg", sep = "/")
+  )
 } else {
   source("utils/spatial.r")
-  clinic_img <- png::readPNG("data-raw/building/clinic_clipped.png")
-  building <- terra::vect(paste("data-raw", "building", "clinic-vector.gpkg", sep = "/"))
+  clinic_img <- png::readPNG(
+    "data-raw/building/clinic_clipped.png"
+  )
+  building <- terra::vect(
+    paste("data-raw", "building", "clinic-vector.gpkg", sep = "/")
+  )
 }
 
 building_sf <- sf::st_as_sf(building, crs = NA)
 sf::st_crs(building_sf) <- NA
 
 # rasterize
-
-if (!exists("cellSize")) {
-  stop("No local cellSize variable found")
-}
-
-rasterize.rooms <- function(cellSize) {
-  waiting_room <- shapeToSpatial(building_sf$geometry[2], cellSize)
-  passage <- shapeToSpatial(building_sf$geometry[4], cellSize)
-  tb_room <- shapeToSpatial(building_sf$geometry[3], cellSize)
-  return(list(waiting_room = waiting_room, corridor = passage, tb_room = tb_room))
-}
-
-rooms <- rasterize.rooms(cellSize)
-waiting_room <- rooms$waiting_room
+cellSize <- 250
+waiting_room <- shapeToSpatial(building_sf$geometry[2], cellSize)
+corridor <- shapeToSpatial(building_sf$geometry[4], cellSize)
+tb_room <- shapeToSpatial(building_sf$geometry[3], cellSize)
 wrMat <- sP_to_matrix(waiting_room)
-wrCoord <- create_coord_df(waiting_room)
-corridor <- rooms$corridor
 cdMat <- sP_to_matrix(corridor)
-cdCoord <- create_coord_df(corridor)
-tb_room <- rooms$tb_room
 tbMat <- sP_to_matrix(tb_room)
+wrCoord <- create_coord_df(waiting_room)
+cdCoord <- create_coord_df(corridor)
 tbCoord <- create_coord_df(tb_room)
 roomCoord <- rbind(
   wrCoord %>% mutate(room = "Waiting room"),
@@ -47,13 +43,33 @@ roomCoord <- rbind(
   tbCoord %>% mutate(room = "TB room")
 )
 
-# room dimensions
-# - waiting room
-dimWR <- c(10.55, 5.7, 3) # (length x width x height in m)
-# - corridor
+# room dimensions (in m)
+dimWR <- c(10.55, 5.7, 3)
 dimCD <- c(7.7, 2.2, 2.5)
-# - TB room
 dimTB <- c(4.75, 3.5, 3)
+
+# room volumes
+volWR <- prod(dimWR)
+volCD <- prod(dimCD)
+volTB <- prod(dimTB)
+
+# save building data for simulations
+building_dat <- list(
+  room_mat_list = list(
+    "Waiting room" = wrMat,
+    "Corridor" = cdMat,
+    "TB room" = tbMat
+  ),
+  room_volumes = c(
+    "Waiting room" = volWR,
+    "Corridor" = volCD,
+    "TB room" = volTB
+  )
+)
+saveRDS(
+  building_dat,
+  "data-clean/building/clinic-room-data.rds"
+)
 
 # plotting
 
@@ -82,8 +98,3 @@ plot_spatial <- function(pl, text_descr = 10) {
       panel.grid.minor = element_blank()
     )
 }
-
-# room data frames
-# waiting_room_df <- fortify(waiting_room)
-# passage_df <- fortify(passage)
-# tb_room_df <- fortify(tb_room)
