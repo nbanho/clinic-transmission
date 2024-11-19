@@ -26,8 +26,8 @@ for (s in 1:length(scenarios)) {
     )
     hpc_settings <- sprintf(
       "#!/bin/bash
-#SBATCH --job-name=\"%s\"_\"%s\"_\"%s\"
-#SBATCH --time=24:00:00
+#SBATCH --job-name=\"%s%s%s\"
+#SBATCH --time=23:00:00
 #SBATCH --ntasks=8
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=3G
