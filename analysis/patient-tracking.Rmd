@@ -19,7 +19,6 @@ library(reshape2)
 
 source("utils/plotting.r")
 source("utils/spatial.r")
-cellSize <- 250
 source("preprocessing/prep_building-rasterize.R")
 ```
 
@@ -32,6 +31,7 @@ source("preprocessing/prep_building-rasterize.R")
 tracking_dates <- c(
   "2021-10-13", "2021-10-15", "2021-10-25", "2021-11-04", "2021-11-05"
 )
+abbr_dates <- format(as.Date(tracking_dates), format = "%b %d")
 
 # spatial track counts
 tracking_data <- do.call(
@@ -91,13 +91,6 @@ df_filt <- filter(
   df,
   paste(date, patient_id) %in% df_matched$patient_id
 )
-```
-
-### Building
-
-```{r}
-cellSize <- 250
-source("preprocessing/prep_building-rasterize.R")
 ```
 
 
@@ -298,7 +291,10 @@ track_count_time <- track_count_time %>%
       as.character(date),
       levels = c("Oct 13", "Oct 15", "Oct 25", "Nov 04", "Nov 05")
     ),
-    time = as.POSIXct(format(date_time, format = "%H:%M:%S"), format = "%H:%M:%S")
+    time = as.POSIXct(format(
+      date_time,
+      format = "%H:%M:%S"
+    ), format = "%H:%M:%S")
   )
 
 
@@ -346,6 +342,56 @@ save_plot(
   time_pl,
   pdf_file = "results/data/no-people-over-time.png",
   w = 8, h = 8
+)
+
+time_by_day_pl <- track_count_time %>%
+  mutate(
+    time = as.POSIXct(
+      format(date_time, format = "%H:%M:%S"),
+      format = "%H:%M:%S"
+    ),
+    mthdy = factor(
+      as.character(format(date, format = "%b %d")),
+      levels = abbr_dates
+    ),
+    time = floor_date(time, "10 minutes")
+  ) %>%
+  group_by(mthdy, time, room) %>%
+  summarize(n = mean(n)) %>%
+  ungroup() %>%
+  mutate(room = factor(
+    room,
+    levels = c("Waiting room", "Corridor", "TB room")
+  )) %>%
+  ggplot(aes(x = time, y = n, color = mthdy)) +
+  geom_step() +
+  facet_wrap(~room, ncol = 1) +
+  scale_y_continuous(
+    limits = c(0, NA),
+    expand = expansion(add = c(0, 1))
+  ) +
+  scale_x_datetime(
+    expand = expansion(add = c(0, 600)),
+    date_breaks = "4 hours",
+    date_labels = "%H:%M"
+  ) +
+  scale_color_manual(values = wes_palette("Moonrise3")) +
+  labs(
+    y = "Number of people"
+  ) +
+  theme_custom(8) +
+  theme(
+    axis.title.x = element_blank(),
+    legend.title = element_blank(),
+    legend.position = "bottom",
+    legend.key.width = unit(0.275, "cm"),
+    legend.key.height = unit(0.2, "cm")
+  )
+
+save_plot(
+  time_by_day_pl,
+  pdf_file = "results/data/no-people-over-time-by-day.png",
+  w = 16, h = 18
 )
 ```
 

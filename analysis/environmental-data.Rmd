@@ -86,9 +86,17 @@ co2_pl <- cont_df %>%
   )) %>%
   ggplot(aes(x = time, y = co2, color = mthdy)) +
   geom_step() +
-  facet_wrap(~room) +
-  coord_cartesian(expand = FALSE) +
-  scale_x_datetime(date_breaks = "4 hours", date_labels = "%H:%M") +
+  facet_wrap(~room, ncol = 1) +
+  scale_y_continuous(
+    limits = c(350, 700),
+    breaks = seq(350, 700, 100),
+    expand = expansion(add = c(0, 0))
+  ) +
+  scale_x_datetime(
+    expand = expansion(add = c(0, 1200)),
+    date_breaks = "4 hours",
+    date_labels = "%H:%M"
+  ) +
   scale_color_manual(values = wes_palette("Moonrise3")) +
   labs(
     y = expression("CO"[2] * " (parts per million, ppm)")
@@ -105,7 +113,7 @@ co2_pl <- cont_df %>%
 save_plot(
   co2_pl,
   pdf_file = "results/data/co2-levels-over-time.png",
-  w = 16, h = 10
+  w = 16, h = 18
 )
 ```
 
