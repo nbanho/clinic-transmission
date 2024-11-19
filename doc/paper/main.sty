@@ -233,18 +233,18 @@
 
 \usepackage{zref-xr,zref-user}
 \zexternaldocument*{supplements}
-\newcommand{\supp}{Supplementary}
+\newcommand{\supp}{S1 Appendix}
 
 % referencing of unnumbered materials and methods
 \newcounter{methods}
 \renewcommand{\themethods}{Materials and methods}
 
 % Track changes
-% \usepackage[markup=underlined]{changes}
-% \makeatletter
-% \@namedef{Changes@AuthorColor}{magenta}
-% \colorlet{Changes@Color}{magenta}
-% \makeatother
+\usepackage{changes}
+\makeatletter
+\@namedef{Changes@AuthorColor}{magenta}
+\colorlet{Changes@Color}{magenta}
+\makeatother
 
 
 %=====================================================================% Declare
