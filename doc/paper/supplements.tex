@@ -236,14 +236,14 @@
 \renewcommand{\thesection}{Text \arabic{section}}
 \usepackage{titlesec}
 %\titleformat{\section}{\normalfont\Large\bfseries}{Text \thesection.~#1}{1em}{}
-\renewcommand{\thefigure}{S\arabic{figure}}
-\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\thefigure}{\Alph{figure}}
+\renewcommand{\thetable}{\Alph{table}}
 
 \begin{document}
 \doublespacing
 \nolinenumbers
 
-\title{\LARGE\singlespacing{\textbf{Supplementary Information} \\ \medskip
+\title{\LARGE\singlespacing{\textbf{S1 Appendix} \\ \medskip
 Estimating \emph{Mycobacterium} tuberculosis transmission in a South African clinic: Spatiotemporal model based on person movements}}
 
 % author list
@@ -295,7 +295,7 @@ Estimating \emph{Mycobacterium} tuberculosis transmission in a South African cli
 
 \section{Processing of person-tracking data}\label{sec:setting-and-data}
 
-Person-tracking data required processing because many tracks were interrupted, for example, if the person i)~moved outside the range of the video sensors and then re-entered, ii)~bowed heavily downwards, or iii)~was temporarily hidden behind another person or obstacle. In addition, moving objects such as opening doors may have been recognized as a person, introducing many extremely short tracks (total duration of less than 10\,s and distance less than 2\,m), which were removed.
+Person-tracking data required processing because many tracks were interrupted, for example, if the person i)~moved outside the range of the video sensors and then re-entered, ii)~bowed heavily downwards, or iii)~was temporarily hidden behind another person or obstacle. In addition, moving objects such as opening doors may have been recognised as a person, introducing many extremely short tracks (total duration of less than 10\,s and distance less than 2\,m), which were removed.
 
 We reconnected tracks that most likely belonged to the same person. First, we automatically matched tracks that were less than 10\,s and 3\,m apart while moving or less than 60\,s and 0.5\,m apart while sitting. Second, we manually reconnected the remaining tracks if they were likely from the same person. For that purpose, we developed a Shiny application and a matching manual (\url{https://github.com/nbanho/clinic-transmission/wiki/Matching-Manual}) to assist the students performing the matching. 
 
@@ -409,7 +409,7 @@ where $n$ is the number of people in the airspace, $G$ is the average CO$_2$ gen
 \begin{align}
     CO_{t+1}^{\text{I}} = \frac{6\cdot10^4 \cdot n_t + G}{Q} \cdot \left(1 - \exp(-Q/V \Delta t)\right) + (CO_t^{\text{I}}-CO^{\text{O}}) \cdot \exp(-Q/V \Delta t) + CO^{\text{O}},
 \end{align}
-where $Q$ is the outdoor air supply rate (in m$^3$\,s$^{-1}$ $\cdot \frac{1}{3600}$ ) and $AER = Q/V$. We numerically solve the transient mass balance model with the limited memory Broyden–Fletcher–Goldfarb–Shanno algorithm (L-BFGS), a quasi-Newton method, as implemented in the statistical software R\cite{Byrd1995SIAM}. The optimal solution is the outdoor air supply rate $Q$ that minimizes the root mean square error. We also follow recommendations to fit the outdoor CO$_2$ mixing ratio with reasonable constraints on $CO^{\text{O}} = [300,600]$\,ppm\cite{Batterman2017IJERPH}. We can compute $AER$ over different time windows, hence the index in $AER_t$.
+where $Q$ is the outdoor air supply rate (in m$^3$\,s$^{-1}$ $\cdot \frac{1}{3600}$ ) and $AER = Q/V$. We numerically solve the transient mass balance model with the limited memory Broyden–Fletcher–Goldfarb–Shanno algorithm (L-BFGS), a quasi-Newton method, as implemented in the statistical software R\cite{Byrd1995SIAM}. The optimal solution is the outdoor air supply rate $Q$ that minimises the root mean square error. We also follow recommendations to fit the outdoor CO$_2$ mixing ratio with reasonable constraints on $CO^{\text{O}} = [300,600]$\,ppm\cite{Batterman2017IJERPH}. We can compute $AER$ over different time windows, hence the index in $AER_t$.
 
 \subsection{Quanta removal}\label{sec:quanta-removal}
 
@@ -427,7 +427,7 @@ Combining \Cref{eq:generation}, \Cref{eq:diffusion}, and \Cref{eq:removal}, the 
 
 \subsection{Illustrative example}\label{sec:example}
 
-We illustrate our modelling approach with an example. Consider a room with a volume $V$=150\,m$^3$ (length = 10\,m, breadth = 5\,m, height = 3\,m), which we rasterize into a grid of $C = 40 \cdot 20 = 800$\,cells with an area of (0.25\,m)$^2$. We assume that quanta generation is confined to the cell where the infectious individual is located as well as the first neighbouring cells. We monitor the room from 8\,am to 12\,am and consider one infectious individual generating quanta continuously for one hour between 8\,am and 9\,am in the middle of the room (cell (20,10)), which means that quanta is generated in cells $(x_c = 20\pm1, y_c = 10\pm1)$. We assume a quanta generation rate of $q = 2$\,quanta h$^{-1}$ and a bacterial inactivation rate of $\lambda = 0$\,quanta h$^{-1}$. We further assume a constant outdoor air exchange rate of $AER = 1$\,air changes h$^{-1}$, translating into a quanta removal rate of 1\,quanta h$^{-1}$ and corresponding to a diffusion constant of 0.015\,m$^2$ s$^{-1}$. 
+We illustrate our modelling approach with an example. Consider a room with a volume $V$=150\,m$^3$ (length = 10\,m, breadth = 5\,m, height = 3\,m), which we rasterise into a grid of $C = 40 \cdot 20 = 800$\,cells with an area of (0.25\,m)$^2$. We assume that quanta generation is confined to the cell where the infectious individual is located as well as the first neighbouring cells. We monitor the room from 8\,am to 12\,am and consider one infectious individual generating quanta continuously for one hour between 8\,am and 9\,am in the middle of the room (cell (20,10)), which means that quanta is generated in cells $(x_c = 20\pm1, y_c = 10\pm1)$. We assume a quanta generation rate of $q = 2$\,quanta h$^{-1}$ and a bacterial inactivation rate of $\lambda = 0$\,quanta h$^{-1}$. We further assume a constant outdoor air exchange rate of $AER = 1$\,air changes h$^{-1}$, translating into a quanta removal rate of 1\,quanta h$^{-1}$ and corresponding to a diffusion constant of 0.015\,m$^2$ s$^{-1}$. 
 
 \Cref{fig:toy-example} shows the spatiotemporal quanta concentration. The quanta concentration increases over time and is higher near the infectious individual in the room's centre (\Cref{fig:toy-example}a, top panel). After the individual has left the room, the quanta diffuses within minutes and most quanta is removed by 10\,am (\Cref{fig:toy-example}a, bottom panel) through outdoor air exchange. Spatial variation in the quanta concentration peaks at 9\,am, right before the infectious individual leaves the space, and then it takes about 15\,min until a well-mixed airspace has been reached through quanta diffusion (\Cref{fig:toy-example}b). 
 
@@ -446,9 +446,9 @@ We illustrate our modelling approach with an example. Consider a room with a vol
 
 \subsection{Setup and setting}\label{prep:building}
 
-We divide the clinic into three spaces: the waiting room (length = 10.55\,m $\times$ breadth = 5.50\,m $\times$ height = 3.00\,m), the corridor (length = 12.45\,m $\times$ breadth = 2.20\,m $\times$ height = 2.50\,m), and the TB room (length = 4.75\,m $\times$ breadth = 3.50\,m $\times$ height = 3.00\,m). We rasterize each room into a grid of cubic cells with a squared area of (0.25\,m)$^2$, corresponding to a diagonal length of $\sqrt{0.25^2 + 0.25^2} = 0.35$\,m. 
+We divide the clinic into three spaces: the waiting room (length = 10.55\,m $\times$ breadth = 5.50\,m $\times$ height = 3.00\,m), the corridor (length = 12.45\,m $\times$ breadth = 2.20\,m $\times$ height = 2.50\,m), and the TB room (length = 4.75\,m $\times$ breadth = 3.50\,m $\times$ height = 3.00\,m). We rasterise each room into a grid of cubic cells with a squared area of (0.25\,m)$^2$, corresponding to a diagonal length of $\sqrt{0.25^2 + 0.25^2} = 0.35$\,m. 
 
-Although the door between the waiting room and corridor was usually not closed, we consider these rooms as separate spaces to facilitate modelling and because we observed differences in room occupancy and time-varying CO$_2$ levels. Nevertheless, we acknowledge the possibility for aerosolized \emph{Mtb} (quanta) to spread from the waiting room to the corridor, and vice versa, which is not considered in our simulations.  
+Although the door between the waiting room and corridor was usually not closed, we consider these rooms as separate spaces to facilitate modelling and because we observed differences in room occupancy and time-varying CO$_2$ levels. Nevertheless, we acknowledge the possibility for aerosolised \emph{Mtb} (quanta) to spread from the waiting room to the corridor, and vice versa, which is not considered in our simulations.  
 
 We model the spatiotemporal quanta concentration during clinic hours from 8\,am to 4\,pm and compare the modeled concentration by daytime, \ie morning (8\,am to 12\,am) and afternoon (12\,am to 4\,pm). Correspondingly, we estimate the outdoor air exchange rate by daytime, considering potential differences in ventilation conditions between the morning and afternoon. We update the quanta concentration every second from $t = 1, \dots, T$, in line with the frequency of the person-tracking data. We set the quanta concentration at $t=0$ to zero, \ie $N_{c,0} = 0 ~~ \forall c$, assuming that all quanta from the previous day has been removed from the air before the start of the following clinical day. 
 
@@ -488,7 +488,7 @@ Face masks reduce the number of viral-laden aerosols that are exhaled into the a
 
 \subsubsection{Bacterial inactivation rate}
 
-The bacterial inactivation rate for \emph{Mtb} has not been precisely estimated. Loudon (1969)\cite{Loudon1969AMRRD} report a half-life for aerosolized TB bacilli of 6\,h ($\lambda$ = 0.12). By contrast, Lever (2000)\cite{Lever2000LettersAppliedMicrobio} reported a half-life of just 5\,min ($\lambda$ = 8.3). The difference could be explained by differences in humidity levels during the study\cite{Lever2000LettersAppliedMicrobio}: Loudon (1969) and Lever (2000) studied survival in an environment with relative humidity of about 50\% and 70\%, respectively. Relative humidity in our study is closer to 50\%, thus the estimate by Loudon (1969) may be more suitable for our study. Furthermore, Gannon (2007)\cite{Gannon2007ResVetSci} report a half-life of 1.5\,h ($\lambda$ = 0.46) at relative humidity of over 75\%, yet the estimate is for \emph{Mtb bovis}, and Klein (2014)\cite{Klein2014IJMyco} observe a 80\% reduction within 30\,min ($\lambda$ = 3.2), which is closer to the estimate by Lever (2000). Considering the variation in these estimates, we model $\lambda$ with a $\mathrm{Lognormal}(\mu = \log 1, \sigma = 1)$ distribution, with a median rate of 1\,quanta h$^{-1}$ (95\%-CrI 0.1\,quanta h$^{-1}$\,$-$\,7.1\,quanta h$^{-1}$). The distribution is shown in \Cref{fig:lambda-distribution} along with the estimates from the literature.
+The bacterial inactivation rate for \emph{Mtb} has not been precisely estimated. Loudon (1969)\cite{Loudon1969AMRRD} report a half-life for aerosolised TB bacilli of 6\,h ($\lambda$ = 0.12). By contrast, Lever (2000)\cite{Lever2000LettersAppliedMicrobio} reported a half-life of just 5\,min ($\lambda$ = 8.3). The difference could be explained by differences in humidity levels during the study\cite{Lever2000LettersAppliedMicrobio}: Loudon (1969) and Lever (2000) studied survival in an environment with relative humidity of about 50\% and 70\%, respectively. Relative humidity in our study is closer to 50\%, thus the estimate by Loudon (1969) may be more suitable for our study. Furthermore, Gannon (2007)\cite{Gannon2007ResVetSci} report a half-life of 1.5\,h ($\lambda$ = 0.46) at relative humidity of over 75\%, yet the estimate is for \emph{Mtb bovis}, and Klein (2014)\cite{Klein2014IJMyco} observe a 80\% reduction within 30\,min ($\lambda$ = 3.2), which is closer to the estimate by Lever (2000). Considering the variation in these estimates, we model $\lambda$ with a $\mathrm{Lognormal}(\mu = \log 1, \sigma = 1)$ distribution, with a median rate of 1\,quanta h$^{-1}$ (95\%-CrI 0.1\,quanta h$^{-1}$\,$-$\,7.1\,quanta h$^{-1}$). The distribution is shown in \Cref{fig:lambda-distribution} along with the estimates from the literature.
 
 \begin{figure}[!htpb]
     \centering
@@ -519,8 +519,15 @@ Adams (1993)\cite{Adams1993} reports breathing rates for different activity leve
 \begin{figure}[!htpb]
     \centering
     \includegraphics{results/data/co2-levels-over-time.png}
-    \caption{CO$_2$ levels by clinic area over time for each study day.}
+    \caption{CO$_2$ levels by clinic area over time for each study day. Raw data at 1~min intervals averaged over a ten minute time window to reduce noise.}
     \label{fig:co2-levels}
+\end{figure}
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{results/data/no-people-over-time-by-day.png}
+    \caption{Number of people by clinic area over time for each study day. Raw data at 1~second intervals  averaged over a ten minute time window to reduce noise.}
+    \label{fig:people-over-time-by-day}
 \end{figure}
 
 \begin{figure}[!htpb]
@@ -535,7 +542,7 @@ Adams (1993)\cite{Adams1993} reports breathing rates for different activity leve
 \section{Discussion of factors affecting the risk of airborne infection}\label{sec:depth-discussion}
 
 
-The generation, dispersion, and survival of infectious particles in the air is subject to considerable uncertainty. Therefore, Wells\cite{Wells1955} introduced the concept of a ``quantum'' (infectious dose) to capture the stochastic nature of airborne transmission. A higher concentration of infectious quanta corresponds to a higher probability for an individual to get infected. The probability of infection is modeled with a Poisson relation and the Wells-Riley model considers multiple determinants for the generation and survival of infectious quanta. Nevertheless, transmission events are difficult to predict as the occurrence depends on multiple other factors that can broadly be categorized into (1)~environmental factors, (2)~physicochemical properties of the pathogen, and the (3)~infectiousness of the source and susceptibility of the host. 
+The generation, dispersion, and survival of infectious particles in the air is subject to considerable uncertainty. Therefore, Wells\cite{Wells1955} introduced the concept of a ``quantum'' (infectious dose) to capture the stochastic nature of airborne transmission. A higher concentration of infectious quanta corresponds to a higher probability for an individual to get infected. The probability of infection is modeled with a Poisson relation and the Wells-Riley model considers multiple determinants for the generation and survival of infectious quanta. Nevertheless, transmission events are difficult to predict as the occurrence depends on multiple other factors that can broadly be categorised into (1)~environmental factors, (2)~physicochemical properties of the pathogen, and the (3)~infectiousness of the source and susceptibility of the host. 
 
 \subsection{Environmental factors}
 
