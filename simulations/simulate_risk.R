@@ -305,12 +305,14 @@ if (!dir.exists(sim_path_to_file)) {
 }
 
 # continue existing simulation
+simulations <- 1:nsim
 if (file.exists(paste0(sim_path_to_file, "trans-risk.txt"))) {
-  cont_n <- max(read.table(paste0(sim_path_to_file, "trans-risk.txt"))[, 1])
-} else {
-  cont_n <- 1
+  existing_sim <- unique(as.integer(
+    read.table(paste0(sim_path_to_file, "trans-risk.txt"))[, 1]
+  ))
+  existing_sim <- existing_sim[!is.na(existing_sim)]
+  simulations <- simulations[!(simulations %in% existing_sim)]
 }
-simulations <- cont_n:nsim
 
 # split day into morning and afternoon
 date <- paste0("2021-", mth, "-", dy)
