@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Libraries
 
-```{r}
+```{r libraries}
 library(tidyverse)
 library(reshape2)
 library(rstanarm)
@@ -23,7 +23,6 @@ source("utils/tex.r")
 source("models/stm-v2.R")
 
 # building
-cellSize <- 250
 source("preprocessing/prep_building-rasterize.R")
 
 # load tracking and environmental data
@@ -34,10 +33,15 @@ aer <- readRDS("data-clean/environmental/air-change-rate.rds") %>%
 
 ## Illustration
 
+Generate an animated ggplot showing the quanta concentration in the waiting room 
+between 9:41am and 9:45am on October 25 as one infectious individual enters.
+
 ```{r illustration}
-# data
+# date
 mth <- 10
 dy <- 25
+
+# simulation parameters
 sim <- 2
 param_1025 <- readRDS(
   paste0(
@@ -45,6 +49,8 @@ param_1025 <- readRDS(
     2021, "-", mth, "-", dy, ".rds"
   )
 )
+
+# tracking data
 track_1025 <- readRDS(
   paste0(
     "simulations/", "/", "tracking-df-",
@@ -64,7 +70,9 @@ track_tb_all <- rbind(
     patient_id %in% param_1025[[paste0("undiagTB", "_", "du")]][[sim]]
   )
 )
-aer_df <- readRDS("data-clean/environmental/air-change-rate.rds") %>%
+
+# air exchange rate
+aer_df <- aer %>%
   filter(
     month(date) == as.numeric(mth),
     day(date) == as.numeric(dy)
@@ -80,45 +88,22 @@ tt_morn <- seq.POSIXt(t_start, midday, by = "1 sec")
 tt_noon <- seq.POSIXt(midday + 1, t_end, by = "1 sec")
 midday_idx <- which(tt == midday)
 
-
-# simulation
+# simulate quanta concentration in clinic
 ct_by_room <- list()
 for (room in c("Waiting room", "Corridor", "TB room")) {
-  print(paste0("- ", room))
-
-  # room setup
   if (room == "Waiting room") {
-    # initial quanta concentration matrix
-    c0 <- sP_to_matrix(waiting_room)
-
-    # (no) TB patients in room
+    c0 <- wrMat
     track_tb <- filter(track_tb_all, is_waitingroom)
-
-    # room dimension
-    roomDim <- dimWR
+    room_dim <- dimWR
   } else if (room == "Corridor") {
-    # initial quanta concentration matrix
-    c0 <- sP_to_matrix(corridor)
-
-    # TB patients in room
+    c0 <- cdMat
     track_tb <- filter(track_tb_all, is_passage)
-
-    # room dimension
-    roomDim <- dimCD
+    room_dim <- dimCD
   } else if (room == "TB room") {
-    # initial quanta concentration matrix
-    c0 <- sP_to_matrix(tb_room)
-
-    # TB patients in room
+    c0 <- tbMat
     track_tb <- filter(track_tb_all, is_tbroom)
-
-    # room dimension
-    roomDim <- dimTB
-  } else {
-    stop("Error: Room invalid.")
+    room_dim <- dimTB
   }
-
-  # add quanta generation rate per second by activity level
   track_tb <- track_tb %>%
     dplyr::select(time, cell_x, cell_y, activity) %>%
     rename(x = cell_x, y = cell_y) %>%
@@ -130,29 +115,25 @@ for (room in c("Waiting room", "Corridor", "TB room")) {
       q = q * param_1025$mask_red[param_1025$sim == sim],
       q = q / 3600
     )
-
-  # quanta conc in the morning
-  print("-- morning")
   track_tb_morn <- filter(track_tb, time <= midday)
   track_tb_morn$t <- as.numeric(difftime(
     track_tb_morn$time, t_start,
     units = "sec"
   ))
-
   ct_by_room[[room]] <- stm(
     time = tt_morn,
     c0 = c0,
     inf = dplyr::select(track_tb_morn, -time, -activity),
     cellLength = convert_dist(cellSize),
     pd = 0,
-    vol = prod(roomDim),
+    vol = prod(room_dim),
     aer = aer_df$aer[aer_df$room == room & aer_df$daytime == "Morning"] / 3600,
     lambda = param_1025$viral_inact[param_1025$sim == sim] / 3600,
-    deposit = 0
+    deposit = param_1025$settling_rate[param_1025$sim == sim] / 3600
   )
 }
 
-# get subset
+# subset quanta concentration of interval
 subset_qc <- function(t) {
   # quanta conc
   qc_wr <- melt(ct_by_room[["Waiting room"]][, , t]) %>%
@@ -176,15 +157,6 @@ subset_qc <- function(t) {
   return(qc)
 }
 
-track_tb_all %>%
-  filter(between(
-    time,
-    as.POSIXct(paste(date, "09:41:00")),
-    as.POSIXct(paste(date, "09:45:00"))
-  )) %>%
-  ggplot(aes(x = x, y = y, color = factor(patient_id))) +
-  geom_path()
-
 tt_selected <- seq.POSIXt(
   as.POSIXct(paste(date, "09:41:00")),
   as.POSIXct(paste(date, "09:45:00")),
@@ -199,16 +171,51 @@ qc_sub <- do.call(
 ) %>%
   mutate(t = t - min(tt_selected_idx))
 
-# animated plot
-qc_anim_pl <- ggplot(
-  data = left_join(
-    fortify(waiting_room),
-    filter(qc_sub, room == "Waiting room"),
-    by = c("id")
-  ),
-  mapping = aes(x = long, y = lat, group = group, fill = value)
-) +
-  geom_polygon() +
+sub_quanta <- left_join(
+  fortify(waiting_room),
+  filter(qc_sub, room == "Waiting room"),
+  by = c("id")
+) %>%
+  dplyr::select(t, long, lat, group, value)
+sub_quanta$time <- as.POSIXct(paste(date, "09:41:00")) +
+  seconds(sub_quanta$t)
+
+# subset tracking data of interval
+sub_track <- track_tb_all %>%
+  filter(between(
+    time,
+    as.POSIXct(paste(date, "09:41:00")),
+    as.POSIXct(paste(date, "09:45:00"))
+  )) %>%
+  mutate(t = t - min(tt_selected_idx))
+sub_track_rep <- tibble()
+for (t_i in 0:max(sub_track$t)) {
+  new_frame <- sub_track %>%
+    filter(t <= t_i) %>%
+    arrange(t) %>%
+    mutate(t = t_i) %>%
+    dplyr::select(t, x, y)
+  if (nrow(new_frame) == 0) {
+    new_frame <- data.frame(t = t_i, x = NA, y = NA)
+  }
+  sub_track_rep <- rbind(sub_track_rep, new_frame)
+}
+sub_track_rep$time <- as.POSIXct(paste(date, "09:41:00")) +
+  seconds(sub_track_rep$t)
+
+
+# specify animated ggplot
+qc_anim_pl <- ggplot() +
+  geom_polygon(
+    data = sub_quanta,
+    mapping = aes(x = long, y = lat, group = group, fill = value)
+  ) +
+  geom_path(
+    data = sub_track_rep,
+    mapping = aes(x = x, y = y),
+    color = "blue",
+    linewidth = 2
+  ) +
   coord_cartesian(expand = FALSE) +
   scale_fill_gradientn(
     colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"),
@@ -217,31 +224,37 @@ qc_anim_pl <- ggplot(
   theme_custom(14) +
   theme(
     axis.text = element_blank(),
-    axis.title = element_blank(),
     axis.ticks = element_blank(),
     legend.position = "bottom",
     panel.background = element_rect(
       fill = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd")[1]
     ),
-    panel.grid.major = element_blank(), panel.grid.minor = element_blank()
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.key.width = unit(2, "cm")
   ) +
-  transition_time(t) +
+  gganimate::transition_time(time) +
   labs(
-    subtitle = "Time (secs): {frame_time}",
+    subtitle = "Time: {frame_time}",
     title = "Quanta concentration in the waiting room on Oct 25 between 9:41 and 09:45am", # nolint
-    fill = expression("Quanta/m"^3 * " x 10"^-3)
+    caption = "Notes: Patient track in blue; jumps due to track interruptions.",
+    fill = expression("Quanta x 10"^-3 * " m"^-3),
+    x = "x length in m",
+    y = "y width in m"
   )
 
+# animate plot
 gganimate::animate(
   qc_anim_pl,
   duration = 30,
-  width = 1.850877 * 600,
+  width = (dimWR[1] / dimWR[2]) * 600,
   height = 600,
   renderer = gifski_renderer(),
   nframes = length(tt_selected_idx)
 )
 
-gganimate::anim_save("results/modeling/illustrated-quanta-conc-over-time.gif")
+# save animation
+gganimate::anim_save("results/modeling/STM - Supplementary Video.gif")
 ```
 
 ## Main
@@ -335,7 +348,7 @@ mean_quanta_pl <- plot_spatial(
       )
     ) +
     labs(
-      fill = expression("Mean quanta concentration (quanta m"^-3 * " " * "x 10"^-3 * ")")
+      fill = expression("Mean quanta concentration (quanta x 10"^-3 * " " * "m"^-3 * ")")
     ) +
     scale_fill_gradientn(
       colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"),

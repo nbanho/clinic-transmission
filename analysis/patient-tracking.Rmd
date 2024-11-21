@@ -325,7 +325,7 @@ time_pl <- track_count_time %>%
   scale_fill_manual(values = wes_palette("Royal2")) +
   scale_color_manual(values = wes_palette("Royal2")) +
   labs(
-    y = "Number of tracks",
+    y = "Number of people",
     title = "b"
   ) +
   theme_custom(8) +
