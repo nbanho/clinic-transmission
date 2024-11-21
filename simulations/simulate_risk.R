@@ -245,7 +245,7 @@ simulate_risk <- function(
         mutate(
           quanta_conc =
             inhal_rate * quanta /
-              ((cell_length / 1e3)^2 * (cell_height / 1e3))
+              (cell_length^2 * (cell_height / 1e3))
         ) %>%
         dplyr::select(patient_id, quanta_conc)
     } else {
