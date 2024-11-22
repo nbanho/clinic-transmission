@@ -13,7 +13,10 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r libraries}
 library(tidyverse)
+library(parallel)
+library(data.table)
 library(reshape2)
+library(betareg)
 library(rstanarm)
 library(tidybayes)
 library(gganimate)
@@ -21,6 +24,7 @@ library(gganimate)
 source("utils/plotting.r")
 source("utils/tex.r")
 source("models/stm-v2.R")
+source("utils/trans_risk.r")
 
 # building
 source("preprocessing/prep_building-rasterize.R")
@@ -257,13 +261,16 @@ gganimate::animate(
 gganimate::anim_save("results/modeling/STM - Supplementary Video.gif")
 ```
 
-## Main
 
-### Quanta conc
+## Quanta concentration
+
+Show the average quanta concentration of the main simulation by daytime in the clinic 
+and determine the corresponding transmission risk.
 
 ```{r}
+# main quanta simulation files
 main_qc <- data.frame(
-  files = list.files("simulations/main/",
+  files = list.files("simulations/main",
     full.names = TRUE, pattern = "quanta_conc-.*.txt$",
     recursive = TRUE
   )
@@ -275,30 +282,56 @@ main_qc <- data.frame(
     daytime = ifelse(grepl("morning", files), "morning", "afternoon")
   )
 
-mean_qc <- function(file) {
-  df <- read.table(file)
-  colnames(df) <- c("sim", "x", "y", "value")
-  df <- df %>%
-    group_by(x, y) %>%
-    summarize(value = mean(value)) %>%
-    ungroup()
+# read average quanta concentration by daytime, room and study day
+read_quanta_table <- function(file, n_sim = 5000) {
+  df <- data.table::fread(
+    file,
+    col.names = c("sim", "x", "y", "value")
+  )
+  n_origin <- nrow(df)
+  df[, sim := as.integer(sim)]
+  df[!sim %in% 1:n_sim, sim := NA]
+  df <- na.omit(df)
+  df <- df[, .SD[1], by = .(sim, x, y)]
+  n_new <- nrow(df)
+
+  if (n_origin > n_new) {
+    warning(sprintf("File %s: %i defect rows removed", file, n_origin - n_new))
+  }
+
+  # check if simulations are complete
+  sims <- unique(df$sim)
+  missing_sims <- (1:n_sim)[!((1:n_sim) %in% sims)]
+  n_missing <- length(missing_sims)
+  if (n_missing > 0) {
+    warning(sprintf("File %s: %i simulations missing.", file, n_missing))
+  }
+
   return(df)
 }
 
-main_qc$value <- lapply(main_qc$files, mean_qc)
+main_qc$data <- mclapply(main_qc$files, read_quanta_table, mc.cores = 15)
 
+# compute daily mean quanta concentrations
+main_qc$mean_conc <- lapply(main_qc$data, function(df) {
+  df %>%
+    group_by(x, y) %>%
+    summarise(value = mean(value)) %>%
+    ungroup()
+})
+
+# compte overall average quanta concentration
 main_mean_qc <- main_qc %>%
-  unnest(value) %>%
+  unnest(mean_conc) %>%
   group_by(room, daytime, x, y) %>%
   summarize(
     value = mean(value)
   ) %>%
   ungroup()
 
-# example translation
-source("utils/trans_risk.r")
-IR_sit <- (.5 * IR("sitting", "male") + .5 * IR("sitting", "female")) / 3600
-WR_vol <- convert_dist(cellSize)^2 * dimWR[3]
+# corresponding transmission risk
+ir_sit <- (.5 * IR("sitting", "male") + .5 * IR("sitting", "female")) / 3600
+wr_vol <- (cellSize / 1e3)^2 * dimWR[3]
 wr_morn <- main_mean_qc %>%
   filter(room == "Waiting room", daytime == "morning") %>%
   pull(value) %>%
@@ -307,10 +340,10 @@ wr_noon <- main_mean_qc %>%
   filter(room == "Waiting room", daytime == "afternoon") %>%
   pull(value) %>%
   max()
-round((1 - exp(-wr_morn * 3600 * IR_sit / WR_vol)) * 100, 3)
-round((1 - exp(-wr_noon * 3600 * IR_sit / WR_vol)) * 100, 3)
+round((1 - exp(-wr_morn * 3600 * ir_sit / wr_vol)) * 100, 3)
+round((1 - exp(-wr_noon * 3600 * ir_sit / wr_vol)) * 100, 3)
 
-# link to building
+# link quanta concentration to building
 main_mean_qc <- left_join(roomCoord,
   main_mean_qc %>% dplyr::select(room, daytime, x, y, value),
   by = c("x", "y", "room")
@@ -323,7 +356,7 @@ main_mean_qc <- left_join(roomCoord,
     )
   )
 
-# plot
+# plot quanta concentration
 mean_quanta_pl <- plot_spatial(
   ggplot(mapping = aes(x = long, y = lat, group = group, fill = value)) +
     facet_wrap(~daytime) +
@@ -348,7 +381,9 @@ mean_quanta_pl <- plot_spatial(
       )
     ) +
     labs(
-      fill = expression("Mean quanta concentration (quanta x 10"^-3 * " " * "m"^-3 * ")")
+      fill = expression(
+        "Mean quanta concentration (quanta x 10"^-3 * " " * "m"^-3 * ")"
+      )
     ) +
     scale_fill_gradientn(
       colours = RColorBrewer::brewer.pal(n = 9, name = "YlOrRd"),
@@ -372,16 +407,67 @@ save_plot(
 )
 ```
 
-### Trans risk
+## Transmission risk
+
+Compute the patient-specific mean risk of infection 
+and summarise the risk across patients for the main simulation.
 
 ```{r}
-average_trans_risk <- function(file) {
-  average_tr <- read.table(file) %>%
-    set_names(c("sim", "patient_id", "P")) %>%
+# main simulation files
+main_tr <- data.frame(
+  files = list.files("simulations/main",
+    full.names = TRUE, pattern = "trans-risk.txt$",
+    recursive = TRUE
+  )
+)
+
+# read transmission risk data
+read_risk_table <- function(file, n_sim = 5000) {
+  # load data and remove duplicates
+  df <- data.table::fread(
+    file,
+    select = 1:3,
+    col.names = c("sim", "patient_id", "P"),
+    fill = Inf
+  )
+  n_origin <- nrow(df)
+  df[, sim := as.integer(sim)]
+  df[!sim %in% 1:n_sim, sim := NA]
+  df[, patient_id := as.integer(patient_id)]
+  df[is.na(patient_id) | patient_id <= 0, patient_id := NA]
+  df[, P := as.numeric(P)]
+  df <- df[between(P, 0, 1)]
+  df <- na.omit(df)
+  df <- df[, .SD[1], by = .(sim, patient_id)]
+  n_new <- nrow(df)
+
+  if (n_origin > n_new) {
+    warning(sprintf("File %s: %i defect rows removed", file, n_origin - n_new))
+  }
+
+  # check if simulations are complete
+  sims <- unique(df$sim)
+  missing_sims <- (1:n_sim)[!((1:n_sim) %in% sims)]
+  n_missing <- length(missing_sims)
+  if (n_missing > 0) {
+    warning(sprintf("File %s: %i simulations missing.", file, n_missing))
+  }
+
+  # add unique mthdy and patient_id
+  df <- df %>%
     mutate(
       mthdy = stringi::stri_extract(file, regex = "\\d{2}-\\d{2}"),
       patient_id = paste(mthdy, patient_id, sep = "-")
-    ) %>%
+    )
+
+  return(df)
+}
+
+main_tr$data <- lapply(main_tr$files, read_risk_table)
+
+# compute mean risk per patient across simulations
+patient_risk <- function(dat) {
+  dat %>%
     group_by(patient_id) %>%
     summarize(
       P_mean = mean(P),
@@ -416,24 +502,16 @@ average_trans_risk <- function(file) {
       ),
       P_col = factor(P_col, levels = c("Low", "Medium", "High"))
     )
-  return(average_tr)
 }
 
-# average risk
-main_tr <- data.frame(
-  files = list.files("simulations/main/",
-    full.names = TRUE, pattern = "trans-risk.txt$",
-    recursive = TRUE
-  )
-)
-main_tr$value <- lapply(main_tr$files, average_trans_risk)
+main_tr$value <- lapply(main_tr$dat, patient_risk)
 
 main_tr <- main_tr %>%
   unnest(value) %>%
   dplyr::select(-files)
 
-# annotation
-annotate_average_trans_risk <- function(tr) {
+# compute overall risk across patients
+overall_risk <- function(tr) {
   roi_annon <- tr %>%
     summarize(
       mean_P = mean(P_mean),
@@ -450,12 +528,14 @@ annotate_average_trans_risk <- function(tr) {
   return(roi_annon)
 }
 
-main_annon <- annotate_average_trans_risk(main_tr)
-
+main_annon <- overall_risk(main_tr)
 main_annon
 ```
 
-### Association
+## Association with patient risk factors 
+
+Estimate the association of the patient-specific risk of infection with 
+time in clinic, number of close contacts, and time spent in close contact.
 
 ```{r}
 # process tracking data
@@ -568,26 +648,38 @@ amod_est %>%
 
 ## IPC comparison
 
+Compare the modeled transmission risk with hypothetical scenarios 
+to assess the effecs of implemented IPC measures (mask wearing and ventilation).
+
 ```{r additional-analyses}
-# files
-files_nm <- list.files("simulations/nomasks/",
+# IPC scenario files
+files_nm <- list.files("simulations/nomasks",
   full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
-files_vent <- list.files("simulations/vent/",
+files_vent <- list.files("simulations/vent",
   full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
-files_nmvent <- list.files("simulations/nomasksvent/",
+files_nmvent <- list.files("simulations/nomasksvent",
   full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
 
-# average risk
-nm_tr <- map_dfr(files_nm, average_trans_risk)
-vent_tr <- map_dfr(files_vent, average_trans_risk)
-nmvent_tr <- map_dfr(files_nmvent, average_trans_risk)
+# mean risk per patient
+nm_tr <- map_dfr(files_nm, function(f) patient_risk(read_risk_table(f)))
+vent_tr <- map_dfr(files_vent, function(f) patient_risk(read_risk_table(f)))
+nmvent_tr <- map_dfr(files_nmvent, function(f) patient_risk(read_risk_table(f)))
 
+# overall risk
+nm_annon <- overall_risk(nm_tr)
+vent_annon <- overall_risk(vent_tr)
+nmvent_annon <- overall_risk(nmvent_tr)
+nm_annon
+vent_annon
+nmvent_annon
+
+# patient risk by category
 nm_tr %>%
   group_by(P_col) %>%
   summarise(n = n()) %>%
@@ -606,6 +698,7 @@ nmvent_tr %>%
   ungroup() %>%
   mutate(prop = round(n / sum(n) * 100, 0))
 
+# factor difference between scenarios
 main_tr %>%
   dplyr::select(patient_id, P_mean) %>%
   rename(`Spatiotemporal model` = P_mean) %>%
@@ -634,20 +727,20 @@ main_tr %>%
   head(9) %>%
   mutate(value = round(as.numeric(value), 1))
 
-# combine
+# combine scenario-specific simulation results
 tr_comp <- rbind(
-  main_tr %>% mutate(scenario = "a   Mask use and high ventilation"),
-  nm_tr %>% mutate(scenario = "b   No mask use and high ventilation"),
-  vent_tr %>% mutate(scenario = "c   Mask use and normal ventilation"),
-  nmvent_tr %>% mutate(scenario = "d   No mask use and normal ventilation")
+  main_tr %>% dplyr::select(-data) %>%
+    mutate(scenario = "a   Mask use and high ventilation"),
+  nm_tr %>%
+    mutate(scenario = "b   No mask use and high ventilation"),
+  vent_tr %>%
+    mutate(scenario = "c   Mask use and normal ventilation"),
+  nmvent_tr %>%
+    mutate(scenario = "d   No mask use and normal ventilation")
 ) %>%
   mutate(scenario = factor(scenario, levels = unique(scenario)))
 
-# annotation
-nm_annon <- annotate_average_trans_risk(nm_tr)
-vent_annon <- annotate_average_trans_risk(vent_tr)
-nmvent_annon <- annotate_average_trans_risk(nmvent_tr)
-
+# combine scenario-specific annotations (overall risk)
 annon_comp <- rbind(
   main_annon %>% mutate(scenario = "a   Mask use and high ventilation"),
   nm_annon %>% mutate(scenario = "b   No mask use and high ventilation"),
@@ -656,7 +749,7 @@ annon_comp <- rbind(
 ) %>%
   mutate(scenario = factor(scenario, levels = unique(scenario)))
 
-# plot mean
+# plot distribution with annotation
 mean_roi_comp_pl <- ggplot(
   tr_comp,
   aes(x = P_mean)
@@ -707,37 +800,47 @@ save_plot(
 )
 ```
 
-## Additional analysis
+## Prevalence comparison
+
+Compare the modelled transmission risk with hypothetical scenarios 
+to assess the impact of assumptions regarding TB prevalence (suspected patients, national prevalence).
 
 ```{r} 
-files_prev <- list.files("simulations/prevalence/",
+# prevalence scenario files
+files_prev <- list.files("simulations/prevalence",
   full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
-files_susp <- list.files("simulations/suspected/",
+files_susp <- list.files("simulations/suspected",
   full.names = TRUE, pattern = "trans-risk",
   recursive = TRUE
 )
 
-prev_tr <- map_dfr(files_prev, average_trans_risk)
-susp_tr <- map_dfr(files_susp, average_trans_risk)
+# mean risk per patient
+prev_tr <- map_dfr(files_prev, function(f) patient_risk(read_risk_table(f)))
+susp_tr <- map_dfr(files_susp, function(f) patient_risk(read_risk_table(f)))
 
+# overall risk
+prev_annon <- overall_risk(prev_tr)
+susp_annon <- overall_risk(susp_tr)
+prev_annon
+susp_annon
+
+# combine scenario-specific simulation results
 tr_assum <- rbind(
   prev_tr %>% mutate(scenario = "a   Prevalence-based model"),
   susp_tr %>% mutate(scenario = "b   Suspected-based model")
 ) %>%
   mutate(scenario = factor(scenario, levels = unique(scenario)))
 
-prev_annon <- annotate_average_trans_risk(prev_tr)
-susp_annon <- annotate_average_trans_risk(susp_tr)
-
+# combine scenario-specific annotations (overall risk)
 annon_assum <- rbind(
   prev_annon %>% mutate(scenario = "a   Prevalence-based model"),
   susp_annon %>% mutate(scenario = "b   Suspected-based model")
 ) %>%
   mutate(scenario = factor(scenario, levels = unique(scenario)))
 
-# plot mean
+# plot distribution with annotations
 mean_roi_assum_pl <- ggplot(
   tr_assum,
   aes(x = P_mean)
@@ -776,7 +879,7 @@ mean_roi_assum_pl <- ggplot(
     legend.title = element_blank(),
     legend.key.height = unit(.6, "cm"),
     legend.key.width = unit(.4, "cm"),
-    panel.spacing = unit(2, "cm"),
+    panel.spacing = unit(.5, "cm"),
     strip.text = element_text(hjust = 0)
   )
 

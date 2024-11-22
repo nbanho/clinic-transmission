@@ -101,7 +101,7 @@ quanta_concn_pl <- ct_df %>%
   )
 
 save_plot(quanta_concn_pl,
-  pdf_file = "tests/stm_v2-toy_example.png",
+  pdf_file = "tests/stm_v2-toy_example-A.png",
   w = 16, h = 13
 )
 
