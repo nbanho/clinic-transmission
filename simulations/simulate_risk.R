@@ -308,7 +308,7 @@ if (!dir.exists(sim_path_to_file)) {
 simulations <- 1:nsim
 if (file.exists(paste0(sim_path_to_file, "trans-risk.txt"))) {
   existing_sim <- unique(as.integer(
-    read.table(paste0(sim_path_to_file, "trans-risk.txt"))[, 1]
+    read.table(paste0(sim_path_to_file, "trans-risk.txt"), fill = TRUE)[, 1]
   ))
   existing_sim <- existing_sim[!is.na(existing_sim)]
   simulations <- simulations[!(simulations %in% existing_sim)]
