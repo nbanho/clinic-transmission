@@ -293,6 +293,24 @@ Estimating \emph{Mycobacterium} tuberculosis transmission in a South African cli
 
 \newpage
 
+\section{Environmental and tracking data by study day}\label{sec:add-descriptives}
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{results/data/co2-levels-over-time.png}
+    \caption{CO$_2$ levels by clinic area over time for each study day. Raw data at 1~min intervals averaged over a ten minute time window to reduce noise.}
+    \label{fig:co2-levels}
+\end{figure}
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{results/data/no-people-over-time-by-day.png}
+    \caption{Number of people by clinic area over time for each study day. Raw data at 1~second intervals  averaged over a ten minute time window to reduce noise.}
+    \label{fig:people-over-time-by-day}
+\end{figure}
+
+\clearpage
+
 \section{Processing of person-tracking data}\label{sec:setting-and-data}
 
 Person-tracking data required processing because many tracks were interrupted, for example, if the person i)~moved outside the range of the video sensors and then re-entered, ii)~bowed heavily downwards, or iii)~was temporarily hidden behind another person or obstacle. In addition, moving objects such as opening doors may have been recognised as a person, introducing many extremely short tracks (total duration of less than 10\,s and distance less than 2\,m), which were removed.
@@ -376,7 +394,7 @@ We divide the airspace into a 2-dimensional grid with cells $c = 1, \dots, C$, w
     \item $n_t$: number of individuals in the airspace at time $t$
     \item $\lambda$: bacterial inactivation rate (quanta s$^{-1}$)
     \item $k$: gravitational settling rate (quanta s$^{-1}$)
-    \item $p$: breathing rate (m$^3$\,h$^{-1}$)
+    \item $p$: breathing rate (m$^3$\,s$^{-1}$)
 \end{itemize}
 
 \subsection{Quanta generation}\label{sec:quanta-generation}
@@ -413,7 +431,7 @@ where $Q$ is the outdoor air supply rate (in m$^3$\,s$^{-1}$ $\cdot \frac{1}{360
 
 \subsection{Quanta removal}\label{sec:quanta-removal}
 
-Infectious quanta may be removed from the air through outdoor air exchange, bacterial inactivation, or gravitational settling. We will ignore gravitational settling because \emph{Mtb} is carried in small particles between 1\,$\mu$m and 7\,$\mu$m\cite{Fennelly2020Lancet}, which become airborne immediately or within seconds\cite{Vuorinen2020SafSci}. The removal rate is thus the sum of the outdoor air exchange rate $AER_t$ and the bacterial inactivation rate $\lambda$ for \emph{Mtb}, \ie 
+Infectious quanta may be removed from the air through outdoor air exchange, bacterial inactivation, or gravitational settling. The removal rate is thus the sum of the outdoor air exchange rate $AER_t$, the bacterial inactivation rate $\lambda$ for \emph{Mtb}, and the gravitational settling rate $k$ for \emph{Mtb}-carrying particles, \ie 
 \begin{align}\label{eq:removal}
     AER_t + \lambda ~.
 \end{align}
@@ -422,8 +440,9 @@ Infectious quanta may be removed from the air through outdoor air exchange, bact
 
 Combining \Cref{eq:generation}, \Cref{eq:diffusion}, and \Cref{eq:removal}, the quanta concentration at time $t$ in the indoor space can be computed as
 \begin{align}\label{eq:spattemp-N}
-    \underbrace{N_{t}}_{\text{new concn.}} = \underbrace{\left(D \Delta (\underbrace{N_{t-1}}_{\text{prev. concn.}} + \underbrace{I_t \cdot q \cdot 1\text{s}}_{\text{generation}}) \cdot 1\text{s}\right)}_{\text{diffusion}} \cdot \underbrace{\exp\left(-(AER_t + \lambda) \cdot 1\text{s}\right)}_{\text{removal}} ~.
+    \underbrace{N_{c,t}}_{\text{new conc.}} = \underbrace{\left(D \Delta (\underbrace{N_{c,t-1}}_{\text{old conc.}} + \underbrace{I_{c,t} \cdot q}_{\text{generation}} \cdot V_{c}^{-1})\right)}_{\text{diffusion}} \cdot \underbrace{\exp\left(-(AER_{t} + \lambda + k\right)}_{\text{removal}},
 \end{align}
+where $V_c$ is the volume of cell $c$, assuming that the quanta concentration is vertically well-mixed.
 
 \subsection{Illustrative example}\label{sec:example}
 
@@ -446,23 +465,23 @@ We illustrate our modelling approach with an example. Consider a room with a vol
 
 \subsection{Setup and setting}\label{prep:building}
 
-We divide the clinic into three spaces: the waiting room (length = 10.55\,m $\times$ breadth = 5.50\,m $\times$ height = 3.00\,m), the corridor (length = 12.45\,m $\times$ breadth = 2.20\,m $\times$ height = 2.50\,m), and the TB room (length = 4.75\,m $\times$ breadth = 3.50\,m $\times$ height = 3.00\,m). We rasterise each room into a grid of cubic cells with a squared area of (0.25\,m)$^2$, corresponding to a diagonal length of $\sqrt{0.25^2 + 0.25^2} = 0.35$\,m. 
+We divide the clinic into three spaces: the waiting room (length = 10.55\,m $\times$ breadth = 5.50\,m $\times$ height = 3.00\,m), the corridor (length = 12.45\,m $\times$ breadth = 2.20\,m $\times$ height = 2.50\,m), and the TB room (length = 4.75\,m $\times$ breadth = 3.50\,m $\times$ height = 3.00\,m). Each room was discretised into a grid of cubic cells, with each cell covering a squared area of (0.25\,m)$^2$, corresponding to a diagonal cell length of $\sqrt{0.25^2 + 0.25^2} = 0.35$\,m. The volume of the cell depends on the room height, and we assume that the quanta concentration was vertically well-mixed.
 
-Although the door between the waiting room and corridor was usually not closed, we consider these rooms as separate spaces to facilitate modelling and because we observed differences in room occupancy and time-varying CO$_2$ levels. Nevertheless, we acknowledge the possibility for aerosolised \emph{Mtb} (quanta) to spread from the waiting room to the corridor, and vice versa, which is not considered in our simulations.  
+Although the door between the waiting room and corridor was usually not closed, we consider these rooms as separate areas to facilitate modelling and because we observed differences in room occupancy and time-varying CO$_2$ levels. Nevertheless, we acknowledge the possibility for aerosolised \emph{Mtb} (quanta) to spread from the waiting room to the corridor, and vice versa, which is not considered in our simulations.  
 
-We model the spatiotemporal quanta concentration during clinic hours from 8\,am to 4\,pm and compare the modeled concentration by daytime, \ie morning (8\,am to 12\,am) and afternoon (12\,am to 4\,pm). Correspondingly, we estimate the outdoor air exchange rate by daytime, considering potential differences in ventilation conditions between the morning and afternoon. We update the quanta concentration every second from $t = 1, \dots, T$, in line with the frequency of the person-tracking data. We set the quanta concentration at $t=0$ to zero, \ie $N_{c,0} = 0 ~~ \forall c$, assuming that all quanta from the previous day has been removed from the air before the start of the following clinical day. 
+We model the spatiotemporal quanta concentration during clinic hours from 8\,am to 4\,pm and compare the modeled concentration by daytime, \ie morning (8\,am to 12\,am) and afternoon (12\,am to 4\,pm). Correspondingly, we estimate the outdoor air exchange rate by daytime, considering potential differences in ventilation conditions between the morning and afternoon. We update the quanta concentration every second from $t = 1, \dots, T$, in line with the frequency of the person-tracking data. We set the quanta concentration at $t=0$ to zero, \ie $N_{r,c,0} = 0 ~~ \forall r, c$. That is, we assume that all quanta from the previous day has been removed from the air before the start of the following clinic day. 
 
 
 \subsection{Monte Carlo simulation}
 
 We use Monte Carlo simulation to estimate the risk of infection, considering uncertainty in several modelling parameters. Each simulation consists of the following steps:
 \begin{itemize}
-    \item[1.] \textbf{Sample uncertain modelling parameters}: Undiagnosed TB patients among clinic attendees, quanta generation rate, the mask reduction rate, and the bacterial inactivation rate.
-    \item[2.] \textbf{Compute quanta concentration}: Based on the generation of infectious quanta by diagnosed and undiagnosed TB patients, we compute the quanta concentration in each room per unit space (cell) over time.
+    \item[1.] \textbf{Sample uncertain modelling parameters}: Undiagnosed TB patients among clinic attendees, quanta generation rate, mask reduction rate, bacterial inactivation rate, and gravitational settling rate.
+    \item[2.] \textbf{Compute quanta concentration}: Based on the generation of infectious quanta by diagnosed and undiagnosed TB patients, we compute the quanta concentration in each room and cell over time.
     \item[3.] \textbf{Estimate risk of infection}: Based on their spatiotemporal quanta exposure, we estimate the risk of infection for each clinic attendee using the Wells-Riley equation.
 \end{itemize}
 
-Many clinic attendees are potential undiagnosed TB patients and prior uncertainty in the quanta generation, mask reduction, and bacterial inactivation rate is large. To reflect this uncertainty, we perform 5,000 Monte Carlo simulations and compute the individual risk of infection as the mean across these simulations.  
+Many clinic attendees are potential undiagnosed TB patients and prior uncertainty in the quanta generation, mask reduction, bacterial inactivation, and gravitational settling rate is large. To reflect this uncertainty, we perform 5,000 Monte Carlo simulations and compute the individual risk of infection as the mean across these simulations.  
 
 \subsection{Modelling assumptions}\label{sec:priors}
 
@@ -497,6 +516,11 @@ The bacterial inactivation rate for \emph{Mtb} has not been precisely estimated.
     \label{fig:lambda-distribution}
 \end{figure}
 
+
+\subsubsection{Gravitational settling rate}
+
+Particles with \emph{Mtb} in the size range of $1-7\mu$m\cite{Fennelly2020Lancet} have a settling velocity of $3.5\cdot 10^{-5}-1.5\cdot 10^{-3}$m\,s$^{-1}$ in still air\cite{Vuorinen2020SafSci}. Accordingly, we model the settling velocity using a Gamma distribution with mean $7.7\cdot 10^{-3}$m\,s$^{-1}$ and standard deviation $3.7\cdot 10^{-3}$m\,s$^{-1}$, which is slightly skewed towards slower settling velocities, reflecting a higher proportion of \emph{Mtb} at the lower end of the size range\cite{Fennelly2020Lancet}. Assuming a drop height of 1.7\,m, the distribution for the gravitational settling rate has a median of 1.5 h$^{-1}$ (95\%-CrI 0.5 h$^{-1}$ – 3.5 h$^{-1}$).
+
 \subsubsection{Number of undiagnosed TB patients}
 
 Undiagnosed (subclinical) TB patients may go undetected because they do not show symptoms according to the WHO 4-question symptom screen (cough, fever, weight loss, and night sweats)\cite{Berhanu2023CID}, or the diagnosis could not be made at first presentation based on existing tests\cite{Patterson2024PNAS}. Previous studies suggest that the number of undiagnosed (subclinical) TB patients is roughly similar to the number of diagnosed TB patients\cite{Berhanu2023CID,Moyo2022LancetID}. Therefore, we model the number of undiagnosed TB patients with a Multinomial distribution based on the counts of the daily number of diagnosed TB patients from October to November 2021 (\Cref{fig:undiagnosed-distribution}. We consider all clinic attendees as potential undiagnosed TB patients and sample among them with equal probability. We further assume that undiagnosed and diagnosed TB patients have the same quanta generation rate.
@@ -514,21 +538,7 @@ Adams (1993)\cite{Adams1993} reports breathing rates for different activity leve
 
 \clearpage
 
-\section{Additional results}\label{sec:additional-results}
-
-\begin{figure}[!htpb]
-    \centering
-    \includegraphics{results/data/co2-levels-over-time.png}
-    \caption{CO$_2$ levels by clinic area over time for each study day. Raw data at 1~min intervals averaged over a ten minute time window to reduce noise.}
-    \label{fig:co2-levels}
-\end{figure}
-
-\begin{figure}[!htpb]
-    \centering
-    \includegraphics{results/data/no-people-over-time-by-day.png}
-    \caption{Number of people by clinic area over time for each study day. Raw data at 1~second intervals  averaged over a ten minute time window to reduce noise.}
-    \label{fig:people-over-time-by-day}
-\end{figure}
+\section{Additional simulation results}\label{sec:additional-results}
 
 \begin{figure}[!htpb]
     \centering
