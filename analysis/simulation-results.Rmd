@@ -267,7 +267,7 @@ gganimate::anim_save("results/modeling/STM - Supplementary Video.gif")
 Show the average quanta concentration of the main simulation by daytime in the clinic 
 and determine the corresponding transmission risk.
 
-```{r}
+```{r quanta-concentration}
 # main quanta simulation files
 main_qc <- data.frame(
   files = list.files("simulations/main",
@@ -340,8 +340,8 @@ wr_noon <- main_mean_qc %>%
   filter(room == "Waiting room", daytime == "afternoon") %>%
   pull(value) %>%
   max()
-round((1 - exp(-wr_morn * 3600 * ir_sit / wr_vol)) * 100, 3)
-round((1 - exp(-wr_noon * 3600 * ir_sit / wr_vol)) * 100, 3)
+round((1 - exp(-wr_morn * 3600 * ir_sit / wr_vol)) * 100, 2)
+round((1 - exp(-wr_noon * 3600 * ir_sit / wr_vol)) * 100, 2)
 
 # link quanta concentration to building
 main_mean_qc <- left_join(roomCoord,
@@ -412,7 +412,7 @@ save_plot(
 Compute the patient-specific mean risk of infection 
 and summarise the risk across patients for the main simulation.
 
-```{r}
+```{r main-transmission-risk}
 # main simulation files
 main_tr <- data.frame(
   files = list.files("simulations/main",
@@ -537,7 +537,7 @@ main_annon
 Estimate the association of the patient-specific risk of infection with 
 time in clinic, number of close contacts, and time spent in close contact.
 
-```{r}
+```{r association-risk-factors}
 # process tracking data
 track_daytime <- track %>%
   mutate(h = lubridate::hour(time)) %>%
@@ -651,7 +651,7 @@ amod_est %>%
 Compare the modeled transmission risk with hypothetical scenarios 
 to assess the effecs of implemented IPC measures (mask wearing and ventilation).
 
-```{r additional-analyses}
+```{r ipc-comparison}
 # IPC scenario files
 files_nm <- list.files("simulations/nomasks",
   full.names = TRUE, pattern = "trans-risk",
@@ -805,7 +805,7 @@ save_plot(
 Compare the modelled transmission risk with hypothetical scenarios 
 to assess the impact of assumptions regarding TB prevalence (suspected patients, national prevalence).
 
-```{r} 
+```{r sensitivity-prevalence} 
 # prevalence scenario files
 files_prev <- list.files("simulations/prevalence",
   full.names = TRUE, pattern = "trans-risk",
