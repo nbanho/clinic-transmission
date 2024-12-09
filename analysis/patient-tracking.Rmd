@@ -71,7 +71,7 @@ df_matched <- do.call(
       readRDS(paste0(
         "data-clean/patient-tracking/matched-clinical/",
         d, ".rds"
-      ))
+      )) %>% dplyr::select(patient_id, time)
     }
   )
 ) %>%
@@ -180,6 +180,11 @@ time_in_clin_pl <- time_in_clin %>%
     axis.title.x = element_blank(),
     plot.title.position = "plot"
   )
+
+saveRDS(
+  time_in_clin_pl,
+  "results/data/time-in-clinic.rds"
+)
 
 save_plot(
   time_in_clin_pl,
@@ -338,6 +343,11 @@ time_pl <- track_count_time %>%
     plot.margin = margin(r = 11)
   )
 
+saveRDS(
+  time_pl,
+  "results/data/no-people-over-time.rds"
+)
+
 save_plot(
   time_pl,
   pdf_file = "results/data/no-people-over-time.png",
@@ -421,6 +431,11 @@ spatial_pl <- plot_spatial(
     legend.key.width = unit(1, "cm")
   ) +
   guides(fill = guide_colorbar(title.vjust = 1))
+
+saveRDS(
+  spatial_pl,
+  "results/data/no-people-spatial.rds"
+)
 
 save_plot(
   spatial_pl,

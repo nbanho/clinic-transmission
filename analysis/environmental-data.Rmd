@@ -153,6 +153,11 @@ aer_pl <- aer %>%
   ) +
   guides(fill = "none")
 
+saveRDS(
+  aer_pl,
+  "results/data/air-changes-per-hour.rds"
+)
+
 save_plot(
   aer_pl,
   pdf_file = "results/data/air-changes-per-hour.png",
