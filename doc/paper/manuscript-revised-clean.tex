@@ -1,0 +1,641 @@
+\PassOptionsToPackage{top=3cm,left=3cm,right=3cm,bottom=3cm}{geometry}
+\documentclass[fleqn,11pt]{wlscirep}
+
+\usepackage{import}
+\usepackage{main}
+
+\renewcommand{\paragraph}[1]{\vspace{0.3cm}\noindent\underline{\emph{#1}}\hfill\noindent}
+
+\begin{document}
+
+\doublespacing
+
+\title{\bfseries\LARGE\singlespacing{Estimating \emph{Mycobacterium} tuberculosis transmission in a South African clinic: Spatiotemporal model based on person movements}}
+% author list
+\author[1]{Nicolas Banholzer}
+\author[2]{Keren Middelkoop}
+\author[2]{Juane Leukes}
+\author[3]{Ernest Weingartner}
+\author[1]{Remo Schmutz}
+\author[1]{Kathrin Zürcher}
+\author[1,4,5]{Matthias Egger}
+\author[2]{Robin Wood}
+\author[1*]{Lukas Fenner}
+
+\affil[1]{Institute of Social and Preventive Medicine, University of Bern, Bern, Switzerland}
+\affil[2]{Desmond Tutu HIV Centre, Department of Medicine, University of Cape Town, Cape Town, South Africa}
+\affil[3]{Institute for Sensors and Electronics, University of Applied Sciences and Arts Northwestern Switzerland, Windisch, Switzerland}
+\affil[4]{Population Health Sciences, University of Bristol, Bristol, United Kingdom}
+\affil[5]{Centre for Infectious Disease Epidemiology and Research, University of Cape Town, Cape Town, South Africa}
+
+\affil[*]{Corresponding author: lukas.fenner@unibe.ch }
+
+\vspace{1em}
+
+
+\begin{abstract}\normalfont
+The risk of \emph{Mycobacterium tuberculosis (Mtb)} transmission can be high in crowded clinics. We developed a spatiotemporal model of airborne \emph{Mtb} transmission based on the Wells-Riley equation. We collected environmental, clinical and person-tracking data in a South African clinic during COVID-19, when community or surgical masks were compulsory and ventilation was increased. We matched person movements with clinical records to identify the spatiotemporal location of infectious TB patients. We modeled the concentration of infectious doses (quanta) and estimated the individual risk of infection. Over five days, video sensors tracked 1,438 clinic attendees. CO$_2$ levels were low (median 431\,ppm, IQR 406\,ppm$-$458\,ppm); the quanta concentration was higher in the morning than in the afternoon, and highest in the waiting room. The estimated risk of infection per clinic attendee was 0.05\% (80\%-credible interval (CrI) 0.01\%$-$0.06\%). It increased with the number of close contacts with infectious patients and the time spent in the clinic, and was 1.3-fold (95\%-CrI 1.2$-$1.4) higher in scenarios without mask use and 2.1-fold (95\%-CrI 0.9$-$5.0) higher with pre-pandemic ventilation rates, emphasizing the importance of ventilation. Spatiotemporal modeling can identify high-risk areas and evaluate the impact of infection control measures in clinics.
+
+\par
+\end{abstract}
+
+\flushbottom
+\maketitle
+\setcounter{page}{1}
+\thispagestyle{fancy}
+
+\newpage
+
+\sloppy
+\raggedbottom
+
+\newpage
+
+\noindent\large{\textbf{Author Summary}}
+
+\noindent In crowded indoor settings in high tuberculosis burden countries, there is a high risk of tuberculosis transmission. We developed a model to study how tuberculosis is spread in a South African clinic during the COVID-19 pandemic when masks were mandatory and ventilation was improved. We tracked the movements of clinic attendees with video sensors and matched them with clinical records to find where and when infectious tuberculosis patients were present. We used this information to estimate the concentration of infectious particles in the air and the risk of infection for individuals. Over five days, the sensors tracked nearly 1,500 people in the clinic. Air quality was generally good, but the concentration of infectious particles was higher in the morning and peaked in the waiting room. The average risk of infection per person was found to be 0.05\%. The risk increased with more close contact with infectious patients and longer time spent in the clinic. Without masks, the risk was 1.3 times higher. With lower ventilation rates, similar to pre-pandemic levels, the risk was 2.1 times higher. This modeling can help identify high-risk areas for tuberculosis transmission and evaluate infection control measures in healthcare facilities.
+
+\newpage
+
+%TC:break main
+\section*{Introduction} 
+
+% TB and the route of transmission
+Tuberculosis (TB) remains one of the leading causes of death globally, with the South African region bearing a disproportionate share of the TB burden.  After two years of COVID-19-related disruption of TB prevention and control measures, the negative impact of the COVID-19 pandemic is receding, as documented in the World Health Organization (WHO) 2023 global TB report\cite{WHO2023TBReport}. However, progress was insufficient to meet global TB targets\cite{WHO2023TBReport}. For example, investment in TB research was only about half of the USD 2~billion target\cite{WHO2023TBReport}.
+
+\emph{Mycobacterium tuberculosis} (\emph{Mtb}), the causative agent of TB, is transmitted via respiratory particles in the exhaled air of infectious persons\cite{Rieder1999,Patterson2021Tuberculosis}. \emph{Mtb} is primarily carried in small particles of $1-7\mu$m\cite{Fennelly2020Lancet}, which can survive in the air for multiple hours\cite{Loudon1969AMRRD}. Survival of airborne pathogens is greater in crowded, poorly ventilated indoor environments\cite{Rieder1999,CPS2013Book,Nardell1991ARRD,Wang2021Science,Morawska2021}. Healthcare facilities are high-risk settings where infectious individuals are more likely to visit\cite{McCreesh2020IJTLD}. A modeling study in South Africa estimated that 4\% to 14\% of adult TB cases originate from primary care clinics\cite{McCreesh2022BMJGlobalHealth}.
+
+% the Wells-Riley model and its limitations
+The Wells-Riley model\cite{Riley1961Book} is widely used to estimate the risk of airborne transmission in a variety of indoor settings\cite{Haddrell2024NatCommun,Andrews2014JID,Taylor2016IJTLD,Hella2017JInfect,Zemouri2020JDR}, including primary care clinics\cite{Zurcher2022JID,McCreesh2021BMJGlobalHealth}. The model estimates the risk of infection based on the number of infectious individuals in space, the generation rate of infectious quanta (doses of pathogen-carrying particles), the breathing rate per person, and the outdoor air supply rate, which is often estimated from indoor CO$_2$ levels\cite{Rudnick2003IndoorAir,Richardson2014PONE,Haddrell2024NatCommun}. The Wells-Riley model and its variations\cite{Rudnick2003IndoorAir} assume a well-mixed airspace, meaning that the quanta concentration is the same throughout the room. However, the concentration is typically higher near the infectious source\cite{Wang2021Science,Vuorinen2020SafSci,Chen2020BuildEnv}, and previous studies have shown that the risk of TB infection is associated with proximity to infectious individuals\cite{Ko2004RiskAnal,Kenyon1996NEJM}.
+
+% what this study adds
+We developed a spatiotemporal extension of the Wells-Riley model to model the concentration of infectious quanta in space and time. We combined clinical and person-tracking data to determine the spatiotemporal location of TB patients and susceptible attendees at a primary care clinic in South Africa for five days in October/November 2021. We measured indoor CO$_2$ levels to model the spatial diffusion and removal of infectious quanta over time and estimated the risk of infection per clinic attendee. Finally, we evaluated the impact of infection control measures during the study in response to the COVID-19 pandemic.
+
+\newpage
+
+\section*{Methods}
+
+\subsection*{Ethics statement}
+
+The University of Cape Town Faculty of Health Sciences Human Research Ethics Committee (HREC/REF: 536/2020), the City of Cape Town (Project ID: 8139), South Africa, and the Ethics Committee of the Canton of Bern (KEK/REF: 2019-02131), Switzerland, approved the study.
+
+\subsection*{Study design and setting}
+
+Based on a pilot study from 2019 in the same clinic\cite{Zurcher2022JID,Zurcher2020BMJ}, we collected environmental data (indoor CO$_2$ levels), clinical data (TB status), and video sensor data (person movements) for five days during the COVID-19 pandemic in October/November 2021 (October 13, 15, 25, and November 4, 5) at a primary care clinic in Cape Town, South Africa. The clinic offers both TB and HIV services and other basic clinical services, Monday through Friday, from 8\,am to 4\,pm. It is located in a large settlement of formal and semi-formal housing where TB and HIV are highly prevalent\cite{Wood2007AMJRCCD,Middelkoop2011JAIDS}. We defined three areas within the clinic (Fig~\ref{fig:floor-plan}): the waiting room (10.55m $\times$ 5.50m $\times$ 3.00m), corridor (12.45m $\times$ 2.20m $\times$ 2.50m), and TB room (4.75m $\times$ 3.50m $\times$ 3.00m). The TB room was mainly used for the treatment of diagnosed TB patients but also for the screening of suspected patients with respiratory symptoms who were ultimately not diagnosed with TB. The clinic was naturally ventilated by opening all doors and windows throughout the day.
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{doc/clinic-schematic-annotated-view.pdf}
+    \caption{\textbf{Schematic view of the clinic}. Patients typically enter the clinic through the entrance on the bottom left, register at the reception, then wait in the waiting room or along the corridor until they see a doctor in one of the care rooms or the TB room. They exit the clinic through one of the exits in the waiting room or at the end of the corridor. Colored icons show the placement of the video sensors to track person movements and the devices monitoring CO$_2$ levels.}
+    \label{fig:floor-plan}
+\end{figure}
+
+
+\subsection*{Data collection}
+
+We collected environmental and clinical data and data on the movements of patients in the clinic. Four devices monitored indoor CO$_2$ levels (CO$_2$ Logger CL11, Rotronic, Bassersdorf, Switzerland) in the waiting room, corridor, and TB room (Fig \ref{fig:floor-plan}), in parts per million (ppm) at 1-min intervals. On October~13, the corridor's CO$_2$ measurements were missing due to a malfunctioning device and the waiting room's CO$_2$ measurements were used for the corridor because their CO$_2$ measurements were similar on the other days (see time-varying CO$_2$ levels and number of persons per room by clinic day in Fig.~\zref{fig:co2-levels}-\zref{fig:people-over-time-by-day} in \supp, Section \zref{sec:add-descriptives}).
+
+We extracted clinical data from the electronic patient registry for all patients who attended the clinic during the study. Clinical records included the date and time of arrival, TB diagnostic results, and date of TB treatment initiation. We defined infectious patients as individuals who tested bacteriologically positive for TB during the study or who had received TB treatment for less than four weeks. Patients on treatment for more than four weeks or with recently completed treatment were considered neither infectious nor susceptible. We also defined suspected TB patients as individuals who were tested for TB following symptom screening, but who were not diagnosed with TB. 
+
+We used an anonymous person tracking system using video sensors (Xovis, Zollikofen, Switzerland) to track the movements of people (clinic staff, patients, and other visitors) throughout the clinic at 1-second intervals (Fig~\ref{fig:floor-plan}). The resulting time-stamped tracking data consisted of a person’s height, their position recorded as x-y coordinates, and a unique ID for each person's track while in the clinic. People in the clinic could contribute multiple tracks if they moved out of the range of a sensor or were not recognized as a person. To address this, we created an R Shiny application (Fig~\zref{fig:shiny-app} in \supp) to rejoin interrupted tracks as described in Section~\zref{sec:setting-and-data} in \supp. We also labeled the tracks to identify the movements of clinic staff. Fig~\ref{fig:tracking-examples} shows four examples of person movements after rejoining interrupted tracks.  
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{results/data/example-patient-tracks.png}
+    \caption{Examples of person movements in the clinic.}
+    \label{fig:tracking-examples}
+\end{figure}
+
+
+\subsection*{Spatiotemporal modeling approach}
+
+Our spatiotemporal model is based on the Wells-Riley equation\cite{Riley1961Book}, which estimates the risk (probability in \%) of \emph{Mtb} infection $P$ as
+\begin{align}
+    P = \frac{C}{S} = 1 - \exp\left(-\frac{Ipqt}{Q}\right),
+\end{align}
+where $C$ is the number of diseased cases, $S$ is the number of susceptible cases, $I$ is the number of infectious people in the indoor space, $p$ is the breathing rate per person (m$^3$ h$^{-1}$), $q$ is the quantum (infectious dose) generation rate (quanta h$^{-1}$), $t$ is the exposure time (h), and $Q$ is the ventilation rate (m$^3$ h$^{-1}$). The probability of infection is estimated with a Poisson relation, considering the stochastic behavior of airborne infection, where one quantum corresponds to a 67\% risk of infection. The main assumption of the Wells-Riley model is a well-mixed airspace, which means that the quanta concentration $N = Iq/Q$ (quanta m$^{-3}$) is the same everywhere in the room. 
+
+We extended the Wells-Riley model, allowing spatial variation in the quanta concentration by combining patient-tracking data with clinical records. This way, the spatiotemporal location of infectious patients who generate quanta could be determined. A detailed description of our extension is provided in Section~\zref{sec:spattemp-model} in \supp, together with an illustrative example using simulated data (Fig~\zref{fig:toy-example} in \supp). In the following, we describe the six main components of our modeling approach (Fig~\ref{fig:modeling-flow}).
+
+\begin{figure}[!htpb]
+    \centering
+    \includegraphics{doc/model-flow-chart.pdf}
+    \caption{\textbf{Visual summary of the spatiotemporal modeling approach}. (1)~Clinical records and person movements were linked based on their timestamps at the registration to determine the spatiotemporal location of diagnosed (infectious) TB patients. (2)~Both diagnosed and randomly selected undiagnosed TB patients among clinic attendees generate infectious quanta. (3)~Person-tracking and environmental data were combined to estimate the air change rate. (4)~Air change rate was related to the speed at which quanta diffuses indoors. (5)~The air change rate also determines quanta removal through outdoor air exchange, in addition to inactivation of \emph{Mtb} in airborne particles. (6)~Quanta generation, diffusion, and removal determine the spatiotemporal quanta concentration, from which the personal risk of infection is calculated using the Wells-Riley equation.}
+    \label{fig:modeling-flow}
+\end{figure}
+
+\subsubsection*{Quanta generation}
+
+(1)~We matched clinical records with person movements to identify the spatiotemporal location of infectious TB patients within the clinic. We recorded the timestamp when a person was detected in the registration area and matched this with the registration time in the clinical records. We excluded tracks with a total duration of less than five minutes in the clinic and a duration of less than five seconds in the registration area from the matching. We allowed for a maximum delay of 15\,min between the track's timestamp in the registration area and the entry in the clinical database. This way, all diagnosed TB patients could be matched with person movements. 
+
+(2)~In addition to diagnosed TB patients, we also assumed a number of undiagnosed (subclinical) TB patients. The number of undiagnosed TB patients may be proportional to the number of diagnosed TB patients \cite{Berhanu2023CID,Moyo2022LancetID,Patterson2024PNAS}. Therefore, we modeled the number of undiagnosed TB patients with a multinomial distribution based on the counts of the number of diagnosed patients in the clinical data in October/November 2021 (Fig~\zref{fig:undiagnosed-distribution} in \supp): 6 days (12\%) with zero, 12 (41\%) with one, 8 (28\%) with two, 2 (7\%) with three, and 1 (3\%) with four diagnosed TB patients. Undiagnosed patients were randomly sampled among all clinic attendees with the same probability, excluding clinic staff who were not considered infectious. We further assumed that diagnosed and undiagnosed TB patients generated quantum at the same rate $q$, modeled using a lognormal prior distribution considering two different activity levels (Fig~\zref{fig:quanta-distribution} in \supp): median of 1.08\,quanta h$^{-1}$ (95\%-credible interval [CrI] 0.003\,quanta h$^{-1}$\,$-$\,386\,quanta h$^{-1}$) while sitting and 2.81\,quanta h$^{-1}$ (95\%-CrI 0.008\,quanta h$^{-1}$\,$-$\,987\,quanta h$^{-1}$) while walking\cite{Mikszewski2021GF,Buonanno2020EI,Banholzer2024PGPH}. Since mask use (community or surgical masks) was mandatory for all clinic staff and attendees during the study, we assumed a mean reduction in $q$ by 75\% (95\%-CrI 56\%\,$-$\,86\%)\cite{Dharmadhikari2012AJRCCM,McCreesh2021BMJGlobalHealth}.
+
+\subsubsection*{Quanta diffusion}
+
+(3)~We calculated time-varying room occupancy from the video sensor data and combined it with the CO$_2$ measurements (Figs~\zref{fig:co2-levels}-\zref{fig:people-over-time-by-day} in \supp) to the estimate air change rate during the morning (8\,am to 12\,am) and afternoon (12\,am to 4\,pm) of each clinic day using a transient mass balance model\cite{Batterman2017IJERPH}. 
+
+(4)~The air change rate was related to the diffusion of quanta using, as an approximation, the empirical relationship between the eddy diffusion coefficient and the air change rate in CO$_2$ particles\cite{Cheng2011EnvSciTech,Foat2020BE}. Since airflow was not monitored in our study, we assumed that the quanta diffused radially from where it had been generated. 
+
+\subsubsection*{Quanta removal}
+
+(5)~Quanta removal occurs through the replacement of contaminated indoor air with outdoor air, inactivation of bacteria in airborne particles, and gravitational settling. The removal rate is thus the sum of the air change rate, the inactivation rate of \emph{Mtb}, and the gravitational settling rate. We modeled the bacterial inactivation rate of \emph{Mtb} using a lognormal prior distribution (Fig~\zref{fig:undiagnosed-distribution} in \supp) with a median of 1\,h$^{-1}$ (95\%-CrI 0.1\, h$^{-1}$\,$-$\,7.1\,h$^{-1}$)\cite{Loudon1969AMRRD,Lever2000LettersAppliedMicrobio,Gannon2007ResVetSci,Klein2014IJMyco}. Particles with \emph{Mtb} in the size range of $1-7\mu$m\cite{Fennelly2020Lancet} have a settling velocity of $3.5\cdot 10^{-5}-1.5\cdot 10^{-3}$m\,s$^{-1}$ in still air\cite{Vuorinen2020SafSci}, which we modeled using a Gamma distribution with mean $7.7\cdot 10^{-4}$m\,s$^{-1}$ and standard deviation $3.7\cdot 10^{-4}$m\,s$^{-1}$. Considering a drop height of 1.7\,m (average height of visitors), the median gravitational settling rate was assumed to be 1.5 h$^{-1}$ (95\%-CrI 0.5 h$^{-1}$ – 3.5 h$^{-1}$).
+
+\subsubsection*{Risk of infection}
+
+(6)~The quanta concentration was computed separately for the waiting room, corridor, and TB room. Each room was discretized into a grid of cubic cells, each cell covering a squared area of 0.0625\,m$^2$. We assumed that the quanta concentration was vertically well-mixed and computed the quanta concentration $N_{r,c,t}$ in room $r$ and cell $c$ at time $t$ as
+\begin{align}\label{eq:spattemp-N}
+     \underbrace{N_{r,c,t}}_{\text{new conc.}} = \underbrace{\left(D \Delta (\underbrace{N_{r,c,t-1}}_{\text{old conc.}} + \underbrace{I_{r,c,t} \cdot q\cdot1\,s}_{\text{generation}}\cdot V_{r,c}^{-1})\right)}_{\text{diffusion}} \cdot \underbrace{\exp\left(-(AER_{r,t} + \lambda + k)\cdot1\,s\right)}_{\text{removal}} ~.
+\end{align}
+where $D_t$ is the diffusion constant (m$^2$\,s$^{-1}$) varying by daytime, $\Delta$ is the Laplace operator (second-order differential operator), $I_{r,c,t}$ is the number of infectious individuals, $V_{r,c}$ is the room-specific cell volume (m$^3$), $q$ is the quantum generation rate (quanta\,s$^{-1}$), $AER_{r,t}$ is the room-specific air change rate varying by daytime(s$^{-1}$), $\lambda$ is the bacterial inactivation rate (s$^{-1}$), and $k$ is the gravitational settling rate (s$^{-1}$). We modeled the spatiotemporal quanta concentration during clinic hours from 8\,am to 4\,pm and updated it every second, corresponding to the frequency of the person-tracking data.
+
+The patient-specific risk of infection depends on the cumulative exposure to infectious quanta and was computed using the Wells-Riley equation as
+\begin{align}
+    P = 1-\exp\left(-\sum_r \sum_c \sum_t N_{r,c,t} \cdot \mathbb{I}_{r,c,t} \cdot p_a\cdot1\,s\right),
+\end{align}
+where $\mathbb{I}_{r,c,t}$ indicates whether the person was in cell $c$ of room $r$ at time $t$, and $p_a$ (m$^3$ s$^{-1}$) is the breathing rate for activity level $a$. We distinguished between walking ($p_\mathrm{walk}$ = 1.33\,m$^3$\,h$^{-1}$) and sitting activities ($p_\mathrm{sit}$ = 0.51\,m$^3$\,h$^{-1}$)\cite{Adams1993}, based on whether the the person had moved by more or less than 0.25\,m\,s$^{-1}$. In line with a previous modeling study\cite{McCreesh2021BMJGlobalHealth}, we assumed that the mandatory use of community and surgical masks during our study had only effects on the exhalation of \emph{Mtb} particles and no effect on \emph{Mtb} infection of the person wearing the mask.
+
+\subsection*{Monte Carlo simulation}
+
+Simulations are described in detail in Section~\zref{sec:estimation} in \supp. Briefly, we simulated the spatiotemporal quanta concentration separately for the clinic's waiting room, corridor, and the TB room. Each room was rasterized into a grid of cubic cells with an area of 0.25$^2$\,m$^2$. The quanta concentration was modeled during clinic hours from 8\,am to 4\,pm and updated every second. We used a Monte-Carlo simulation approach to consider uncertainty in modeling parameters. In each simulation, we sampled uncertain modeling parameters from their prior distributions and computed the spatiotemporal quanta concentration and the risk of infection per clinic attendee.
+
+\subsection*{Hypothetical scenarios}
+
+Data were collected during the COVID-19 pandemic when infection control measures were in place. To model their effectiveness, we considered two hypothetical scenarios: 1)~no mask-wearing, \ie assuming no reduction in the quantum generation rate; and 2)~pre-pandemic ventilation conditions, \ie assuming an air change rate of 6~air changes per hour, corresponding to the average rate in the pilot study in 2019 in the same clinic\cite{Zurcher2022JID}. Furthermore, we examined the impact of different assumptions about the number of infectious patients in the clinic: 1)~we considered patients clinically suspected of having TB as infectious because these patients may generate aerosolized \emph{Mtb} even when not diagnosed with TB at their first visit\cite{Patterson2024PNAS}; 2)~we randomly selected infectious patients among all clinic attendees in proportion to the prevalence of TB in the South African population\cite{Moyo2022LancetID}. 
+
+\subsection*{Statistical analysis}
+
+We summarized clinical (diagnosed and suspected TB patients), environmental (time-varying CO$_2$ levels and air change rates), and person-tracking data (spatiotemporal number of tracks, visit time, and close-contact encounters) using descriptive statistics. We modeled the spatiotemporal quanta concentration with 5,000 Monte Carlo simulations, considering uncertainty in modeling parameters (Section~\zref{sec:estimation} in \supp). In each simulation, we computed the individual risk of infection based on the cumulative quanta exposure during the clinic visit. We computed the average quanta concentration by daytime (morning: 8\,am to 12\,am, afternoon: 12\,am to 4\,pm) and the mean risk of infection per clinic attendee across simulations. The scenario-specific infection risk distribution was shown with a histogram and summarized with the mean and 80\%-credible interval (CrI). The mean risk of infection per clinic attendee was categorized as low (<0.1\%), medium (0.1-1\%), and high (>1\%). We used a Bayesian Beta regression model to estimate the odds ratio (OR, posterior mean and 95\%-CrI) of the modeled risk of TB infection in association with the visit time, duration of close contact with other clinic attendees, and frequency of close-contact encounters (proximity to another attendee <1\,m for a duration of >1\,min). Analyses were performed in R (version 4.3.1) and Stan (version 2.26.1). Additional results not reported in the manuscript are shown in Section~\zref{sec:additional-results} in \supp. 
+
+\newpage
+
+\section*{Results}
+
+During one week (five open clinic days), 894 patients were registered in the clinical database: four patients were bacteriologically diagnosed with TB and 16 patients were suspected of having TB after symptom screening. Overall, 1,563 person movements were detected based on the video sensor data; 125 likely from clinic staff (movements from and to staff rooms) and 1,438 from clinic attendees (registered patients and other visitors). Most movements were detected in the waiting room (Fig~\ref{fig:input-data-descriptives}A) and during the morning (Fig~\ref{fig:input-data-descriptives}B). Attendees spent about half an hour in the clinic (median 25\,min, interquartile range (IQR) 13\,min$-$46\,min), mainly in the waiting room (Fig~\ref{fig:input-data-descriptives}C). Time spent in the corridor and TB room varied considerably as many patients just walked through the corridor and the TB room was reserved primarily for diagnosed or suspected TB patients. Close-contact encounters were frequent (median 5, IQR 2$-$9 per attendee) and attendees were in close contact with at least one other person for more than half of the duration of their visit (median 68\%, IQR 41\%$-$87\%). The CO$_2$ levels in the clinic were low (median 436\,ppm, IQR 410\,ppm$-$462\,ppm) and the corresponding air change rates were high throughout the study (Fig~\ref{fig:input-data-descriptives}D), with a median of 17 air changes per hour (IQR 9\,h$^{-1}$$-$23\,h$^{-1}$) in the densely occupied waiting room. CO$_2$ levels varied slightly within and between clinic days, largely corresponding to changes in room occupancy during the day (Figs~\zref{fig:co2-levels}-\zref{fig:people-over-time-by-day} in \supp), and possibly small variations in ventilation conditions between days. Median temperature in the clinic was 22$^{\circ}$C (IQR 21$^{\circ}$C$-$23$^{\circ}$C) and relative humidity was 55\% (IQR 47\%$-$61\%).
+
+
+\begin{figure}
+    \centering
+     \includegraphics{results/data/no-people-spatial.png}
+    \includegraphics{results/data/no-people-over-time.png}
+    \includegraphics{results/data/time-in-clinic.png}
+    \includegraphics{results/data/air-changes-per-hour.png}
+    \caption{\textbf{Person tracks and environmental conditions by clinic area.} Across clinic days and for the clinic waiting room, corridor and TB room: \textbf{(a)}~total number of tracks recorded per unit space, \textbf{(b)}~number of people in the clinic over time, \textbf{(c)}~time per clinic visit, and \textbf{(d)}~air change rates. Lines and ribbons show the mean plus/minus standard deviation. Boxplots show the medians as lines, interquartile ranges as boxes, ranges as whiskers, and outliers as dots.}
+    \label{fig:input-data-descriptives}
+\end{figure}
+
+The quanta concentration was higher in the morning than in the afternoon, and higher in the waiting room than in the corridor or TB room of the clinic (Fig~\ref{fig:main-modeling-results}). An exposure of one hour to the mean quanta concentration in the middle of the waiting room would translate to a 0.20\% risk of infection in the morning compared to a 0.04\% risk in the afternoon. The mean risk of infection per clinic visit was 0.05\% (80\%-credible interval (CrI) 0.01\%$-$0.06\%), corresponding to a risk of 0.1\% per hour (80\%-CrI 0.01\%$-$0.21\%). S1~Video shows an animated sequence of the spatiotemporally varying quanta concentration as an infectious patient enters the clinic on the morning of October~25 and moves through the waiting room. It can be seen that the quanta concentration was higher near the infectious patient, following their position and movement. The quanta diffused quickly because the diffusion constant was related to the air change rate, which was generally high because all doors and windows were typically open during clinic hours.
+
+The modeled individual risk of infection was associated with the number of close contacts and the time spent in the clinic. A doubling of close-contact encounters increased the odds of infection by 17\% (OR 1.17, 95\%-CrI 1.04$-$1.30). Doubling the time spent in the clinic increased the odds of infection by 12\% (OR 1.12, 95\%-CrI 1.03$-$1.22). The time spent in close contact was not significantly associated with the individual risk of infection (OR 1.02, 95\%-CrI, 0.94$-$1.11). 
+
+\begin{figure}
+    \centering
+    \includegraphics{results/modeling/mean-quanta-concentration.png}
+    \caption{\textbf{Spatiotemporal quanta concentration by clinic area.} Model-estimated average quanta concentrations during clinic days in the morning and afternoon in the clinic's waiting room, corridor and TB room of the clinic.}
+    \label{fig:main-modeling-results}
+\end{figure}
+
+The hypothetical scenarios assuming no mask use and pre-pandemic ventilation rates are shown in  Fig~\ref{fig:scenario-results}. If none of the clinic attendees or staff had worn masks, the mean risk of infection per visit would have been 0.07\% (80\%-CrI 0.01\%$-$0.08\%), an increase of 30\% (OR 1.3, 95\%-CrI 1.2$-$1.4). If the air change rate had been the same as before the COVID-19 pandemic, the mean risk of infection would have been 0.09\% (80\%-CrI 0.01\%$-$0.10\%), an increase of 110\% (OR 2.1, 95\%-CrI 0.9$-$5.0). Without mask use and with pre-pandemic ventilation rates, the mean risk of infection would have been 0.12\% (80\%-CrI 0.02\%$-$0.12\%), an increase of 170\% (OR 2.7, 95\%-CrI 1.1$-$6.6). The scenarios show an increase in the number of clinic attendees with a high risk of infection (Fig~\ref{fig:scenario-results}). 
+
+In sensitivity analyses, we varied assumptions about the number of infectious persons in the clinic. Assuming that the number of infectious TB patients reflected the prevalence of TB in the South African population, the mean risk of infection would have been slightly higher (0.06\%, 80\%-CrI 0.01\%$-$0.10\%). Further, assuming that both diagnosed TB patients and clinic attendees suspected of having TB were infectious, the mean risk of infection would have been twice as high (0.11\%, 80\%-CrI <0.01\%$-$0.18\%).  
+
+\begin{figure}
+    \centering
+    \includegraphics{results/modeling/mean-roi-comparison.png}
+    \caption{\textbf{Impact of infection control measures.} Mean risk of infection per clinic attendee (median visit time 25\,min, IQR 13\,min$-$46\,min): \textbf{(a)}~with mask use (community or surgical masks) and high ventilation as observed during the COVID-19 pandemic, \textbf{(b)}~without mask use and high ventilation, \textbf{(c)}~with mask use and normal ventilation as observed before the COVID-19 pandemic  \textbf{(d)}~without mask use and normal ventilation. Low risk: <0.1\%, Medium: 0.1-1\%, High: >1\% risk of infection.}
+    \label{fig:scenario-results}
+\end{figure}
+
+\FloatBarrier
+
+\newpage
+
+\section*{Discussion}
+
+% summary
+We expanded the Wells-Riley equation to a novel spatiotemporal model based on environmental, clinical, and patient movement data. We applied the model to real-world data from a South African primary care clinic collected in 2021 during the COVID-19 pandemic to examine the risk of \emph{Mtb} infection among clinic attendees. We estimated an average risk of infection per clinic attendee of 0.05\%. We found that clinic attendees who stayed longer and had more close contact encounters had a higher risk of infection. Without infection control measures (community/surgical masks and high natural ventilation), the risk of infection would have been almost three times higher. Our spatiotemporal model can be easily adapted to model airborne transmission risks of other respiratory infections such as SARS-CoV-2.
+
+% close contacts
+The COVID-19 pandemic has renewed interest in airborne transmission of respiratory infections in crowded indoor settings\cite{Wang2021Science,Morawska2021,Greenhalgh2022BMJ} and its modeling\cite{Shen2021STBE,Buonanno2020EI,Edwards2024RiskAnalysis}. Many studies\cite{Andrews2014JID,Taylor2016IJTLD,Hella2017JInfect,Zemouri2020JDR} rely on the Wells-Riley transmission model\cite{Riley1961Book}, based on the pioneering work of William Wells, who proposed a role of droplets in airborne transmission in the 1930s\cite{Wells1934AJE}, and Richard Riley, who developed the equation in the 1960s\cite{Riley1961Book}.  The Wells-Riley model assumes that the airspace is well-mixed, ignoring that closer proximity to infectious individuals most likely increases the risk of infection. Our spatiotemporal model is an extension of the Wells-Riley model, which allows the quanta concentration to vary both over time and space, and considers that the density of infectious particles is initially higher near the infectious source\cite{Wang2021Science,Vuorinen2020SafSci,Chen2020BuildEnv}. We found a significant association between the modeled risk of infection and the number of close-contact encounters, and the time spent in the clinic. More close contacts and extended visits make exposure to high doses of infectious particles more likely. Several previous studies have already indicated that prolonged close contact may be required to transmit respiratory infections\cite{Leung2020NatMed,Brankston2007LancetID,Narasimhan2013PulmonaryMed}. 
+
+% critical appraisal of our results 
+South Africa has a high burden of TB and multi-drug-resistant TB\cite{WHO2023TBReport}. Nevertheless, we estimated a lower risk of infection per clinic attendee in our primary care clinic under pandemic conditions with strict infection control measures in place. Assuming clinic visits amounting to 12\,hours per year, we estimated a cumulative annual risk of infection of about 1.2\%, which contrasts with an estimated risk of 9\% to 29\% from before the pandemic in the same clinic\cite{Zurcher2022JID}. The difference can be mainly attributed to the infection control measures that were in place during the COVID-19 pandemic. We estimated that without mask use and with pre-pandemic ventilation conditions, the risk of infection would have been more than twice as high. Patient triage and fixed appointments probably also contributed to a lower risk of \emph{Mtb} transmission during the COVID-19 pandemic, which was not considered in our hypothetical scenarios. Other modeling assumptions may also have contributed. The risk estimate from our previous study before the COVID-19 pandemic\cite{Zurcher2022JID} was based on TB prevalence in the South African population, rather than the TB status documented in the clinical data. modeling the risk based on TB prevalence or assuming that both diagnosed and suspected TB patients were infectious also resulted in a higher modeled risk of transmission. 
+
+% relation to infection control
+A previous study estimated that between 4\% and 14\% of TB transmission in adults in a high TB burden, high HIV prevalence community in South Africa occurred in primary care clinics\cite{McCreesh2022BMJGlobalHealth}. Other studies suggest that mask-wearing could reduce the risk of \emph{Mtb} transmission by more than 50\%\cite{Dharmadhikari2012AJRCCM,McCreesh2021BMJGlobalHealth}. Our findings also show that the risk of infection is lower with mask use (community or surgical masks), although the risk reduction estimated in our study is less pronounced. The reason for this is that the effect of mask use is compounded by the effect of very high natural ventilation rates, which determine both the diffusion and the removal of infectious quanta in the indoor space. The air change rates in the clinic typically ranged from 10 to 20 air changes per hour, which resulted in a quick diffusion and removal of infectious quanta from the indoor air. To put this into perspective, we recently modeled the risk of \emph{Mtb} transmission in schools by comparing ventilation conditions in South Africa (1.5 air changes per hour), Switzerland (0.7), and Tanzania (13.7)\cite{Banholzer2024PGPH}. Tanzania had a much lower estimated risk of \emph{Mtb} transmission in schools than the other countries, largely because of better natural ventilation, with an air change rate comparable to the one measured in the primary care clinic in our study. We emphasize that our results do \emph{not} suggest that masks are ineffective -- there is a large body of evidence for their effectiveness -- but that their effect is outweighed by the excellent ventilation conditions in the clinic during the COVID-19 pandemic.
+
+% more complex models and our relation
+Airborne respiratory transmission depends on environmental and patient-specific factors. Our model considered ventilation conditions and patient movements. However, other factors such as variation in infectiousness, temperature and humidity, or physicochemical properties of the infectious particles can further influence the generation, diffusion, and removal of infectious quanta (for a detailed discussion of these factors, see Section~\zref{sec:depth-discussion} in \supp). Furthermore, computational fluid dynamics (CFD) models have been developed to examine airflow as a factor influencing the spatial spread of airborne pathogens\cite{Vuorinen2020SafSci,Jung2021InfectChemo,Li2021BuildEnv,Yan2023BE,Qian2009BE,Li2022SOTTE}. However, CFD models are computationally expensive and primarily used in experimental and static environments, making their application to real-world settings such as clinics difficult. Moreover, our modeling approach required computational efficiency because many Monte Carlo simulations are needed to reflect uncertainty in modeling parameters. 
+
+% limitations
+Our study has several limitations. First, tracking patient movements with video sensors was challenging. It required considerable data processing and many interrupted tracks could not be reconnected. Therefore, some clinic attendees may have had longer visits and the risk of infection may have been underestimated. Second, several important assumptions had to be made regarding the generation, diffusion, and removal of infectious quanta. For example, the waiting room and corridor were treated as separate rooms to facilitate modeling and because we observed differences in room occupancy and time-varying CO$_2$ levels, but the door between these areas was typically open, allowing aerosolized \emph{Mtb} (quanta) to spread from one area to the other. We also assumed that infectious particles move radially from the source and approach a steady state with uniform contamination of the airspace, which may depend on airflow. However, airflow is very difficult to measure. Furthermore, uncertainty in modeling parameters determining quanta generation and removal was often large and could be reduced in future work by incorporating, for example, additional information on patient characteristics from clinical records that are known to be associated with infectiousness\cite{Escombe2008PLoSMed} or susceptibility\cite{Furin2019Lancet}. Third, we could not validate our modeling results with empirical findings. Future research could test the practical implementation of our model by examining whether clinic attendees with a high risk of infection were also subsequently more likely to be diagnosed with TB.  
+
+% conclusions
+In conclusion, our spatiotemporal transmission model incorporates clinical, environmental, and person movement data to estimate the risk of infection per person in the indoor space. It can be easily adapted to model airborne transmission risk of other respiratory infections such as SARS-CoV-2. We showed that the risk of \emph{Mtb} transmission in a primary care clinic in South Africa was related to the number of close contact encounters and time spent in the clinic. The risk of infection was low under pandemic conditions with strict infection control measures in place. Our spatiotemporal model could be used in future work to evaluate the impact of infection control measures, specifically interventions targeting patient flows to reduce prolonged close contact. Finally, our study highlights the paramount importance of effective ventilation in primary care clinical settings. 
+
+
+\newpage
+
+\section*{Supplementary Information}
+
+\noindent\noindent\textbf{S1 Appendix:} Includes supplementary text, tables and figures.
+
+\noindent\textbf{S1 Video:} Animated sequence of the spatiotemporally varying quanta concentration as an infectious patient enters the clinic and moves through the waiting room during one morning.
+
+\section*{Acknowledgments}
+We are grateful to the clinical manager and the staff members at the primary care clinic. We also would like to thank the City of Cape Town, South Africa for the use of one of their clinic facilities and their support. Our research findings and recommendations do not represent an official view of the city of Cape Town. 
+
+\newpage
+
+\begin{thebibliography}{10}
+
+\bibitem{WHO2023TBReport}
+{World Health Organization}.
+\newblock Global {Tuberculosis} {Report} 2023; 2023.
+\newblock Available from:
+  \url{https://www.who.int/teams/global-tuberculosis-programme/tb-reports/global-tuberculosis-report-2023}.
+
+\bibitem{Rieder1999}
+Rieder HL. Disease IUATaL, editor. Epidemiologic basis of tuberculosis control.
+\newblock International Union Against Tuberculosis and Lung Disease; 1999.
+
+\bibitem{Patterson2021Tuberculosis}
+Patterson B, Bryden W, Call C, McKerry A, Leonard B, Seldon R, et~al.
+\newblock Cough-independent production of viable {Mycobacterium} tuberculosis
+  in bioaerosol.
+\newblock Tuberculosis. 2021;126:102038.
+\newblock doi:10.1016/j.tube.2020.102038.
+
+\bibitem{Fennelly2020Lancet}
+Fennelly KP.
+\newblock Particle sizes of infectious aerosols: implications for infection
+  control.
+\newblock Lancet Respir Med. 2020;8(9):914--924.
+\newblock doi:10.1016/S2213-2600(20)30323-4.
+
+\bibitem{Loudon1969AMRRD}
+Loudon RG, Bumgarner LR, Lacy J, Coffman GK.
+\newblock Aerial transmission of mycobacteria.
+\newblock Am Rev Respir Dis. 1969;100(2):165--171.
+\newblock doi:10.1164/arrd.1969.100.2.165.
+
+\bibitem{CPS2013Book}
+{Center for Prevention Services  Division of Tuberculosis Elimination}.
+\newblock Core {curriculum} on {Tuberculosis}: {What} the {clinician} {should}
+  {know}.
+\newblock 6th ed. U.S. Department of Health \& Human Services, Centers for
+  Disease Control and Prevention, National Center for HIV, STD, and TB
+  Prevention, Division of Tuberculosis Elimination; 2013.
+
+\bibitem{Nardell1991ARRD}
+Nardell EA, Keegan J, Cheney SA, Etkind SC.
+\newblock Airborne infection: {Theoretical} limits of protection achievable by
+  building ventilation.
+\newblock Am Rev Respir Dis. 1991;144(2):302--306.
+\newblock doi:10.1164/ajrccm/144.2.302.
+
+\bibitem{Wang2021Science}
+Wang CC, Prather KA, Sznitman J, Jimenez JL, Lakdawala SS, Tufekci Z, et~al.
+\newblock Airborne transmission of respiratory viruses.
+\newblock Science. 2021;373(6558):eabd9149.
+\newblock doi:10.1126/science.abd9149.
+
+\bibitem{Morawska2021}
+Morawska L, Allen J, Bahnfleth W, Bluyssen PM, Boerstra A, Buonanno G, et~al.
+\newblock A paradigm shift to combat indoor respiratory infection.
+\newblock Science. 2021;372(6543):689--691.
+\newblock doi:10.1126/science.abg2025.
+
+\bibitem{McCreesh2020IJTLD}
+McCreesh N, Grant AD, Yates TA, Karat AS, White RG.
+\newblock Tuberculosis from transmission in clinics in high {HIV} settings may
+  be far higher than contact data suggest.
+\newblock Int J Tuberc Lung Dis. 2020;24(4):403--408.
+\newblock doi:10.5588/ijtld.19.0410.
+
+\bibitem{McCreesh2022BMJGlobalHealth}
+McCreesh N, Karat AS, Govender I, Baisley K, Diaconu K, Yates TA, et~al.
+\newblock Estimating the contribution of transmission in primary healthcare
+  clinics to community-wide {TB} disease incidence, and the impact of infection
+  prevention and control interventions, in {KwaZulu}-{Natal}, {South} {Africa}.
+\newblock BMJ Glob Health. 2022;7(4):e007136.
+\newblock doi:10.1136/bmjgh-2021-007136.
+
+\bibitem{Riley1961Book}
+Riley RL, O'Grady F.
+\newblock Airborne {infection}: {Transmission} and {control}.
+\newblock Macmillan; 1961.
+
+\bibitem{Haddrell2024NatCommun}
+Haddrell A, Oswin H, Otero-Fernandez M, Robinson JF, Cogan T, Alexander R,
+  et~al.
+\newblock Ambient carbon dioxide concentration correlates with {SARS}-{CoV}-2
+  aerostability and infection risk.
+\newblock Nat Commun. 2024;15:3487.
+\newblock doi:10.1038/s41467-024-47777-5.
+
+\bibitem{Andrews2014JID}
+Andrews JR, Morrow C, Walensky RP, Wood R.
+\newblock Integrating social contact and environmental data in evaluating
+  {Tuberculosis} transmission in a {South} {African} township.
+\newblock J Infect Dis. 2014;210(4):597--603.
+\newblock doi:10.1093/infdis/jiu138.
+
+\bibitem{Taylor2016IJTLD}
+Taylor JG, Yates TA, Mthethwa M, Tanser F, Abubakar I, Altamirano H.
+\newblock Measuring ventilation and modelling {M}. tuberculosis transmission in
+  indoor congregate settings, rural {KwaZulu}-{Natal}.
+\newblock Int J Tuberc Lung Dis. 2016;20(9):1155--1161.
+\newblock doi:10.5588/ijtld.16.0085.
+
+\bibitem{Hella2017JInfect}
+Hella J, Morrow C, Mhimbira F, Ginsberg S, Chitnis N, Gagneux S, et~al.
+\newblock Tuberculosis transmission in public locations in {Tanzania}: {A}
+  novel approach to studying airborne disease transmission.
+\newblock J Infect. 2017;75(3):191--197.
+\newblock doi:10.1016/j.jinf.2017.06.009.
+
+\bibitem{Zemouri2020JDR}
+Zemouri C, Awad SF, Volgenant CMC, Crielaard W, Laheij AMGA, de~Soet JJ.
+\newblock Modeling of the transmission of Coronaviruses, Measles virus,
+  Influenza virus, Mycobacterium tuberculosis, and Legionella pneumophila in
+  dental clinics.
+\newblock J Dent Res. 2020;99(10):1192--1198.
+\newblock doi:10.1177/0022034520940288.
+
+\bibitem{Zurcher2022JID}
+Zürcher K, Riou J, Morrow C, Ballif M, Koch A, Bertschinger S, et~al.
+\newblock Estimating tuberculosis transmission risks in a primary care clinic
+  in {South} {Africa}: {Modeling} of environmental and clinical data.
+\newblock J Infect Dis. 2022;225(9):1642--1652.
+\newblock doi:10.1093/infdis/jiab534.
+
+\bibitem{McCreesh2021BMJGlobalHealth}
+McCreesh N, Karat AS, Baisley K, Diaconu K, Bozzani F, Govender I, et~al.
+\newblock Modelling the effect of infection prevention and control measures on
+  rate of {Mycobacterium} tuberculosis transmission to clinic attendees in
+  primary health clinics in {South} {Africa}.
+\newblock BMJ Glob Health. 2021;6(10):e007124.
+\newblock doi:10.1136/bmjgh-2021-007124.
+
+\bibitem{Rudnick2003IndoorAir}
+Rudnick SN, Milton DK.
+\newblock Risk of indoor airborne infection transmission estimated from carbon
+  dioxide concentration.
+\newblock Indoor Air. 2003;13(3):237--245.
+\newblock doi:10.1034/j.1600-0668.2003.00189.x.
+
+\bibitem{Richardson2014PONE}
+Richardson ET, Morrow CD, Kalil DB, Bekker LG, Wood R.
+\newblock Shared air: {A} renewed focus on ventilation for the prevention of
+  {Tuberculosis} transmission.
+\newblock PLOS ONE. 2014;9(5):e96334.
+\newblock doi:10.1371/journal.pone.0096334.
+
+\bibitem{Vuorinen2020SafSci}
+Vuorinen V, Aarnio M, Alava M, Alopaeus V, Atanasova N, Auvinen M, et~al.
+\newblock Modelling aerosol transport and virus exposure with numerical
+  simulations in relation to {SARS}-{CoV}-2 transmission by inhalation indoors.
+\newblock Saf Sci. 2020;130:104866.
+\newblock doi:10.1016/j.ssci.2020.104866.
+
+\bibitem{Chen2020BuildEnv}
+Chen W, Zhang N, Wei J, Yen HL, Li Y.
+\newblock Short-range airborne route dominates exposure of respiratory
+  infection during close contact.
+\newblock Build Environ. 2020;176:106859.
+\newblock doi:10.1016/j.buildenv.2020.106859.
+
+\bibitem{Ko2004RiskAnal}
+Ko G, Thompson KM, Nardell EA.
+\newblock Estimation of tuberculosis risk on a commercial airliner.
+\newblock Risk Anal. 2004;24(2):379--388.
+\newblock doi:10.1111/j.0272-4332.2004.00439.x.
+
+\bibitem{Kenyon1996NEJM}
+Kenyon TA, Valway SE, Ihle WW, Onorato IM, Castro KG.
+\newblock Transmission of multidrug-resistant {Mycobacterium} tuberculosis
+  during a long airplane flight.
+\newblock N Engl J Med. 1996;334(15):933--938.
+\newblock doi:10.1056/NEJM199604113341501.
+
+\bibitem{Zurcher2020BMJ}
+Zürcher K, Morrow C, Riou J, Ballif M, Koch AS, Bertschinger S, et~al.
+\newblock Novel approach to estimate {Tuberculosis} transmission in primary
+  care clinics in sub-{Saharan} {Africa}: Protocol of a prospective study.
+\newblock BMJ Open. 2020;10(8):e036214.
+\newblock doi:10.1136/bmjopen-2019-036214.
+
+\bibitem{Wood2007AMJRCCD}
+Wood R, Middelkoop K, Myer L, Grant AD, Whitelaw A, Lawn SD, et~al.
+\newblock Undiagnosed {Tuberculosis} in a {community} with {high} {HIV}
+  {prevalence}.
+\newblock Am J Respir Crit Care Med. 2007;175(1):87--93.
+\newblock doi:10.1164/rccm.200606-759OC.
+
+\bibitem{Middelkoop2011JAIDS}
+Middelkoop K, Bekker LG, Myer L, Johnson LF, Kloos M, Morrow C, et~al.
+\newblock Antiretroviral therapy and {TB} notification rates in a high {HIV}
+  prevalence {South} {African} community.
+\newblock J Acquir Immune Defic Syndr. 2011;56(3):263--269.
+\newblock doi:10.1097/QAI.0b013e31820413b3.
+
+\bibitem{Berhanu2023CID}
+Berhanu RH, Lebina L, Nonyane BAS, Milovanovic M, Kinghorn A, Connell L, et~al.
+\newblock Yield of facility-based targeted universal testing for {Tuberculosis}
+  with {Xpert} and {Mycobacterial} culture in high-risk groups attending
+  primary care facilities in {South} {Africa}.
+\newblock Clin Infect Dis. 2023;p. ciac965.
+\newblock doi:10.1093/cid/ciac965.
+
+\bibitem{Moyo2022LancetID}
+Moyo S, Ismail F, Walt MVd, Ismail N, Mkhondo N, Dlamini S, et~al.
+\newblock Prevalence of bacteriologically confirmed pulmonary tuberculosis in
+  {South} {Africa}, 2017–19: {A} multistage, cluster-based, cross-sectional
+  survey.
+\newblock Lancet Infect Dis. 2022;22(8):1172--1180.
+\newblock doi:10.1016/S1473-3099(22)00149-9.
+
+\bibitem{Patterson2024PNAS}
+Patterson B, Dinkele R, Gessner S, Koch A, Hoosen Z, January V, et~al.
+\newblock Aerosolization of viable \textit{{Mycobacterium} tuberculosis}
+  bacilli by tuberculosis clinic attendees independent of sputum-{Xpert}
+  {Ultra} status.
+\newblock Proc Natl Acad Sci. 2024;121(12):e2314813121.
+\newblock doi:10.1073/pnas.2314813121.
+
+\bibitem{Mikszewski2021GF}
+Mikszewski A, Stabile L, Buonanno G, Morawska L.
+\newblock The airborne contagiousness of respiratory viruses: {A} comparative
+  analysis and implications for mitigation.
+\newblock Geosci Front. 2021;13(6):101285.
+\newblock doi:10.1016/j.gsf.2021.101285.
+
+\bibitem{Buonanno2020EI}
+Buonanno G, Morawska L, Stabile L.
+\newblock Quantitative assessment of the risk of airborne transmission of
+  {SARS}-{CoV}-2 infection: {Prospective} and retrospective applications.
+\newblock Environ Int. 2020;145:106112.
+\newblock doi:10.1016/j.envint.2020.106112.
+
+\bibitem{Banholzer2024PGPH}
+Banholzer N, Schmutz R, Middelkoop K, Hella J, Egger M, Wood R, et~al.
+\newblock Airborne transmission risks of tuberculosis and {COVID}-19 in schools
+  in {South} {Africa}, {Switzerland}, and {Tanzania}: {Modeling} of
+  environmental data.
+\newblock PLOS Glob Public Health. 2024;4(1):e0002800.
+\newblock doi:10.1371/journal.pgph.0002800.
+
+\bibitem{Dharmadhikari2012AJRCCM}
+Dharmadhikari AS, Mphahlele M, Stoltz A, Venter K, Mathebula R, Masotla T,
+  et~al.
+\newblock Surgical face masks worn by patients with multidrug-resistant
+  tuberculosis: {Impact} on infectivity of air on a hospital ward.
+\newblock Am J Respir Crit Care Med. 2012;185(10):1104--1109.
+\newblock doi:10.1164/rccm.201107-1190OC.
+
+\bibitem{Batterman2017IJERPH}
+Batterman S.
+\newblock Review and extension of {CO2}-based methods to determine ventilation
+  rates with application to school classrooms.
+\newblock Int J Environ Res Public Health. 2017;14(2):145.
+\newblock doi:10.3390/ijerph14020145.
+
+\bibitem{Cheng2011EnvSciTech}
+Cheng KC, Acevedo-Bolton V, Jiang RT, Klepeis NE, Ott WR, Fringer OB, et~al.
+\newblock Modeling exposure close to air pollution sources in naturally
+  ventilated residences: {Association} of turbulent diffusion coefficient with
+  air change rate.
+\newblock Environ Sci Technol. 2011;45(9):4016--4022.
+\newblock doi:10.1021/es103080p.
+
+\bibitem{Foat2020BE}
+Foat T, Drodge J, Nally J, Parker S.
+\newblock A relationship for the diffusion coefficient in eddy diffusion based
+  indoor dispersion modelling.
+\newblock Build Environ. 2020;169:106591.
+\newblock doi:10.1016/j.buildenv.2019.106591.
+
+\bibitem{Lever2000LettersAppliedMicrobio}
+Lever Ms, Williams A, Bennett Am.
+\newblock Survival of mycobacterial species in aerosols generated from
+  artificial saliva.
+\newblock Lett Appl Microbiol. 2000;31(3):238--241.
+\newblock doi:10.1046/j.1365-2672.2000.00807.x.
+
+\bibitem{Gannon2007ResVetSci}
+Gannon BW, Hayes CM, Roe JM.
+\newblock Survival rate of airborne {Mycobacterium} bovis.
+\newblock Res J Vet Sci. 2007;82(2):169--172.
+\newblock doi:10.1016/j.rvsc.2006.07.011.
+
+\bibitem{Klein2014IJMyco}
+Klein K, Yang Z.
+\newblock Comparison of ambient air survival of {Mycobacterium} tuberculosis
+  clinical strains associated with different epidemiological phenotypes.
+\newblock Int J Mycobacteriol. 2014;3(3):211--213.
+\newblock doi:10.1016/j.ijmyco.2014.04.002.
+
+\bibitem{Adams1993}
+Adams WC.
+\newblock Measurement of breathing rate and volume in routinely performed daily
+  activities [final report].
+\newblock Human Performance Laboratory, Physical Education Department,
+  University of California, Davis; 1993. A033-205.
+\newblock Available from:
+  \url{https://ww2.arb.ca.gov/sites/default/files/classic/research/apr/past/a033-205.pdf}.
+
+\bibitem{Greenhalgh2022BMJ}
+Greenhalgh T, Peng Z, Jimenez JL, Bahnfleth W, Dancer SJ, Bourouiba L.
+\newblock Quantifying transmission risk of {SARS}-{CoV}-2 in different
+  situations.
+\newblock BMJ. 2022;376:o106.
+\newblock doi:10.1136/bmj.o106.
+
+\bibitem{Shen2021STBE}
+Shen J, Kong M, Dong B, Birnkrant MJ, Zhang J.
+\newblock Airborne transmission of {SARS}-{CoV}-2 in indoor environments: {A}
+  comprehensive review.
+\newblock Sci Technol Built Environ. 2021;27(10):1331--1367.
+\newblock doi:10.1080/23744731.2021.1977693.
+
+\bibitem{Edwards2024RiskAnalysis}
+Edwards AJ, King MF, Noakes CJ, Peckham D, López-García M.
+\newblock The {Wells}–{Riley} model revisited: {Randomness}, heterogeneity,
+  and transient behaviours.
+\newblock Risk Anal. 2024;p. 1--22.
+\newblock doi:10.1111/risa.14295.
+
+\bibitem{Wells1934AJE}
+Wells W.
+\newblock On air-borne infection: {Study} {II}. {Droplets} and droplet nuclei.
+\newblock Am J Epidemiol. 1934;20(3):611--618.
+\newblock doi:10.1093/oxfordjournals.aje.a118097.
+
+\bibitem{Leung2020NatMed}
+Leung NHL, Chu DKW, Shiu EYC, Chan KH, McDevitt JJ, Hau BJP, et~al.
+\newblock Respiratory virus shedding in exhaled breath and efficacy of face
+  masks.
+\newblock Nat Med. 2020;26(5):676--680.
+\newblock doi:10.1038/s41591-020-0843-2.
+
+\bibitem{Brankston2007LancetID}
+Brankston G, Gitterman L, Hirji Z, Lemieux C, Gardam M.
+\newblock Transmission of influenza {A} in human beings.
+\newblock Lancet Infect Dis. 2007;7(4):257--265.
+\newblock doi:10.1016/S1473-3099(07)70029-4.
+
+\bibitem{Narasimhan2013PulmonaryMed}
+Narasimhan P, Wood J, MacIntyre CR, Mathai D.
+\newblock Risk factors for tuberculosis.
+\newblock Pulm Med. 2013;2013:e828939.
+\newblock doi:10.1155/2013/828939.
+
+\bibitem{Jung2021InfectChemo}
+Jung J, Lee J, Jo S, Bae S, Kim JY, Cha HH, et~al.
+\newblock Nosocomial outbreak of {COVID}-19 in a hematologic ward.
+\newblock Infect Chemother. 2021;53(2):332.
+\newblock doi:10.3947/ic.2021.0046.
+
+\bibitem{Li2021BuildEnv}
+Li Y, Qian H, Hang J, Chen X, Cheng P, Ling H, et~al.
+\newblock Probable airborne transmission of {SARS}-{CoV}-2 in a poorly
+  ventilated restaurant.
+\newblock Build Environ. 2021;196:107788.
+\newblock doi:10.1016/j.buildenv.2021.107788.
+
+\bibitem{Yan2023BE}
+Yan Y, Li X, Fang X, Tao Y, Tu J.
+\newblock A spatiotemporal assessment of occupants’ infection risks in a
+  multi-occupants space using modified {Wells}–{Riley} model.
+\newblock Build Environ. 2023;230:110007.
+\newblock doi:10.1016/j.buildenv.2023.110007.
+
+\bibitem{Qian2009BE}
+Qian H, Li Y, Nielsen PV, Huang X.
+\newblock Spatial distribution of infection risk of {SARS} transmission in a
+  hospital ward.
+\newblock Build Environ. 2009;44(8):1651--1658.
+\newblock doi:10.1016/j.buildenv.2008.11.002.
+
+\bibitem{Li2022SOTTE}
+Li X, Lester D, Rosengarten G, Aboltins C, Patel M, Cole I.
+\newblock A spatiotemporally resolved infection risk model for airborne
+  transmission of {COVID}-19 variants in indoor spaces.
+\newblock Sci Total Environ. 2022;812:152592.
+\newblock doi:10.1016/j.scitotenv.2021.152592.
+
+\bibitem{Escombe2008PLoSMed}
+Escombe AR, Moore DAJ, Gilman RH, Pan W, Navincopa M, Ticona E, et~al.
+\newblock The infectiousness of tuberculosis patients coinfected with {HIV}.
+\newblock PLOS Med. 2008;5(9):e188.
+\newblock doi:10.1371/journal.pmed.0050188.
+
+\bibitem{Furin2019Lancet}
+Furin J, Cox H, Pai M.
+\newblock Tuberculosis.
+\newblock Lancet. 2019;393(10181):1642--1656.
+\newblock doi:10.1016/S0140-6736(19)30308-3.
+
+\end{thebibliography}
+
+\end{document}
